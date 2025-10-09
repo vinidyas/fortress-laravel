@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class CostCenter extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['nome', 'descricao'];
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(FinancialTransaction::class, 'cost_center_id');
+    }
+}
