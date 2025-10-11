@@ -22,6 +22,7 @@ class ContratoController extends Controller
 
         $query = Contrato::query()->with(['imovel', 'locador', 'locatario', 'fiador']);
 
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $contratos = QueryBuilder::for($query)
             ->defaultSort('-created_at')
             ->allowedSorts(['codigo_contrato', 'data_inicio', 'data_fim', 'created_at'])
@@ -49,7 +50,7 @@ class ContratoController extends Controller
                     $builder->whereHas('imovel', fn ($query) => $query->where('cidade', 'like', "%{$value}%"));
                 }),
                 AllowedFilter::callback('vigencia_em', function ($builder, $value) {
-                    if (!$value) {
+                    if (! $value) {
                         return;
                     }
 
@@ -61,7 +62,7 @@ class ContratoController extends Controller
                         });
                 }),
             ])
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($perPage)
             ->appends($request->query());
 
         return ContratoResource::collection($contratos);
@@ -124,7 +125,7 @@ class ContratoController extends Controller
         $dataFim = $dataFim === '' ? null : $dataFim;
         $dataFim ??= optional($current?->data_fim)?->toDateString();
 
-        if ($status !== 'Ativo' || !$imovelId) {
+        if ($status !== 'Ativo' || ! $imovelId) {
             return;
         }
 

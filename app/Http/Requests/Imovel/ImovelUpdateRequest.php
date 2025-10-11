@@ -41,9 +41,3 @@ class ImovelUpdateRequest extends ImovelStoreRequest
         return $rules;
     }
 }
-
-
-
-
-
-

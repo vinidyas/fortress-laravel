@@ -34,8 +34,18 @@ class PessoaStoreRequest extends FormRequest
         $cpfRules = ['nullable', 'string'];
         if ($tipoPessoa === 'Fisica') {
             $cpfRules[] = 'size:11';
+            $cpfRules[] = function (string $attribute, $value, callable $fail) {
+                if ($value !== null && $value !== '' && ! $this->isValidCpf((string) $value)) {
+                    $fail('O CPF informado e invalido.');
+                }
+            };
         } elseif ($tipoPessoa === 'Juridica') {
             $cpfRules[] = 'size:14';
+            $cpfRules[] = function (string $attribute, $value, callable $fail) {
+                if ($value !== null && $value !== '' && ! $this->isValidCnpj((string) $value)) {
+                    $fail('O CNPJ informado e invalido.');
+                }
+            };
         }
         $cpfRules[] = Rule::unique('pessoas', 'cpf_cnpj');
 
@@ -88,5 +98,67 @@ class PessoaStoreRequest extends FormRequest
         $papeis = array_unique(array_map(fn ($item) => ucfirst(strtolower($item)), $papeis));
 
         return array_values(array_intersect($papeis, self::PAPEIS_PERMITIDOS));
+    }
+
+    private function isValidCpf(string $digits): bool
+    {
+        $cpf = preg_replace('/\D+/', '', $digits) ?? '';
+        if (strlen($cpf) !== 11) {
+            return false;
+        }
+        if (preg_match('/^(\d)\1{10}$/', $cpf)) {
+            return false;
+        }
+
+        // DV1
+        $sum = 0;
+        for ($i = 0, $w = 10; $i < 9; $i++, $w--) {
+            $sum += ((int) $cpf[$i]) * $w;
+        }
+        $remainder = $sum % 11;
+        $dv1 = ($remainder < 2) ? 0 : 11 - $remainder;
+        if ($dv1 !== (int) $cpf[9]) {
+            return false;
+        }
+
+        // DV2
+        $sum = 0;
+        for ($i = 0, $w = 11; $i < 10; $i++, $w--) {
+            $sum += ((int) $cpf[$i]) * $w;
+        }
+        $remainder = $sum % 11;
+        $dv2 = ($remainder < 2) ? 0 : 11 - $remainder;
+
+        return $dv2 === (int) $cpf[10];
+    }
+
+    private function isValidCnpj(string $digits): bool
+    {
+        $cnpj = preg_replace('/\D+/', '', $digits) ?? '';
+        if (strlen($cnpj) !== 14) {
+            return false;
+        }
+        if (preg_match('/^(\d)\1{13}$/', $cnpj)) {
+            return false;
+        }
+
+        $calcDv = function (string $base, array $weights): int {
+            $sum = 0;
+            $len = strlen($base);
+            for ($i = 0; $i < $len; $i++) {
+                $sum += ((int) $base[$i]) * $weights[$i];
+            }
+            $remainder = $sum % 11;
+
+            return ($remainder < 2) ? 0 : 11 - $remainder;
+        };
+
+        $dv1 = $calcDv(substr($cnpj, 0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+        if ($dv1 !== (int) $cnpj[12]) {
+            return false;
+        }
+        $dv2 = $calcDv(substr($cnpj, 0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+
+        return $dv2 === (int) $cnpj[13];
     }
 }

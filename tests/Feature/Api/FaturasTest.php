@@ -4,8 +4,6 @@ namespace Tests\Feature\Api;
 
 use App\Models\Contrato;
 use App\Models\Fatura;
-use App\Models\Imovel;
-use App\Models\Pessoa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -146,5 +144,41 @@ class FaturasTest extends TestCase
         $response = $this->deleteJson("/api/faturas/{$fatura->id}");
 
         $response->assertStatus(409);
+    }
+
+    public function test_remove_itens_da_fatura_no_update(): void
+    {
+        $this->actingAsFaturasApiUser(['faturas.update']);
+
+        $fatura = Fatura::factory()->create([
+            'status' => 'Aberta',
+            'valor_total' => 300,
+        ]);
+
+        $fatura->itens()->createMany([
+            [
+                'categoria' => 'Aluguel',
+                'quantidade' => 1,
+                'valor_unitario' => 200,
+            ],
+            [
+                'categoria' => 'Condominio',
+                'quantidade' => 1,
+                'valor_unitario' => 100,
+            ],
+        ]);
+
+        $fatura->recalcTotals()->save();
+
+        $response = $this->putJson("/api/faturas/{$fatura->id}", [
+            'itens' => [],
+        ]);
+
+        $response->assertOk();
+
+        $fatura->refresh();
+
+        $this->assertSame(0.0, (float) $fatura->valor_total);
+        $this->assertCount(0, $fatura->itens);
     }
 }

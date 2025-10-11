@@ -20,6 +20,7 @@ class PessoaController extends Controller
 
         $query = Pessoa::query();
 
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $pessoas = QueryBuilder::for($query)
             ->defaultSort('nome_razao_social')
             ->allowedSorts(['nome_razao_social', 'created_at'])
@@ -51,7 +52,7 @@ class PessoaController extends Controller
                     }
                 }),
             ])
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($perPage)
             ->appends($request->query());
 
         return PessoaResource::collection($pessoas);

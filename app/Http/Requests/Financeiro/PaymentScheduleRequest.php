@@ -36,7 +36,7 @@ class PaymentScheduleRequest extends FormRequest
         return [
             'titulo' => ['required', 'string', 'max:150'],
             'valor_total' => ['required', 'numeric', 'min:0.01'],
-            'parcela_atual' => ['required', 'integer', 'min:1'],
+            'parcela_atual' => ['required', 'integer', 'min:0'],
             'total_parcelas' => ['required', 'integer', 'min:1', 'gte:parcela_atual'],
             'vencimento' => ['required', 'date'],
             'status' => ['nullable', 'in:aberto,quitado,em_atraso,cancelado'],

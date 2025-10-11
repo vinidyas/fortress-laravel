@@ -45,4 +45,18 @@ class PaymentScheduleTest extends TestCase
 
         $this->assertSame('em_atraso', $schedule->fresh()->status);
     }
+
+    public function test_nao_quita_agendamento_na_criacao_quando_parcelas_nao_foram_pagas(): void
+    {
+        Carbon::setTestNow('2025-01-10 10:00:00');
+
+        $schedule = PaymentSchedule::factory()->create([
+            'vencimento' => Carbon::today()->addDays(5),
+            'status' => 'aberto',
+            'parcela_atual' => 0,
+            'total_parcelas' => 1,
+        ]);
+
+        $this->assertSame('aberto', $schedule->fresh()->status);
+    }
 }

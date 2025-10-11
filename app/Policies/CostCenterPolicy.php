@@ -35,4 +35,14 @@ class CostCenterPolicy
 
         return $user->hasPermission('financeiro.delete');
     }
+
+    public function export(User $user): bool
+    {
+        return $user->hasPermission('financeiro.export');
+    }
+
+    public function import(User $user): bool
+    {
+        return $user->hasPermission('financeiro.create');
+    }
 }

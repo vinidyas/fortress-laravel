@@ -1,52 +1,54 @@
-# Checklist de ValidaÁ„o em Staging
+# Checklist de Valida√ß√£o em Staging
 
-Use os cen·rios abaixo para validar a experiÍncia de uso dos mÛdulos Financeiro, Auditoria e RelatÛrios antes de liberar uma vers„o.
+Use os cen√°rios abaixo para validar a experi√™ncia de uso dos m√≥dulos Financeiro,
+Auditoria e Relat√≥rios antes de liberar uma vers√£o.
 
-## PreparaÁ„o do Ambiente
+## Prepara√ß√£o do Ambiente
 
-1. Execute `php artisan migrate:fresh --seed` para garantir migraÁıes atualizadas.
+1. Execute `php artisan migrate:fresh --seed` para garantir migra√ß√µes atualizadas.
 2. Opcional: importe dados do legado com `php artisan legacy:import --financeiro --auditoria --dry-run` seguido de import completo.
-3. Configure usu·rios de teste com perfis distintos (Financeiro, Auditor, RelatÛrios, Admin).
-4. Gere assets de produÁ„o (`npm run build`) se estiver auditando uma release.
+3. Configure usu√°rios de teste com perfis distintos (Financeiro, Auditor, Relat√≥rios, Admin).
+4. Gere assets de produ√ß√£o (`npm run build`) se estiver auditando uma release.
 
 ## Perfis a Exercitar
 
-| Perfil | Permissıes principais | Objetivo |
-| --- | --- | --- |
-| Financeiro | `financeiro.*`, `faturas.*`, `contratos.*` | Fluxos de lanÁamentos, conciliaÁ„o e export |
-| Auditor | `auditoria.*`, `financeiro.view` | Revis„o de trilhas e filtros avanÁados |
-| RelatÛrios | `reports.view.*`, `reports.export` | Dashboards, agregaÁıes e exportaÁıes |
-| Admin | Todas | Cross-check completo |
+| Perfil     | Permiss√µes principais                      | Objetivo                                    |
+| ---------- | ------------------------------------------ | ------------------------------------------- |
+| Financeiro | `financeiro.*`, `faturas.*`, `contratos.*` | Fluxos de lan√ßamentos, concilia√ß√£o e export |
+| Auditor    | `auditoria.*`, `financeiro.view`           | Revis√£o de trilhas e filtros avan√ßados      |
+| Relat√≥rios | `reports.view.*`, `reports.export`         | Dashboards, agrega√ß√µes e exporta√ß√µes        |
+| Admin      | Todas                                      | Cross-check completo                        |
 
 ## Financeiro
 
-- **Menu**: confirme que o item "Financeiro" mostra os submenus Contas, Centros de Custo, LanÁamentos e Agendamentos.
-- **Listagem de LanÁamentos**: teste filtros por conta, centro, status, tipo, perÌodo e busca textual.
-- **ConciliaÁ„o/Cancelamento**: crie um lanÁamento, concilie com observaÁ„o e em seguida cancele outro para validar mensagens.
-- **VÌnculos**: relacione lanÁamentos a contratos/faturas e verifique exibiÁ„o no formul·rio.
-- **ExportaÁ„o**: gere CSV aplicando filtros e valide cabeÁalhos/valores.
+- Menu: confirme que o item "Financeiro" mostra os submenus Contas, Centros de Custo, Lan√ßamentos e Agendamentos.
+- Listagem de Lan√ßamentos: teste filtros por conta, centro, status, tipo, per√≠odo e busca textual.
+- Concilia√ß√£o/Cancelamento: crie um lan√ßamento, concilie com observa√ß√£o e em seguida cancele outro para validar mensagens.
+- V√≠nculos: relacione lan√ßamentos a contratos/faturas e verifique exibi√ß√£o no formul√°rio.
+- Exporta√ß√£o: gere CSV aplicando filtros e valide cabe√ßalhos/valores.
 
 ## Auditoria
 
-- **Filtros**: combine busca por `payload`, faixa de data, usu·rio e recurso.
-- **Diff**: abra eventos `financial_transaction.updated` e confira painel before/after.
-- **Export**: teste CSV e JSON, garantindo que downloads reflitam filtros.
-- **Permissıes**: entre com usu·rio sem `auditoria.view` e confirme ausÍncia do menu/rota.
+- Filtros: combine busca por `payload`, faixa de data, usu√°rio e recurso.
+- Diff: abra eventos `financial_transaction.updated` e confira painel before/after.
+- Export: teste CSV e JSON, garantindo que downloads reflitam filtros.
+- Permiss√µes: entre com usu√°rio sem `auditoria.view` e confirme aus√™ncia do menu/rota.
 
-## RelatÛrios
+## Relat√≥rios
 
-- **Financeiro**: valide totais, inadimplÍncia e filtro por conta/perÌodo; gere CSV.
-- **Operacional**: confira c·lculo de ocupaÁ„o e lista de contratos vencendo (`ate`); exporte CSV.
-- **Pessoas**: filtre por papel/tipo e valide contagem + ìamostraî; exporte CSV.
+- Financeiro: valide totais, inadimpl√™ncia e filtro por conta/per√≠odo; gere CSV.
+- Operacional: confira c√°lculo de ocupa√ß√£o e lista de contratos vencendo (`ate`); exporte CSV.
+- Pessoas: filtre por papel/tipo e valide contagem + amostra; exporte CSV.
 
 ## Acessibilidade & UX
 
-- Teste navegaÁ„o mobile (menu sandwich) e responsividade das tabelas.
+- Teste navega√ß√£o mobile (menu sandu√≠che) e responsividade das tabelas.
 - Verifique estados vazios (sem registros/encontrados).
 - Observe tempo de carregamento com devtools (ideal < 200 ms em filtros comuns).
 
-## PÛs-ValidaÁ„o
+## P√≥s-Valida√ß√£o
 
-- Registre feedbacks/bugs encontrados em issues do repositÛrio.
-- Anexe exportaÁıes e screenshots relevantes ao relatÛrio de QA.
+- Registre feedbacks/bugs encontrados em issues do reposit√≥rio.
+- Anexe exporta√ß√µes e screenshots relevantes ao relat√≥rio de QA.
 - Execute `composer ci` antes de aprovar o merge final.
+

@@ -129,7 +129,7 @@ class ContratosTest extends TestCase
 
     public function test_update_prevents_moving_active_contrato_without_status_field(): void
     {
-        $this->actingAsContratoApiUser(["contratos.update"]);
+        $this->actingAsContratoApiUser(['contratos.update']);
 
         $imovelA = Imovel::factory()->create();
         $imovelB = Imovel::factory()->create();
@@ -166,9 +166,6 @@ class ContratosTest extends TestCase
 
         $response = $this->putJson("/api/contratos/{$contratoParaAtualizar->id}", $payload);
 
-        $response->assertStatus(422)->assertJsonValidationErrors(["imovel_id"]);
+        $response->assertStatus(422)->assertJsonValidationErrors(['imovel_id']);
     }
-
 }
-
-

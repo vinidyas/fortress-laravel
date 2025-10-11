@@ -1,13 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\AuditLogController;
-use App\Http\Controllers\Api\ContratoController;
-use App\Http\Controllers\Api\FaturaController;
-use App\Http\Controllers\Api\ImovelController;
-use App\Http\Controllers\Api\PessoaController;
-use App\Http\Controllers\Api\Reports\ReportFinanceiroController;
-use App\Http\Controllers\Api\Reports\ReportOperacionalController;
-use App\Http\Controllers\Api\Reports\ReportPessoasController;
 use App\Http\Controllers\AuditTrailPageController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
@@ -22,7 +14,7 @@ use Inertia\Inertia;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
-    Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:login');
 });
 
 Route::middleware('auth')->group(function () {
@@ -70,27 +62,7 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->prefix('api')->as('api.')->group(function () {
-    Route::apiResource('imoveis', ImovelController::class)->parameters(['imoveis' => 'imovel']);
-    Route::apiResource('pessoas', PessoaController::class);
-    Route::apiResource('contratos', ContratoController::class);
-    Route::apiResource('faturas', FaturaController::class);
-    Route::post('faturas/{fatura}/settle', [FaturaController::class, 'settle'])->name('faturas.settle');
-    Route::post('faturas/{fatura}/cancel', [FaturaController::class, 'cancel'])->name('faturas.cancel');
-
-
-    Route::get('auditoria', [AuditLogController::class, 'index'])->name('auditoria.index');
-    Route::get('auditoria/export', [AuditLogController::class, 'export'])->name('auditoria.export');
-
-    Route::prefix('reports')->as('reports.')->group(function () {
-        Route::get('financeiro', [ReportFinanceiroController::class, 'index'])->name('financeiro.index');
-        Route::get('financeiro/export', [ReportFinanceiroController::class, 'export'])->name('financeiro.export');
-        Route::get('operacional', [ReportOperacionalController::class, 'index'])->name('operacional.index');
-        Route::get('operacional/export', [ReportOperacionalController::class, 'export'])->name('operacional.export');
-        Route::get('pessoas', [ReportPessoasController::class, 'index'])->name('pessoas.index');
-        Route::get('pessoas/export', [ReportPessoasController::class, 'export'])->name('pessoas.export');
-    });
-});
+// Rotas de API movidas para routes/api.php
 
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')

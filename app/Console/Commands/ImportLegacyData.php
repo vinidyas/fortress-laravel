@@ -28,8 +28,7 @@ class ImportLegacyData extends Command
         {--chunk=200 : Quantidade de registros por lote}
         {--financeiro : Importa dados financeiros}
         {--auditoria : Importa logs de auditoria}
-        {--relatorios : Reservado para futuros dados analiticos}'
-    ;
+        {--relatorios : Reservado para futuros dados analiticos}';
 
     protected $description = 'Importa dados do sistema legado fortressimob para o novo schema.';
 
@@ -50,6 +49,7 @@ class ImportLegacyData extends Command
         'financial_accounts' => [],
         'cost_centers' => [],
     ];
+
     public function handle(): int
     {
         $connectionName = 'legacy';
@@ -129,6 +129,7 @@ class ImportLegacyData extends Command
 
         return self::SUCCESS;
     }
+
     private function renderResumoLegado(): void
     {
         $tabelas = [
@@ -191,6 +192,7 @@ class ImportLegacyData extends Command
         }
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
     }
+
     private function importRoles(): int
     {
         $rows = $this->legacy->table('roles')->orderBy('id')->get();
@@ -210,6 +212,7 @@ class ImportLegacyData extends Command
             if ($this->dryRun) {
                 $this->line('[dry-run] Role: '.json_encode($payload));
                 $count++;
+
                 continue;
             }
 
@@ -231,6 +234,7 @@ class ImportLegacyData extends Command
 
         return $count;
     }
+
     private function importUsuarios(int $chunk): int
     {
         $count = 0;
@@ -249,6 +253,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] Usuario: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -265,6 +270,7 @@ class ImportLegacyData extends Command
 
         return $count;
     }
+
     private function importPessoas(int $chunk): int
     {
         $count = 0;
@@ -283,6 +289,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] Pessoa: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -323,6 +330,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] Condominio: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -338,6 +346,7 @@ class ImportLegacyData extends Command
 
         return $count;
     }
+
     private function importImoveis(int $chunk): int
     {
         $count = 0;
@@ -381,6 +390,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] Imovel: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -425,6 +435,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] Contrato: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -467,6 +478,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] Fatura: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -503,12 +515,14 @@ class ImportLegacyData extends Command
 
                 if (! $payload['fatura_id']) {
                     $this->warn('Lancamento ignorado por falta de fatura: '.$row->id);
+
                     continue;
                 }
 
                 if ($this->dryRun) {
                     $this->line('[dry-run] FaturaLancamento: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -519,6 +533,7 @@ class ImportLegacyData extends Command
 
         return $count;
     }
+
     private function importContasFinanceiras(int $chunk): int
     {
         $count = 0;
@@ -538,6 +553,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] ContaFinanceira: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -568,6 +584,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] CentroCusto: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -591,6 +608,7 @@ class ImportLegacyData extends Command
 
                 if (! $accountId) {
                     $this->warn('Lancamento financeiro ignorado sem conta: '.$row->id);
+
                     continue;
                 }
 
@@ -609,12 +627,14 @@ class ImportLegacyData extends Command
 
                 if ($payload['valor'] === 0) {
                     $this->warn('Lancamento financeiro ignorado (valor zero): '.$row->id);
+
                     continue;
                 }
 
                 if ($this->dryRun) {
                     $this->line('[dry-run] LancamentoFinanceiro: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -635,7 +655,7 @@ class ImportLegacyData extends Command
                 $payload = [
                     'titulo' => $this->get($row, ['titulo'], 'Agendamento'),
                     'valor_total' => $this->parseDecimal($this->get($row, ['valor_total', 'valor'])),
-                    'parcela_atual' => (int) $this->get($row, ['parcela_atual'], 1),
+                    'parcela_atual' => (int) $this->get($row, ['parcela_atual'], 0),
                     'total_parcelas' => (int) $this->get($row, ['total_parcelas'], 1),
                     'vencimento' => $this->parseDate($this->get($row, ['vencimento'])),
                     'status' => $this->mapStatusAgendamento($this->get($row, ['status'], 'aberto')),
@@ -645,6 +665,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] AgendamentoFinanceiro: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -655,6 +676,7 @@ class ImportLegacyData extends Command
 
         return $count;
     }
+
     private function importAuditLogs(int $chunk): int
     {
         $count = 0;
@@ -676,6 +698,7 @@ class ImportLegacyData extends Command
                 if ($this->dryRun) {
                     $this->line('[dry-run] AuditLog: '.json_encode($payload));
                     $count++;
+
                     continue;
                 }
 
@@ -717,6 +740,7 @@ class ImportLegacyData extends Command
             default => $legacyId ?: null,
         };
     }
+
     private function normalizeCpf(mixed $value): ?string
     {
         if ($value === null || $value === '') {
@@ -811,6 +835,7 @@ class ImportLegacyData extends Command
             default => 'aberto',
         };
     }
+
     private function normalizeCompetencia(mixed $value): ?string
     {
         if (! $value) {

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Console\Commands\GenerateInvoices;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,7 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withCommands([
         GenerateInvoices::class,
+        \App\Console\Commands\ImportLegacyData::class,
     ])
+    ->withSchedule(function (Schedule $schedule) {
+        $schedule->command('invoices:generate')->monthlyOn(1, '02:00');
+    })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();

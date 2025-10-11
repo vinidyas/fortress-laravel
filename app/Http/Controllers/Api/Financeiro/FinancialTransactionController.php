@@ -8,13 +8,13 @@ use App\Http\Requests\Financeiro\FinancialTransactionStoreRequest;
 use App\Http\Requests\Financeiro\FinancialTransactionUpdateRequest;
 use App\Http\Resources\Financeiro\FinancialTransactionResource;
 use App\Models\FinancialTransaction;
+use App\Support\Database\Concerns\InteractsWithJsonLike;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
-use App\Support\Database\Concerns\InteractsWithJsonLike;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FinancialTransactionController extends Controller
@@ -27,9 +27,10 @@ class FinancialTransactionController extends Controller
 
         $query = $this->makeFilteredQuery($request);
 
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $transactions = $query
             ->orderByDesc('data_ocorrencia')
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($perPage)
             ->appends($request->query());
 
         $totals = $this->calculateTotals($this->makeFilteredQuery($request, false));
@@ -69,6 +70,8 @@ class FinancialTransactionController extends Controller
 
     public function update(FinancialTransactionUpdateRequest $request, FinancialTransaction $transaction): FinancialTransactionResource
     {
+        $this->authorize('update', $transaction);
+
         $transaction->update($request->validated());
         $transaction->load(['account', 'costCenter', 'contrato', 'fatura']);
 
@@ -203,10 +206,3 @@ class FinancialTransactionController extends Controller
         ];
     }
 }
-
-
-
-
-
-
-

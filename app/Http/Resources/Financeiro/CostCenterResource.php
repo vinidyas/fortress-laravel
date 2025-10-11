@@ -16,6 +16,14 @@ class CostCenterResource extends JsonResource
             'id' => $this->id,
             'nome' => $this->nome,
             'descricao' => $this->descricao,
+            'codigo' => $this->codigo,
+            'parent_id' => $this->parent_id,
+            'parent' => $this->whenLoaded('parent', fn () => [
+                'id' => $this->parent->id,
+                'nome' => $this->parent->nome,
+                'codigo' => $this->parent->codigo,
+            ]),
+            'children' => $this->whenLoaded('children', fn () => self::collection($this->children)->resolve()),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

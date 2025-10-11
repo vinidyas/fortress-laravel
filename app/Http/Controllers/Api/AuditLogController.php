@@ -22,10 +22,11 @@ class AuditLogController extends Controller
     {
         $this->authorize('viewAny', AuditLog::class);
 
+        $perPage = min(max($request->integer('per_page', 25), 1), 100);
         $logs = $this->makeFilteredQuery($request)
             ->with('user')
             ->orderByDesc('created_at')
-            ->paginate($request->integer('per_page', 25))
+            ->paginate($perPage)
             ->appends($request->validated());
 
         return AuditLogResource::collection($logs);

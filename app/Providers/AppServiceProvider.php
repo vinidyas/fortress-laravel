@@ -14,6 +14,9 @@ use App\Models\PaymentSchedule;
 use App\Models\Pessoa;
 use App\Models\User;
 use App\Observers\AuditableObserver;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use PDO;
 
@@ -45,6 +48,14 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(120)->by(optional($request->user())->getAuthIdentifier() ?: $request->ip());
+        });
+
+        RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
         $observer = AuditableObserver::class;
 
         User::observe($observer);

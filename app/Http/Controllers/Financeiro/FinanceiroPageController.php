@@ -20,9 +20,10 @@ class FinanceiroPageController extends Controller
 
         $query = $this->makeFilteredQuery($request);
 
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $transactions = $query
             ->orderByDesc('data_ocorrencia')
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($perPage)
             ->withQueryString();
 
         $totals = $this->calculateTotals($this->makeFilteredQuery($request, false));
@@ -96,7 +97,7 @@ class FinanceiroPageController extends Controller
         return $query
             ->when($request->filled('filter.search'), function ($q) use ($request) {
                 $search = (string) $request->string('filter.search');
-                $term = '%' . str_replace('%', '', $search) . '%';
+                $term = '%'.str_replace('%', '', $search).'%';
                 $q->where(function ($inner) use ($term) {
                     $inner->where('descricao', 'like', $term)
                         ->orWhere('meta->observacao', 'like', $term);

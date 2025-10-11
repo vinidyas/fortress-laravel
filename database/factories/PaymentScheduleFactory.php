@@ -16,7 +16,7 @@ class PaymentScheduleFactory extends Factory
         return [
             'titulo' => 'Parcela '.$this->faker->unique()->numerify('####'),
             'valor_total' => $this->faker->randomFloat(2, 100, 10000),
-            'parcela_atual' => 1,
+            'parcela_atual' => 0,
             'total_parcelas' => $totalParcelas,
             'vencimento' => $this->faker->dateTimeBetween('now', '+2 months')->format('Y-m-d'),
             'status' => 'aberto',

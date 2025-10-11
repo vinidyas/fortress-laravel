@@ -2,22 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping --silent"
 
     steps:
       - name: Checkout
@@ -47,14 +37,26 @@ jobs:
       - name: Install Node Dependencies
         run: npm install
 
-      - name: Frontend Lint
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: ESLint
         run: npm run lint
+
+      - name: Prettier Check
+        run: npm run format
+
+      - name: Frontend Unit Tests
+        run: npm run test:unit
 
       - name: Frontend Build
         run: npm run build
 
       - name: PHP Lint
         run: composer lint
+
+      - name: PHPStan (Larastan)
+        run: composer stan
 
       - name: PHP Tests
         run: composer test

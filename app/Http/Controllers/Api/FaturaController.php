@@ -9,7 +9,6 @@ use App\Http\Requests\Fatura\FaturaUpdateRequest;
 use App\Http\Resources\FaturaResource;
 use App\Models\Contrato;
 use App\Models\Fatura;
-use App\Models\FaturaLancamento;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -20,9 +19,7 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class FaturaController extends Controller
 {
-    public function __construct(private readonly DatabaseManager $db)
-    {
-    }
+    public function __construct(private readonly DatabaseManager $db) {}
 
     public function index(Request $request)
     {
@@ -30,6 +27,7 @@ class FaturaController extends Controller
 
         $query = Fatura::query()->with(['contrato.imovel']);
 
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $faturas = QueryBuilder::for($query)
             ->defaultSort('-created_at')
             ->allowedSorts(['competencia', 'vencimento', 'status', 'valor_total', 'created_at'])
@@ -79,7 +77,7 @@ class FaturaController extends Controller
                     $builder->where('vencimento', '<=', Carbon::parse($value)->toDateString());
                 }),
             ])
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($perPage)
             ->appends($request->query());
 
         return FaturaResource::collection($faturas);
@@ -108,7 +106,9 @@ class FaturaController extends Controller
             $fatura->competencia = $competencia;
 
             if (! $fatura->vencimento) {
-                $fatura->vencimento = $this->resolveVencimento($contratoId, $competencia);
+                $fatura->vencimento = Carbon::parse(
+                    $this->resolveVencimento($contratoId, $competencia)
+                );
             }
 
             $fatura->save();
@@ -131,7 +131,7 @@ class FaturaController extends Controller
         return $this->db->transaction(function () use ($request, $fatura) {
             $fatura->fill($request->validated());
 
-            if ($request->filled('itens')) {
+            if ($request->exists('itens')) {
                 $this->syncItens($fatura, $request->input('itens', []));
                 $fatura->recalcTotals();
             }
@@ -262,5 +262,3 @@ class FaturaController extends Controller
         return Carbon::parse($value)->startOfMonth()->toDateString();
     }
 }
-
-

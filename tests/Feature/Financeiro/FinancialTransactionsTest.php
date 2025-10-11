@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Financeiro;
 
-use App\Models\AuditLog;
 use App\Models\Contrato;
 use App\Models\CostCenter;
 use App\Models\Fatura;

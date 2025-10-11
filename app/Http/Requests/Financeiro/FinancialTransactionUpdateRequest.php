@@ -39,7 +39,7 @@ class FinancialTransactionUpdateRequest extends FormRequest
     {
         if ($this->has('valor')) {
             $this->merge([
-                'valor' => $this->normalizeDecimal($this->input('valor')), 
+                'valor' => $this->normalizeDecimal($this->input('valor')),
             ]);
         }
     }

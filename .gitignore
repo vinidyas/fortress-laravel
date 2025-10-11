@@ -18,3 +18,5 @@ yarn-error.log
 /.idea
 /.vscode
 .env.local
+_tmp_*
+*.bak

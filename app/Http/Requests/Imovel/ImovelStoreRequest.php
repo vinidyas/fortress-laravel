@@ -119,6 +119,7 @@ class ImovelStoreRequest extends FormRequest
         $value = array_map(function ($item) {
             $item = is_string($item) ? trim($item) : $item;
             $item = is_string($item) ? ucfirst(mb_strtolower($item)) : $item;
+
             return $item;
         }, $value);
 

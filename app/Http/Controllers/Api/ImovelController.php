@@ -26,6 +26,7 @@ class ImovelController extends Controller
             'condominio',
         ]);
 
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $imoveis = QueryBuilder::for($query)
             ->defaultSort('-created_at')
             ->allowedSorts(['codigo', 'cidade', 'valor_locacao', 'created_at'])
@@ -61,7 +62,7 @@ class ImovelController extends Controller
                     }
                 }),
             ])
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($perPage)
             ->appends($request->query());
 
         return ImovelResource::collection($imoveis);

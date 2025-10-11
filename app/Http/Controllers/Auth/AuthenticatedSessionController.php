@@ -13,9 +13,7 @@ use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
-    }
+    public function __construct(private readonly AuditLogger $auditLogger) {}
 
     public function create(): Response
     {
@@ -36,6 +34,11 @@ class AuthenticatedSessionController extends Controller
         }
 
         $request->session()->regenerate();
+
+        // Atualiza ultimo login
+        if (Auth::user()) {
+            Auth::user()->forceFill(['last_login_at' => now()])->save();
+        }
 
         $this->auditLogger->record('auth.login', Auth::user());
 

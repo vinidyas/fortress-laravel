@@ -1,0 +1,20 @@
+includes:
+    - vendor/nunomaduro/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+    excludePaths:
+        - app/Http/Resources
+    level: 3
+    checkGenericClassInNonGenericObjectType: false
+    ignoreErrors:
+        # Resources often access dynamic properties from Eloquent models
+        - '#Access to an undefined property App\\Http\\Resources\\.+Resource::\$#'
+        # Builder connection method not declared on interface in stubs
+        - '#Call to an undefined method .*getDriverName\(\)#'
+        # Collections of models inferred as Model in some contexts
+        - '#Access to an undefined property Illuminate\\Database\\Eloquent\\Model::\$#'
+    parallel:
+        maximumNumberOfProcesses: 4
+    reportUnmatchedIgnoredErrors: false

@@ -37,6 +37,7 @@ class GenerateInvoices extends Command
 
         if ($contracts->isEmpty()) {
             $this->info('Nenhum contrato elegivel encontrado.');
+
             return self::SUCCESS;
         }
 
@@ -54,6 +55,7 @@ class GenerateInvoices extends Command
 
                 if ($fatura) {
                     $skipped++;
+
                     return;
                 }
 
@@ -133,4 +135,3 @@ class GenerateInvoices extends Command
         $fatura->load('itens');
     }
 }
-

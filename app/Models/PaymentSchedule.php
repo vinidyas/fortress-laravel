@@ -20,6 +20,10 @@ class PaymentSchedule extends Model
         'meta',
     ];
 
+    protected $attributes = [
+        'status' => 'aberto',
+    ];
+
     protected $casts = [
         'valor_total' => 'decimal:2',
         'vencimento' => 'date',
@@ -39,7 +43,12 @@ class PaymentSchedule extends Model
                 }
             }
 
-            if ($schedule->parcela_atual >= $schedule->total_parcelas && $schedule->status !== 'cancelado') {
+            if (
+                $schedule->total_parcelas !== null &&
+                $schedule->parcela_atual !== null &&
+                $schedule->parcela_atual >= $schedule->total_parcelas &&
+                $schedule->status !== 'cancelado'
+            ) {
                 $schedule->status = 'quitado';
             }
         });
