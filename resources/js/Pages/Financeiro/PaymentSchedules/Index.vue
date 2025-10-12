@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { route } from 'ziggy-js';
 import { reactive } from 'vue';
 
 const props = defineProps<{
@@ -33,6 +34,17 @@ const submitFilters = () => {
     replace: true,
   });
 };
+
+const handlePagination = (link: { url: string | null }) => {
+  if (!link.url) {
+    return;
+  }
+
+  router.visit(link.url, {
+    preserveScroll: true,
+    preserveState: true,
+  });
+};
 </script>
 
 <template>
@@ -57,13 +69,13 @@ const submitFilters = () => {
             <option value="quitado">Quitado</option>
             <option value="cancelado">Cancelado</option>
           </select>
-          <button
+          <Link
             v-if="props.can.create"
-            type="button"
+            :href="route('financeiro.payment-schedules.create')"
             class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-500"
           >
             Novo agendamento
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -96,6 +108,27 @@ const submitFilters = () => {
           </tbody>
         </table>
       </div>
+
+      <footer
+        v-if="props.schedules.links.length > 1"
+        class="mt-4 flex flex-wrap items-center justify-center gap-2"
+      >
+        <button
+          v-for="link in props.schedules.links"
+          :key="link.label"
+          type="button"
+          class="rounded-md px-3 py-1 text-xs transition"
+          :class="
+            link.active
+              ? 'bg-indigo-600 text-white'
+              : link.url
+                ? 'text-slate-300 hover:bg-slate-800'
+                : 'text-slate-600 cursor-default'
+          "
+          v-html="link.label"
+          @click="handlePagination(link)"
+        />
+      </footer>
     </section>
   </AuthenticatedLayout>
 </template>

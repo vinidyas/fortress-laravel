@@ -101,9 +101,8 @@ class CostCenterController extends Controller
     {
         $this->authorize('export', CostCenter::class);
 
-        $centers = CostCenter::with('parent')
-            ->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)")
-            ->get();
+        $query = CostCenter::with('parent')
+            ->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)");
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -113,7 +112,7 @@ class CostCenterController extends Controller
         ]);
 
         $rowIndex = 2;
-        foreach ($centers as $center) {
+        foreach ($query->lazy(500) as $center) {
             $sheet->setCellValueExplicit("A{$rowIndex}", (string) $center->codigo, DataType::TYPE_STRING);
             $sheet->setCellValue("B{$rowIndex}", $center->nome);
             $sheet->setCellValue("C{$rowIndex}", $center->descricao ?? '');

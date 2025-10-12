@@ -49,6 +49,8 @@ class PaymentScheduleController extends Controller
 
     public function update(PaymentScheduleRequest $request, PaymentSchedule $paymentSchedule): PaymentScheduleResource
     {
+        $this->authorize('update', $paymentSchedule);
+
         $paymentSchedule->update($request->validated());
 
         return PaymentScheduleResource::make($paymentSchedule)->additional([

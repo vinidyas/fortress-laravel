@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Financeiro;
 
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PaymentScheduleRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -47,20 +50,7 @@ class PaymentScheduleRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'valor_total' => $this->normalizeDecimal($this->input('valor_total')),
+            'valor_total' => $this->normalizeDecimalToFloat($this->input('valor_total')),
         ]);
-    }
-
-    private function normalizeDecimal(mixed $value): float
-    {
-        if (is_numeric($value)) {
-            return round((float) $value, 2);
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-
-        return round((float) str_replace(',', '.', $value), 2);
     }
 }

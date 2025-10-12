@@ -3,11 +3,14 @@
 namespace App\Http\Requests\Financeiro;
 
 use App\Models\FinancialTransaction;
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class FinancialTransactionUpdateRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     public function authorize(): bool
     {
         $transaction = $this->route('transaction');
@@ -39,21 +42,8 @@ class FinancialTransactionUpdateRequest extends FormRequest
     {
         if ($this->has('valor')) {
             $this->merge([
-                'valor' => $this->normalizeDecimal($this->input('valor')),
+                'valor' => $this->normalizeDecimalToFloat($this->input('valor')),
             ]);
         }
-    }
-
-    private function normalizeDecimal(mixed $value): float
-    {
-        if (is_numeric($value)) {
-            return round((float) $value, 2);
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-
-        return round((float) str_replace(',', '.', $value), 2);
     }
 }

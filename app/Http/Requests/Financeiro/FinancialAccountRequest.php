@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Financeiro;
 
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class FinancialAccountRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -48,20 +51,7 @@ class FinancialAccountRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'saldo_inicial' => $this->normalizeDecimal($this->input('saldo_inicial', 0)),
+            'saldo_inicial' => $this->normalizeDecimalToFloat($this->input('saldo_inicial', 0), null),
         ]);
-    }
-
-    private function normalizeDecimal(mixed $value): float
-    {
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-
-        return (float) str_replace(',', '.', $value);
     }
 }

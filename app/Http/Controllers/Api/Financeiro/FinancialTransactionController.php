@@ -132,16 +132,15 @@ class FinancialTransactionController extends Controller
     {
         Gate::authorize('export', FinancialTransaction::class);
 
-        $query = $this->makeFilteredQuery($request);
-        $rows = $query->orderByDesc('data_ocorrencia')->get();
+        $query = $this->makeFilteredQuery($request)->orderByDesc('data_ocorrencia');
 
         $filename = 'transacoes-financeiras-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($rows) {
+        return response()->streamDownload(function () use ($query) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, ['ID', 'Data', 'Conta', 'Tipo', 'Valor', 'Status', 'Descricao']);
 
-            foreach ($rows as $row) {
+            foreach ((clone $query)->lazy(500) as $row) {
                 fputcsv($handle, [
                     $row->id,
                     optional($row->data_ocorrencia)->format('Y-m-d'),

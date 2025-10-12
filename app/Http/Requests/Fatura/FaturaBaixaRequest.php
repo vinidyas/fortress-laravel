@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests\Fatura;
 
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class FaturaBaixaRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     private const METODOS = ['PIX', 'Boleto', 'Transferencia', 'Dinheiro', 'Cartao', 'Outro'];
 
     public function authorize(): bool
@@ -35,28 +38,10 @@ class FaturaBaixaRequest extends FormRequest
     {
         $data = $this->all();
 
-        $data['valor_pago'] = $this->normalizeDecimal($this->input('valor_pago'));
+        $data['valor_pago'] = $this->normalizeDecimalToNullableString($this->input('valor_pago'));
         $data['pago_em'] = $this->normalizeDate($this->input('pago_em'));
 
         $this->merge($data);
-    }
-
-    private function normalizeDecimal(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (is_numeric($value)) {
-            return (string) $value;
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-        $value = str_replace(',', '.', $value);
-
-        return $value === '' ? null : $value;
     }
 
     private function normalizeDate(mixed $value): ?string

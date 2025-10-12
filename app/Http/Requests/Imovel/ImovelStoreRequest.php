@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Imovel;
 
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ImovelStoreRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -73,7 +76,7 @@ class ImovelStoreRequest extends FormRequest
         $data = $this->all();
 
         foreach ($moneyFields as $field) {
-            $data[$field] = $this->normalizeDecimal($this->input($field));
+            $data[$field] = $this->normalizeDecimalToNullableString($this->input($field));
         }
 
         foreach ($integerFields as $field) {
@@ -90,25 +93,6 @@ class ImovelStoreRequest extends FormRequest
 
         $this->merge($data);
     }
-
-    private function normalizeDecimal(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (is_numeric($value)) {
-            return (string) $value;
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-        $value = str_replace(',', '.', $value);
-
-        return $value === '' ? null : $value;
-    }
-
     private function normalizeArray(mixed $value, array $allowed = []): array
     {
         if (is_string($value)) {

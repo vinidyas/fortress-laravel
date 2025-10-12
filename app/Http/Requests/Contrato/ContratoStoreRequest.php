@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Contrato;
 
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ContratoStoreRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -47,7 +50,7 @@ class ContratoStoreRequest extends FormRequest
         $data = $this->all();
 
         foreach ($decimalFields as $field) {
-            $data[$field] = $this->normalizeDecimal($this->input($field));
+            $data[$field] = $this->normalizeDecimalToNullableString($this->input($field));
         }
 
         if (empty($data['reajuste_indice'])) {
@@ -59,23 +62,5 @@ class ContratoStoreRequest extends FormRequest
         }
 
         $this->merge($data);
-    }
-
-    private function normalizeDecimal(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (is_numeric($value)) {
-            return (string) $value;
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-        $value = str_replace(',', '.', $value);
-
-        return $value === '' ? null : $value;
     }
 }

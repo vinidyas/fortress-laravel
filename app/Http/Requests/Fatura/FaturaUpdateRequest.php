@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests\Fatura;
 
+use App\Support\Formatting\Concerns\NormalizesDecimalValues;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class FaturaUpdateRequest extends FormRequest
 {
+    use NormalizesDecimalValues;
+
     private const ITEM_CATEGORIES = ['Aluguel', 'Condominio', 'IPTU', 'Multa', 'Juros', 'Desconto', 'Outros'];
 
     public function authorize(): bool
@@ -68,8 +71,8 @@ class FaturaUpdateRequest extends FormRequest
                 return [
                     'categoria' => $item['categoria'] ?? null,
                     'descricao' => $item['descricao'] ?? null,
-                    'quantidade' => $this->normalizeDecimal($item['quantidade'] ?? 1),
-                    'valor_unitario' => $this->normalizeDecimal($item['valor_unitario'] ?? 0),
+                    'quantidade' => $this->normalizeDecimalToNullableString($item['quantidade'] ?? 1),
+                    'valor_unitario' => $this->normalizeDecimalToNullableString($item['valor_unitario'] ?? 0),
                 ];
             })
             ->filter(fn ($item) => $item['categoria'] !== null)
@@ -83,23 +86,5 @@ class FaturaUpdateRequest extends FormRequest
                 ];
             })
             ->all();
-    }
-
-    private function normalizeDecimal(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (is_numeric($value)) {
-            return (string) $value;
-        }
-
-        $value = preg_replace('/[^0-9,.-]/', '', (string) $value);
-        $value = str_replace(['. ', ' '], '', $value);
-        $value = str_replace('.', '', $value);
-        $value = str_replace(',', '.', $value);
-
-        return $value === '' ? null : $value;
     }
 }

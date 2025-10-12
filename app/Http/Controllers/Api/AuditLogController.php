@@ -41,14 +41,21 @@ class AuditLogController extends Controller
             abort(422, 'Formato solicitado nao e suportado.');
         }
 
-        $rows = $this->makeFilteredQuery($request)->with('user')->orderByDesc('created_at')->get();
+        $query = $this->makeFilteredQuery($request)->with('user')->orderByDesc('created_at');
 
         if ($format === 'json') {
             $filename = 'auditoria-'.now()->format('Ymd_His').'.json';
+            $generatedAt = now()->toDateTimeString();
 
-            return response()->streamDownload(function () use ($rows) {
-                $payload = $rows->map(function (AuditLog $row) {
-                    return [
+            return response()->streamDownload(function () use ($query, $generatedAt) {
+                echo "{\n";
+                echo '  "generated_at": "'.$generatedAt."",\n";
+                echo '  "rows": [';
+
+                $first = true;
+
+                foreach ((clone $query)->lazy(500) as $row) {
+                    $entry = json_encode([
                         'id' => $row->id,
                         'timestamp' => $row->created_at?->toDateTimeString(),
                         'user' => $row->user?->username,
@@ -57,13 +64,21 @@ class AuditLogController extends Controller
                         'ip_address' => $row->ip_address,
                         'user_agent' => $row->user_agent,
                         'payload' => $row->payload,
-                    ];
-                })->all();
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-                echo json_encode([
-                    'generated_at' => now()->toDateTimeString(),
-                    'rows' => $payload,
-                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    if (! $entry) {
+                        continue;
+                    }
+
+                    echo $first ? "\n    {$entry}" : ",\n    {$entry}";
+                    $first = false;
+                }
+
+                if (! $first) {
+                    echo "\n";
+                }
+
+                echo "  ]\n}";
             }, $filename, [
                 'Content-Type' => 'application/json; charset=UTF-8',
             ]);
@@ -71,11 +86,11 @@ class AuditLogController extends Controller
 
         $filename = 'auditoria-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($rows) {
+        return response()->streamDownload(function () use ($query) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, ['ID', 'Data', 'Usuario', 'Acao', 'Recurso', 'IP', 'Payload']);
 
-            foreach ($rows as $row) {
+            foreach ((clone $query)->lazy(500) as $row) {
                 fputcsv($handle, [
                     $row->id,
                     $row->created_at?->toDateTimeString(),

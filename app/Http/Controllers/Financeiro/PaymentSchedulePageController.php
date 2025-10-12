@@ -41,4 +41,18 @@ class PaymentSchedulePageController extends Controller
             ],
         ]);
     }
+
+    public function create(Request $request): Response
+    {
+        $this->authorize('create', PaymentSchedule::class);
+
+        return Inertia::render('Financeiro/PaymentSchedules/Create', [
+            'defaults' => [
+                'parcela_atual' => 1,
+                'total_parcelas' => 1,
+                'status' => 'aberto',
+                'vencimento' => now()->toDateString(),
+            ],
+        ]);
+    }
 }

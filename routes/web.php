@@ -52,6 +52,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/financeiro/contas', [SettingsPageController::class, 'accounts'])->name('financeiro.accounts');
     Route::get('/financeiro/centros', [SettingsPageController::class, 'costCenters'])->name('financeiro.cost-centers');
     Route::get('/financeiro/agendamentos', [PaymentSchedulePageController::class, 'index'])->name('financeiro.payment-schedules');
+    Route::get('/financeiro/agendamentos/novo', [PaymentSchedulePageController::class, 'create'])->name('financeiro.payment-schedules.create');
 
     Route::get('/auditoria', [AuditTrailPageController::class, 'index'])->name('auditoria.index');
 
