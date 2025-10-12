@@ -90,21 +90,26 @@ const generateSubCodigo = (parentId: number | null): string => {
   const base = parent.codigo.split('.')[0] ?? parent.codigo;
   const siblings = parent.children ?? [];
   const maxSuffix = siblings.reduce((acc, child) => {
+    if (isEdit.value && props.center?.id === child.id) {
+      return acc;
+    }
+
     const [, suffixValue] = child.codigo.split('.');
     const parsed = Number.parseInt(suffixValue ?? '0', 10);
     return Number.isNaN(parsed) ? acc : Math.max(acc, parsed);
   }, 0);
 
-  // If we are editing and already belong to this parent, keep current order
   if (
     isEdit.value &&
     props.center?.parent_id === parentId &&
-    props.center.codigo.startsWith(${base}.)
+    props.center.codigo.startsWith(`${base}.`)
   ) {
     return props.center.codigo;
   }
 
-  return ${base}.;
+  const nextSuffix = maxSuffix + 1;
+
+  return `${base}.${nextSuffix}`;
 };
 
 watch(
@@ -192,7 +197,7 @@ const submit = async () => {
     };
 
     if (isEdit.value && props.center) {
-      const response = await axios.put(/api/financeiro/cost-centers/, payload);
+      const response = await axios.put(`/api/financeiro/cost-centers/${props.center.id}`, payload);
       toast.success(response.data?.message ?? 'Centro de custo atualizado com sucesso.');
     } else {
       const response = await axios.post('/api/financeiro/cost-centers', payload);
@@ -322,7 +327,7 @@ const submit = async () => {
             >
               <option :value="null" disabled>Selecione um centro principal</option>
               <option v-for="parent in availableParents" :key="parent.id" :value="parent.id">
-                {{ parent.codigo }} — {{ parent.nome }}
+                {{ parent.codigo }} - {{ parent.nome }}
               </option>
             </select>
             <p v-if="errors.parent_id" class="text-xs text-rose-400">{{ errors.parent_id }}</p>

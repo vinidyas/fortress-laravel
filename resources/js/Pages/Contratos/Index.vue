@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ContratoFormModal from '@/Components/Contratos/ContratoFormModal.vue';
 import { Link } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 type Nullable<T> = T | null;
 
@@ -48,8 +49,41 @@ const contratos = ref<ContratoRow[]>([]);
 const meta = ref<MetaPagination | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
+const showCreateModal = ref(false);
 const perPageOptions = [10, 15, 25, 50];
 const perPage = ref(15);
+
+const hasResults = computed(() => contratos.value.length > 0);
+
+watch(perPage, () => {
+  fetchContratos(1);
+});
+
+function openCreateModal() {
+  showCreateModal.value = true;
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false;
+}
+
+async function handleContratoCreated() {
+  showCreateModal.value = false;
+  await fetchContratos(1);
+}
+
+function statusBadgeClasses(status: string): string {
+  switch (status) {
+    case 'Ativo':
+      return 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40';
+    case 'Suspenso':
+      return 'bg-amber-500/15 text-amber-300 border border-amber-500/40';
+    case 'Encerrado':
+      return 'bg-slate-500/20 text-slate-300 border border-slate-600/40';
+    default:
+      return 'bg-slate-500/20 text-slate-300 border border-slate-600/40';
+  }
+}
 
 async function fetchContratos(page = 1) {
   loading.value = true;
@@ -75,7 +109,7 @@ async function fetchContratos(page = 1) {
     meta.value = data.meta;
   } catch (error) {
     console.error(error);
-    errorMessage.value = 'Não foi possível carregar os contratos.';
+    errorMessage.value = 'Nao foi possivel carregar os contratos.';
   } finally {
     loading.value = false;
   }
@@ -113,242 +147,226 @@ onMounted(() => {
 
 <template>
   <AuthenticatedLayout title="Contratos">
-    <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <h2 class="text-2xl font-semibold text-slate-900">Contratos</h2>
-      <Link
-        class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        href="/contratos/novo"
+    <div class="space-y-8 text-slate-100">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-2xl font-semibold text-white">Contratos</h2>
+          <p class="text-sm text-slate-400">Acompanhe contratos, vigencias e status em tempo real.</p>
+        </div>
+
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded-xl border border-indigo-500/40 bg-indigo-600/70 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:bg-indigo-500/80"
+          @click="openCreateModal"
+        >
+          + Novo contrato
+        </button>
+      </div>
+
+      <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-black/40">
+        <form @submit.prevent="applyFilters" class="grid gap-5 lg:grid-cols-6">
+          <div class="lg:col-span-2">
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Busca</label>
+            <input
+              v-model="filters.search"
+              type="search"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              placeholder="Codigo do contrato"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</label>
+            <select
+              v-model="filters.status"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="">Todos</option>
+              <option v-for="option in statusOptions" :key="option" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Cidade do imovel</label>
+            <input
+              v-model="filters.cidade"
+              type="text"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Imovel ID</label>
+            <input
+              v-model="filters.imovel_id"
+              type="number"
+              min="1"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Locador ID</label>
+            <input
+              v-model="filters.locador_id"
+              type="number"
+              min="1"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Locatario ID</label>
+            <input
+              v-model="filters.locatario_id"
+              type="number"
+              min="1"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Dia de vencimento</label>
+            <input
+              v-model="filters.dia_vencimento"
+              type="number"
+              min="1"
+              max="28"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Vigencia em</label>
+            <input
+              v-model="filters.vigencia_em"
+              type="date"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Registros por pagina</label>
+            <select
+              v-model.number="perPage"
+              class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option v-for="option in perPageOptions" :key="option" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </div>
+          <div class="flex items-center gap-3 lg:col-span-6">
+            <button
+              type="submit"
+              class="rounded-xl border border-indigo-500/40 bg-indigo-600/80 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500/80"
+              :disabled="loading"
+            >
+              Aplicar filtros
+            </button>
+            <button
+              type="button"
+              class="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800/60"
+              @click="resetFilters"
+              :disabled="loading"
+            >
+              Limpar
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <div
+        v-if="errorMessage"
+        class="rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-sm text-rose-200"
       >
-        + Novo
-      </Link>
-    </div>
+        {{ errorMessage }}
+      </div>
 
-    <div class="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <form @submit.prevent="applyFilters" class="grid gap-4 md:grid-cols-4">
+      <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40">
+        <table class="min-w-full divide-y divide-slate-800 text-sm">
+          <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
+            <tr>
+              <th class="px-4 py-3 text-left">Codigo</th>
+              <th class="px-4 py-3 text-left">Imovel</th>
+              <th class="px-4 py-3 text-left">Locador</th>
+              <th class="px-4 py-3 text-left">Locatario</th>
+              <th class="px-4 py-3 text-left">Inicio / Fim</th>
+              <th class="px-4 py-3 text-left">Status</th>
+              <th class="px-4 py-3 text-right">Acoes</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800 bg-slate-950/50 text-slate-200">
+            <tr v-if="loading">
+              <td colspan="7" class="px-4 py-6 text-center text-slate-400">
+                Carregando contratos...
+              </td>
+            </tr>
+            <tr v-else-if="!hasResults">
+              <td colspan="7" class="px-4 py-6 text-center text-slate-400">
+                Nenhum contrato encontrado.
+              </td>
+            </tr>
+            <tr v-else v-for="contrato in contratos" :key="contrato.id" class="hover:bg-slate-900/60">
+              <td class="px-4 py-3 font-semibold text-white">{{ contrato.codigo_contrato }}</td>
+              <td class="px-4 py-3">
+                <div class="text-slate-200">{{ contrato.imovel?.codigo ?? '-' }}</div>
+                <div class="text-xs text-slate-500">{{ contrato.imovel?.cidade ?? '-' }}</div>
+              </td>
+              <td class="px-4 py-3 text-slate-200">{{ contrato.locador?.nome_razao_social ?? '-' }}</td>
+              <td class="px-4 py-3 text-slate-200">{{ contrato.locatario?.nome_razao_social ?? '-' }}</td>
+              <td class="px-4 py-3">
+                <div class="text-slate-200">{{ contrato.data_inicio }}</div>
+                <div class="text-xs text-slate-500">{{ contrato.data_fim ?? 'Sem data fim' }}</div>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  :class="[
+                    'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
+                    statusBadgeClasses(contrato.status),
+                  ]"
+                >
+                  {{ contrato.status }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <Link
+                  :href="`/contratos/${contrato.id}`"
+                  class="rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-1.5 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:text-white"
+                >
+                  Editar
+                </Link>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div
+        v-if="meta"
+        class="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm text-slate-300 shadow-xl shadow-black/40 sm:flex-row"
+      >
         <div>
-          <label class="block text-sm font-medium text-slate-700">Busca</label>
-          <input
-            v-model="filters.search"
-            type="search"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-            placeholder="Código"
-          />
+          Mostrando pagina {{ meta.current_page }} de {{ meta.last_page }} -
+          {{ meta.total }} registros
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Status</label>
-          <select
-            v-model="filters.status"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          >
-            <option value="">Todos</option>
-            <option v-for="option in statusOptions" :key="option" :value="option">
-              {{ option }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Cidade do imóvel</label>
-          <input
-            v-model="filters.cidade"
-            type="text"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Imóvel ID</label>
-          <input
-            v-model="filters.imovel_id"
-            type="number"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Locador ID</label>
-          <input
-            v-model="filters.locador_id"
-            type="number"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Locatário ID</label>
-          <input
-            v-model="filters.locatario_id"
-            type="number"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Dia vencimento</label>
-          <input
-            v-model="filters.dia_vencimento"
-            type="number"
-            min="1"
-            max="28"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Vigência em</label>
-          <input
-            v-model="filters.vigencia_em"
-            type="date"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">Registros por página</label>
-          <select
-            v-model.number="perPage"
-            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-            @change="applyFilters"
-          >
-            <option v-for="option in perPageOptions" :key="option" :value="option">
-              {{ option }}
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center gap-3 md:col-span-4">
+        <div class="flex items-center gap-2">
           <button
-            type="submit"
-            class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-            :disabled="loading"
+            class="rounded-lg border border-slate-700 px-3 py-2 transition hover:bg-slate-800/70"
+            :disabled="loading || meta.current_page <= 1"
+            @click="changePage(meta.current_page - 1)"
           >
-            Aplicar filtros
+            Anterior
           </button>
           <button
-            type="button"
-            class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            @click="resetFilters"
-            :disabled="loading"
+            class="rounded-lg border border-slate-700 px-3 py-2 transition hover:bg-slate-800/70"
+            :disabled="loading || meta.current_page >= meta.last_page"
+            @click="changePage(meta.current_page + 1)"
           >
-            Limpar
+            Proxima
           </button>
         </div>
-      </form>
-    </div>
-
-    <div
-      v-if="errorMessage"
-      class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-    >
-      {{ errorMessage }}
-    </div>
-
-    <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-      <table class="min-w-full divide-y divide-slate-200">
-        <thead class="bg-slate-50">
-          <tr>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Código
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Imóvel
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Locador
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Locatário
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Inicio / Fim
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Status
-            </th>
-            <th
-              class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"
-            >
-              Ações
-            </th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-200 text-sm text-slate-700">
-          <tr v-if="loading">
-            <td colspan="7" class="px-4 py-6 text-center text-slate-500">
-              Carregando contratos...
-            </td>
-          </tr>
-          <tr v-else-if="!contratos.length">
-            <td colspan="7" class="px-4 py-6 text-center text-slate-500">
-              Nenhum contrato encontrado.
-            </td>
-          </tr>
-          <tr v-for="contrato in contratos" :key="contrato.id">
-            <td class="px-4 py-3 font-medium text-slate-900">{{ contrato.codigo_contrato }}</td>
-            <td class="px-4 py-3">
-              <div>{{ contrato.imovel?.codigo ?? '-' }}</div>
-              <div class="text-xs text-slate-500">{{ contrato.imovel?.cidade ?? '' }}</div>
-            </td>
-            <td class="px-4 py-3">{{ contrato.locador?.nome_razao_social ?? '-' }}</td>
-            <td class="px-4 py-3">{{ contrato.locatario?.nome_razao_social ?? '-' }}</td>
-            <td class="px-4 py-3">
-              <div>{{ contrato.data_inicio }}</div>
-              <div class="text-xs text-slate-500">{{ contrato.data_fim ?? 'Sem data fim' }}</div>
-            </td>
-            <td class="px-4 py-3">
-              <span
-                :class="[
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
-                  contrato.status === 'Ativo'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : contrato.status === 'Suspenso'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-slate-200 text-slate-700',
-                ]"
-              >
-                {{ contrato.status }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-right">
-              <Link
-                :href="`/contratos/${contrato.id}`"
-                class="text-sm font-semibold text-indigo-600 hover:text-indigo-500"
-                >Editar</Link
-              >
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div
-      v-if="meta"
-      class="mt-4 flex flex-col items-center justify-between gap-3 text-sm text-slate-600 md:flex-row"
-    >
-      <div>
-        Mostrando página {{ meta.current_page }} de {{ meta.last_page }} -
-        {{ meta.total }} registros
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          class="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50"
-          :disabled="loading || meta.current_page <= 1"
-          @click="changePage(meta.current_page - 1)"
-        >
-          Anterior
-        </button>
-        <button
-          class="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50"
-          :disabled="loading || meta.current_page >= meta.last_page"
-          @click="changePage(meta.current_page + 1)"
-        >
-          Próxima
-        </button>
       </div>
     </div>
+    <ContratoFormModal :show="showCreateModal" @close="closeCreateModal" @created="handleContratoCreated" />
   </AuthenticatedLayout>
 </template>
+
+
+
+
+

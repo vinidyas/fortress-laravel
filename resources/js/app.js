@@ -45,9 +45,7 @@ createInertiaApp({
 
     // Make Ziggy routes available globally for route() calls
     if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      window.Ziggy = Ziggy;
+      Object.assign(window, { Ziggy });
     }
 
     vueApp.mount(el);
