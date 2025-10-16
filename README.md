@@ -127,7 +127,7 @@ resources/css/     # Tailwind entrypoint
 routes/            # web.php (Inertia) e api.php
 docs/              # Documentação por módulo
 tests/             # Suites Laravel (API, Auditoria, Relatórios, etc.)
-.github/workflows/ # Pipeline CI
+.github/workflows// # Pipeline CI
 ```
 
 ## Checklist de QA
