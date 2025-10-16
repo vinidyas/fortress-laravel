@@ -1,18 +1,26 @@
 ﻿# Fortress Gestão Imobiliária
 
-AplicaÃ§Ã£o Laravel 11 + Vue 3 para administraÃ§Ã£o de imÃ³veis, contratos,
-faturamento e auditoria. O front utiliza Inertia/Vite, Pinia para estado e
-Tailwind para estilização.
+Aplicação Laravel 11 + Vue 3 (Inertia, Vite, Pinia) e Tailwind para administração de imóveis, contratos, faturamento e auditoria.
 
 ## Requisitos
 
 - PHP 8.2+
 - Composer
-- Node.js 20 (com npm)
-- MySQL 8 (produÃ§Ã£o) â€” SQLite in-memory Ã© utilizado nos testes
-- Redis opcional para sessÃµes/filas
+- Node.js 18+ (recomendado 20) com npm
+- MySQL 8 (produção) — nos testes é usado SQLite in‑memory
+- Redis opcional para sessões/filas
+- Extensões PHP essenciais: `mbstring`, `pdo_mysql`, `openssl`, `xml`, `json`, `bcmath`, `ctype`, `fileinfo`, `curl`, `zip`, `gd`
 
-## Setup Rápido
+## O que foi adicionado/revisado recentemente
+
+- Menu do usuário no topo direito (persistente): avatar, nome, username, Configurações da conta, Alterar senha e Desconectar. O menu foi refeito com Teleport para garantir cliques confiáveis e sobreposição correta.
+- Upload de avatar com redimensionamento automático para 256px via Intervention Image v3; arquivo servido pelo `storage/public`.
+- Fluxo de “Esqueci minha senha”/“Redefinir senha” com e‑mail, incluindo páginas Inertia (Forgot/Reset), controllers e validações.
+- Tela “Configurações da conta” (perfil): alterar nome, e‑mail e foto; seção para alterar senha autenticado.
+- Administração de usuários: suportes a avatar, e‑mail e envio de link de redefinição direto da listagem/formulário.
+- Contratos: campos de data com padrão brasileiro. Datas `dd/mm/aaaa` (início, fim, entrega de chaves) e mês/ano `mm/aaaa` (próximo reajuste), com máscara e conversão automática BR ⇄ ISO ao salvar/carregar.
+
+## Setup rápido
 
 ```bash
 # Backend
@@ -20,78 +28,86 @@ composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --seed
+php artisan storage:link
 
 # Frontend
 npm install
-npm run dev         # compila assets no modo desenvolvimento
+npm run dev            # compila assets em modo de desenvolvimento
+
+# Ziggy (rotas para o front, se mudar rotas)
+php artisan ziggy:generate resources/js/ziggy.js
 ```
 
-Scripts Ãºteis:
+Scripts úteis:
 
-| Comando             | DescriÃ§Ã£o                                       |
-| ------------------- | ----------------------------------------------- |
-| `composer lint`     | Executa Pint (somente arquivos modificados)     |
-| `composer stan`     | Executa Larastan (PHPStan)                      |
-| `composer test`     | Roda `php artisan test --parallel`              |
-| `composer ci`       | Alias para lint + stan + tests                  |
-| `npm run typecheck` | Type-check do front (`vue-tsc`)                 |
-| `npm run lint`      | ESLint em JS/TS/Vue                             |
-| `npm run format`    | Verifica formataÃ§Ã£o via Prettier                |
-| `npm run build`     | Build de produÃ§Ã£o (Vite)                        |
-| `npm run check`     | Type-check + ESLint + testes + build + Prettier |
+| Comando             | Descrição                                        |
+| ------------------- | ------------------------------------------------ |
+| `composer lint`     | Executa Pint (somente arquivos modificados)      |
+| `composer stan`     | Executa Larastan (PHPStan)                       |
+| `composer test`     | Roda `php artisan test --parallel`               |
+| `composer ci`       | Alias para lint + stan + tests                   |
+| `npm run typecheck` | Type‑check do front (`vue-tsc`)                  |
+| `npm run lint`      | ESLint em JS/TS/Vue                              |
+| `npm run format`    | Verifica formatação via Prettier                 |
+| `npm run build`     | Build de produção (Vite)                         |
+| `npm run check`     | Type‑check + ESLint + testes + build + Prettier  |
 
-## MÃ³dulos Principais
+## Como rodar em outro computador
+
+1) Instale dependências do sistema (PHP 8.2+, Node, MySQL). No Linux, inclua `php8.x-gd` (usado por avatar e planilhas).  
+2) Clone o repositório e execute o “Setup rápido”.  
+3) Configure o `.env` (DB, `APP_URL`, e e‑mail `MAIL_*` se for testar envio).  
+4) Rode `php artisan migrate --seed`.  
+5) Inicie `npm run dev` e o PHP (`php artisan serve`) ou seu servidor web.  
+
+Se aparecer a tela em branco após mudar rotas, gere o Ziggy novamente: `php artisan ziggy:generate resources/js/ziggy.js`.
+
+## E‑mail e recuperação de senha
+
+- Configure o `.env` com `MAIL_MAILER/MAIL_HOST/MAIL_PORT/MAIL_USERNAME/MAIL_PASSWORD/MAIL_ENCRYPTION/MAIL_FROM_*`.  
+- Para validar localmente, use `MAIL_MAILER=log` e veja `storage/logs/laravel.log`.  
+- Se usar filas para e‑mail, mantenha `php artisan queue:work` rodando.
+
+## Solução de problemas
+
+- “GD PHP extension must be installed…”: habilite/instale o `gd` (ex.: `sudo apt-get install php8.2-gd`) e reinicie o PHP.  
+- Dropdown do usuário não abre/fecha: recompile assets (`npm run dev`), force refresh (Ctrl+Shift+R).  
+- Login branco após alterar rotas: gere o Ziggy novamente (comando acima).
+
+## Módulos principais
 
 ### Financeiro
 
-- Gestão Imobiliária
-- ConciliaÃ§Ã£o/cancelamento de lanÃ§amentos com logs automÃ¡ticos de auditoria.
-- ExportaÃ§Ã£o CSV e dashboard Inertia com filtros completos.
-- DocumentaÃ§Ã£o: `docs/FINANCEIRO.md`
+- Conciliação/cancelamento de lançamentos com logs de auditoria.
+- Exportação CSV e dashboard Inertia com filtros completos.
+- Documentação: `docs/FINANCEIRO.md`.
 
 ### Auditoria
 
-- Loga todas as operaÃ§Ãµes crÃ­ticas (`audit_logs`) com diff antes/depois.
-- Busca por texto, filtros avanÃ§ados e exportaÃ§Ã£o CSV/JSON.
-- Tela Inertia com visualizaÃ§Ã£o expandida dos eventos.
-- DocumentaÃ§Ã£o: `docs/AUDITORIA.md`
+- Loga operações críticas (`audit_logs`) com diff antes/depois.
+- Busca por texto, filtros avançados e exportação CSV/JSON.
+- Tela Inertia com visualização expandida dos eventos.  
+- Documentação: `docs/AUDITORIA.md`.
 
-### RelatÃ³rios
+### Relatórios
 
-- VisÃµes consolidadas: financeiro (totais/inadimplÃªncia), operacional
-  (ocupaÃ§Ã£o/contratos), pessoas (totais por tipo/papel).
-- ExportaÃ§Ãµes CSV quando `reports.export` estiver habilitado.
-- DocumentaÃ§Ã£o: `docs/RELATORIOS.md`
+- Visões consolidadas: financeiro (totais/inadimplência), operacional (ocupação/contratos), pessoas (totais por tipo/papel).
+- Exportações CSV quando `reports.export` estiver habilitado.  
+- Documentação: `docs/RELATORIOS.md`.
 
-## Auditoria & SeguranÃ§a
+## Auditoria & Segurança
 
-- O observer `App\\Observers\\AuditableObserver` acompanha `User`, `Pessoa`,
-  `Imovel`, `Contrato`, `Fatura`, `FinancialAccount`, `FinancialTransaction`,
-  `PaymentSchedule` e `CostCenter`.
-- Utilize o seeder padrÃ£o para popular papÃ©is/permissÃµes iniciais
-  (`php artisan db:seed`).
-- Revise periodicamente `audit_logs` e utilize os filtros disponÃ­veis na tela
-  Auditoria.
-
-## Importadores de Legado
-
-| Comando                                  | DescriÃ§Ã£o                                             |
-| ---------------------------------------- | ----------------------------------------------------- |
-| `php artisan legacy:import --financeiro` | Importa contas, centros, lanÃ§amentos e agendamentos   |
-| `php artisan legacy:import --auditoria`  | Importa trilhas histÃ³ricas do sistema anterior        |
-| Adicione `--dry-run`                     | Apenas valida a conexÃ£o e exibe estatÃ­sticas          |
-| Adicione `--truncate`                    | Limpa tabelas de destino antes de importar (cuidado!) |
+- O observer `App\Observers\AuditableObserver` acompanha `User`, `Pessoa`, `Imovel`, `Contrato`, `Fatura`, `FinancialAccount`, `FinancialTransaction`, `PaymentSchedule` e `CostCenter`.
+- Use o seeder para popular papéis/permissões iniciais (`php artisan db:seed`).
+- Revise periodicamente `audit_logs` e os filtros na tela Auditoria.
 
 ## Testes
 
-- Testes de API cobrem listagem/CRUD de contratos, faturas, pessoas, imÃ³veis e
-  transaÃ§Ãµes financeiras.
-- RelatÃ³rios possuem testes para filtros e exportaÃ§Ãµes (financeiro, operacional,
-  pessoas).
-- Auditoria garante que exportaÃ§Ãµes e hooks de criaÃ§Ã£o/ediÃ§Ã£o de lanÃ§amentos
-  registram logs.
+- Testes de API cobrem CRUD de contratos, faturas, pessoas, imóveis e transações financeiras.  
+- Relatórios possuem testes para filtros e exportações (financeiro, operacional, pessoas).  
+- Auditoria garante que exportações e hooks de criação/edição de lançamentos registram logs.
 
-Execute tudo com:
+Execute:
 
 ```bash
 composer test      # PHP (paralelo)
@@ -100,38 +116,21 @@ npm run check      # Front (tsc + eslint + vitest + build + prettier)
 
 ## CI (GitHub Actions)
 
-Workflow padrÃ£o em `.github/workflows/ci.yml` executa:
+Pipeline padrão em `.github/workflows/ci.yml` executa: install + typecheck + lint + build + testes (front e back).
 
-1. Composer install + `php artisan key:generate`
-2. `npm install`
-3. `npm run typecheck` + `npm run lint` + `npm run format` + `npm run test:unit`
-4. `npm run build`
-5. `composer lint` + `composer stan` + `composer test`
-
-## Estrutura Simplificada
+## Estrutura simplificada
 
 ```
 app/               # Controllers, Models, Policies, Observers, Services
 resources/js/      # SPA (Layouts, Pages, Stores, Components)
 resources/css/     # Tailwind entrypoint
 routes/            # web.php (Inertia) e api.php
-docs/              # DocumentaÃ§Ã£o por mÃ³dulo
-tests/             # Suites Laravel (API, Auditoria, RelatÃ³rios, etc.)
+docs/              # Documentação por módulo
+tests/             # Suites Laravel (API, Auditoria, Relatórios, etc.)
 .github/workflows/ # Pipeline CI
 ```
 
-## Ambiente de Desenvolvimento
+## Checklist de QA
 
-- Para Sanctum/Inertia, certifique-se de apontar `APP_URL` e `FRONTEND_URL`
-  corretamente.
-- Os testes utilizam SQLite in-memory (configurado em `phpunit.xml`).
-- Para builds locais de produÃ§Ã£o: `npm run build` gera assets em `public/build`.
-
-DÃºvidas ou suGestão Imobiliária
-
-## ValidaÃ§Ã£o em Staging
-
-Confira o checklist em `docs/QA_CHECKLIST.md` para conduzir testes de
-usabilidade dos mÃ³dulos Financeiro, Auditoria e RelatÃ³rios em um ambiente de
-staging.
+Consulte `docs/QA_CHECKLIST.md` para testes de usabilidade em ambiente de staging.
 
