@@ -31,11 +31,18 @@ class ImovelUpdateRequest extends ImovelStoreRequest
             ? $routeValue->getKey()
             : $routeValue;
 
+        $imovelKey = is_numeric($ignoreId) ? (int) $ignoreId : $ignoreId;
+
         $rules['codigo'] = [
             'nullable',
             'string',
             'max:50',
-            Rule::unique('imoveis', 'codigo')->ignore($ignoreId),
+            Rule::unique('imoveis', 'codigo')->ignore($imovelKey),
+        ];
+
+        $rules['anexos_remover.*'] = [
+            'integer',
+            Rule::exists('imovel_anexos', 'id')->where('imovel_id', $imovelKey),
         ];
 
         return $rules;

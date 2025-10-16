@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import CostCenterFormModal from '@/Components/Financeiro/CostCenterFormModal.vue';
 import { Head, router } from '@inertiajs/vue3';
@@ -20,7 +20,8 @@ type ParentOption = {
   id: number;
   nome: string;
   codigo: string;
-  children: Array<{ id: number; codigo: string }>;
+  parent_id: number | null;
+  depth: number;
 };
 
 type CanFlags = {
@@ -102,7 +103,6 @@ const handleDelete = async (center: CostCenterNode) => {
     return;
   }
 
-  // Linha corrigida:
   const confirmed = window.confirm(`Deseja realmente remover o centro "${center.nome}"?`);
   
   if (!confirmed) {
@@ -119,7 +119,7 @@ const handleDelete = async (center: CostCenterNode) => {
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     const message =
-      axiosError.response?.data?.message ?? 'Nao foi possivel remover o centro de custo.';
+      axiosError.response?.data?.message ?? 'Não foi possível remover o centro de custo.';
     toast.error(message);
   } finally {
     deletingId.value = null;

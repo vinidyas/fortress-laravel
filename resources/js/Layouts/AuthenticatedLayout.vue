@@ -1,6 +1,6 @@
-﻿?<script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch, onMounted } from 'vue';
+<script setup lang="ts">
+import { Link, usePage, router } from '@inertiajs/vue3';
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useNotificationStore } from '@/Stores/notifications';
 import { route } from 'ziggy-js';
 
@@ -16,71 +16,139 @@ interface NavItem {
   children?: NavItem[];
 }
 
-const page = usePage();
-const user = computed(() => page.props.auth?.user ?? null);
-const abilities = computed<string[]>(() => (page.props.auth?.abilities ?? []) as string[]);
+interface AuthUser {
+  id: number;
+  username: string;
+  nome: string;
+  ativo: boolean;
+  avatar_url?: string | null;
+}
+
+const page = usePage<{
+  auth?: { user?: AuthUser | null; abilities?: string[] };
+  csrf_token?: string;
+}>();
+
+const user = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const abilities = computed<string[]>(() => page.props.auth?.abilities ?? []);
 const csrfToken = computed(() => page.props.csrf_token ?? '');
 const currentUrl = computed(() => page.url ?? '');
+
 const isSidebarOpen = ref(false);
 const isCollapsed = ref(true);
 const pinned = ref(false);
+
 const notificationStore = useNotificationStore();
 const notifications = computed(() => notificationStore.items);
+
 const userMenuOpen = ref(false);
+const userMenuContainer = ref<HTMLDivElement | null>(null);
+const userMenuButton = ref<HTMLButtonElement | null>(null);
+const menuStyles = ref<Record<string, string>>({ top: '0px', right: '0px' });
+
+const userDisplayName = computed(() => user.value?.nome ?? 'Usuário');
+const userLogin = computed(() => user.value?.username ?? '');
+const userAvatar = computed(() => user.value?.avatar_url ?? null);
+const userInitials = computed(() => {
+  if (!user.value) return '';
+  const source = user.value.nome?.trim() || user.value.username?.trim() || '';
+  if (!source) return '';
+  const parts = source.split(/\s+/).filter(Boolean);
+  const initials = parts.slice(0, 2).map((segment) => segment.charAt(0)).join('') || source.slice(0, 2);
+  return initials.toUpperCase();
+});
+
+const updateMenuPosition = () => {
+  if (!userMenuOpen.value) return;
+  if (typeof window === 'undefined') return;
+  const trigger = userMenuButton.value;
+  if (!trigger) return;
+  const rect = trigger.getBoundingClientRect();
+  const top = rect.bottom + window.scrollY + 12; // 12px matches mt-3 spacing
+  const right = window.innerWidth - rect.right + window.scrollX;
+  menuStyles.value = {
+    top: `${top}px`,
+    right: `${Math.max(right, 16)}px`,
+  };
+};
+
+const closeUserMenu = () => { userMenuOpen.value = false; };
+const toggleUserMenu = () => {
+  userMenuOpen.value = !userMenuOpen.value;
+  if (userMenuOpen.value) {
+    nextTick(updateMenuPosition);
+  }
+};
+
+const handleClickOutside = (event: MouseEvent) => {
+  if (!userMenuOpen.value || !userMenuContainer.value) return;
+  const target = event.target as Node | null;
+  if (target && !userMenuContainer.value.contains(target) && target !== userMenuButton.value) {
+    closeUserMenu();
+  }
+};
+
+const handleEscape = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    closeUserMenu();
+  }
+};
+
 const expanded = ref<Record<string, boolean>>({});
 const toggleExpanded = (key: string) => { expanded.value[key] = !expanded.value[key]; };
+
 onMounted(() => {
-  // abre a seção do item ativo
+  // Abrir automaticamente a seção do item ativo
   try {
     const url = new URL(window.location.href);
     const path = url.pathname;
     for (const item of navItems.value) {
       if (item.children?.length) {
-        expanded.value[item.key] = item.children.some((c) => typeof c.href === 'string' && (new URL(c.href, window.location.origin)).pathname && path.startsWith((new URL(c.href, window.location.origin)).pathname));
+        expanded.value[item.key] = item.children.some((c) => {
+          if (!c.href) return false;
+          const childPath = new URL(c.href, window.location.origin).pathname;
+          return path.startsWith(childPath);
+        });
       }
     }
   } catch {}
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('click', handleClickOutside);
+    document.removeEventListener('keydown', handleEscape);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateMenuPosition);
+    window.removeEventListener('scroll', updateMenuPosition, true);
+  }
 });
 
 const can = (permission?: string) => !permission || abilities.value.includes(permission);
 
 const navItems = computed<NavItem[]>(() => {
+  const r = (name: string, params?: any, fallback?: string) => {
+    try { return route(name, params as any); } catch { return fallback ?? '#'; }
+  };
   const items: NavItem[] = [
-    {
-      key: 'dashboard',
-      label: 'Dashboard',
-      href: route('dashboard'),
-      icon: 'M3 12h18M3 6h18M3 18h18',
-      exact: true,
-    },
-    {
-      key: 'imoveis',
-      label: 'Imóveis',
-      href: route('imoveis.index'),
-      icon: 'M4 12l8-6 8 6v8a2 2 0 01-2 2H6a2 2 0 01-2-2z',
-      ability: 'imoveis.view',
-    },
-    {
-      key: 'pessoas',
-      label: 'Pessoas',
-      href: route('pessoas.index'),
-      icon: 'M5.5 17a6.5 6.5 0 0113 0M12 9a4 4 0 110-8 4 4 0 010 8z',
-      ability: 'pessoas.view',
-    },
-    {
-      key: 'contratos',
-      label: 'Contratos',
-      href: route('contratos.index'),
-      icon: 'M7 7h10M7 12h10M7 17h6',
-      ability: 'contratos.view',
-    },
-    {
-      key: 'faturas',
-      label: 'Faturas',
-      href: route('faturas.index'),
-      icon: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
-      ability: 'faturas.view',
-    },
+    { key: 'dashboard', label: 'Dashboard', href: r('dashboard','', '/'), icon: 'M3 12h18M3 6h18M3 18h18', exact: true },
+    { key: 'cadastros', label: 'Cadastros', href: r('cadastros.index', undefined, '/cadastros'), icon: 'M4 5h16M4 10h16M4 15h16' },
+    { key: 'imoveis', label: 'Imóveis', href: r('imoveis.index', undefined, '/imoveis'), icon: 'M4 12l8-6 8 6v8a2 2 0 01-2 2H6a2 2 0 01-2-2z', ability: 'imoveis.view' },
+    { key: 'pessoas', label: 'Pessoas/Empresas', href: r('pessoas.index', undefined, '/pessoas'), icon: 'M5.5 17a6.5 6.5 0 0113 0M12 9a4 4 0 110-8 4 4 0 010 8z', ability: 'pessoas.view' },
+    { key: 'contratos', label: 'Contratos', href: r('contratos.index', undefined, '/contratos'), icon: 'M7 7h10M7 12h10M7 17h6', ability: 'contratos.view' },
+    { key: 'faturas', label: 'Faturas', href: r('faturas.index', undefined, '/faturas'), icon: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', ability: 'faturas.view' },
     {
       key: 'financeiro',
       label: 'Financeiro',
@@ -88,30 +156,10 @@ const navItems = computed<NavItem[]>(() => {
       icon: 'M3 3h18M5 7h14v12H5z',
       ability: 'financeiro.view',
       children: [
-        {
-          key: 'financeiro-accounts',
-          label: 'Contas',
-          href: route('financeiro.accounts'),
-          ability: 'financeiro.view',
-        },
-        {
-          key: 'financeiro-centers',
-          label: 'Centros de Custo',
-          href: route('financeiro.cost-centers'),
-          ability: 'financeiro.view',
-        },
-        {
-          key: 'financeiro-lancamentos',
-          label: 'Lançamentos',
-          href: route('financeiro.index'),
-          ability: 'financeiro.view',
-        },
-        {
-          key: 'financeiro-schedules',
-          label: 'Agendamentos',
-          href: route('financeiro.payment-schedules'),
-          ability: 'financeiro.view',
-        },
+        { key: 'financeiro-accounts', label: 'Contas', href: route('financeiro.accounts'), ability: 'financeiro.view' },
+        { key: 'financeiro-centers', label: 'Centros de Custo', href: route('financeiro.cost-centers'), ability: 'financeiro.view' },
+        { key: 'financeiro-lancamentos', label: 'Lançamentos', href: route('financeiro.index'), ability: 'financeiro.view' },
+        { key: 'financeiro-schedules', label: 'Agendamentos', href: route('financeiro.payment-schedules'), ability: 'financeiro.view' },
       ],
     },
     {
@@ -120,13 +168,18 @@ const navItems = computed<NavItem[]>(() => {
       href: route('auditoria.index'),
       icon: 'M4 5h16M4 12h16M4 19h16',
       ability: 'auditoria.view',
+      children: [ { key: 'auditoria-logs', label: 'Logs de Auditoria', href: route('auditoria.index'), ability: 'auditoria.view' } ],
+    },
+    { key: 'alerts-history', label: 'Histórico de Alertas', href: route('alerts.history'), icon: 'M13 16h-1v-4h-1m1-4h.01M12 4a8 8 0 100 16 8 8 0 000-16z', ability: 'alerts.view' },
+    {
+      key: 'admin',
+      label: 'Administração',
+      icon: 'M4 6h16M6 10h12M8 14h8M10 18h4',
+      ability: 'admin.access',
       children: [
-        {
-          key: 'auditoria-logs',
-          label: 'Logs de Auditoria',
-          href: route('auditoria.index'),
-          ability: 'auditoria.view',
-        },
+        { key: 'admin-dashboard', label: 'Painel', href: r('admin.dashboard', undefined, '/admin'), ability: 'admin.access' },
+        { key: 'admin-users', label: 'Usuários', href: r('admin.users.index', undefined, '/admin/usuarios'), ability: 'admin.access' },
+        { key: 'admin-roles', label: 'Papéis & Permissões', href: r('admin.roles.index', undefined, '/admin/roles'), ability: 'admin.access' },
       ],
     },
     {
@@ -134,24 +187,9 @@ const navItems = computed<NavItem[]>(() => {
       label: 'Relatórios',
       icon: 'M3 4h18l-2 14H5zM9 2h6v4H9z',
       children: [
-        {
-          key: 'relatorios-financeiro',
-          label: 'Relatório Financeiro',
-          href: route('relatorios.financeiro'),
-          ability: 'reports.view.financeiro',
-        },
-        {
-          key: 'relatorios-operacional',
-          label: 'Relatório Operacional',
-          href: route('relatorios.operacional'),
-          ability: 'reports.view.operacional',
-        },
-        {
-          key: 'relatorios-pessoas',
-          label: 'Relatório de Pessoas',
-          href: route('relatorios.pessoas'),
-          ability: 'reports.view.pessoas',
-        },
+        { key: 'relatorios-financeiro', label: 'Relatório Financeiro', href: route('relatorios.financeiro'), ability: 'reports.view.financeiro' },
+        { key: 'relatorios-operacional', label: 'Relatório Operacional', href: route('relatorios.operacional'), ability: 'reports.view.operacional' },
+        { key: 'relatorios-pessoas', label: 'Relatório de Pessoas', href: route('relatorios.pessoas'), ability: 'reports.view.pessoas' },
       ],
     },
   ];
@@ -164,53 +202,56 @@ const isLinkActive = (href?: string, exact?: boolean) => {
   return exact ? currentUrl.value === href : currentUrl.value.startsWith(href);
 };
 
-const itemClasses = (active: boolean) =>
-  [
-    'group flex items-center gap-3 rounded-xl px-4 py-2.5 transition',
-    active
-      ? 'bg-indigo-500/15 text-white ring-1 ring-inset ring-indigo-500/40'
-      : 'text-slate-300 hover:bg-slate-900/60 hover:text-white',
-  ].join(' ');
+const itemClasses = (active: boolean) => [
+  'relative flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left transition',
+  active ? 'bg-indigo-500/15 text-white ring-1 ring-inset ring-indigo-500/40' : 'text-slate-300 hover:bg-slate-900/60 hover:text-white',
+].join(' ');
 
-const childItemClasses = (active: boolean) =>
-  [
-    active ? 'text-indigo-300' : 'text-slate-400 hover:text-indigo-200',
-  ].join(' ');
+const childItemClasses = (active: boolean) => [ active ? 'text-indigo-300' : 'text-slate-400 hover:text-indigo-200' ].join(' ');
 
-const toggleSidebar = () => {
-  isSidebarOpen.value = !isSidebarOpen.value;
-};
+const toggleSidebar = () => { isSidebarOpen.value = !isSidebarOpen.value; };
 
-// Persistir prefer�ncia de pin do menu lateral
+// Persistir preferência de “fixar” o menu lateral
 if (typeof window !== 'undefined') {
   try {
     const saved = localStorage.getItem('sidebarPinned');
     pinned.value = saved === 'true';
-    // Se estiver fixado, come�a expandido
-    if (pinned.value) {
-      isCollapsed.value = false;
-    }
+    if (pinned.value) isCollapsed.value = false;
   } catch {}
 }
 
 const togglePin = () => {
   pinned.value = !pinned.value;
-  try {
-    localStorage.setItem('sidebarPinned', String(pinned.value));
-  } catch {}
-  if (!pinned.value) {
-    // Ao desafixar, recolhe novamente
-    isCollapsed.value = true;
-  } else {
-    isCollapsed.value = false;
-  }
+  try { localStorage.setItem('sidebarPinned', String(pinned.value)); } catch {}
+  isCollapsed.value = !pinned.value ? true : false;
+};
+
+watch(currentUrl, () => {
+  closeUserMenu();
+});
+
+const navigateToAccount = () => {
+  closeUserMenu();
+  router.visit(route('profile.edit'));
+};
+
+const navigateToPassword = () => {
+  closeUserMenu();
+  router.visit(route('profile.password.edit'));
+};
+
+const submitLogout = () => {
+  closeUserMenu();
+  router.post(route('logout'));
 };
 </script>
 
 <template>
-  <div class="app-compact min-h-screen w-full bg-slate-950 overflow-x-hidden transition-all"
-    :class="isCollapsed ? 'lg:pl-20' : 'lg:pl-80'"
-  >
+  <div class="app-compact min-h-screen w-full bg-slate-950 overflow-x-hidden transition-all" :class="isCollapsed ? 'lg:pl-20' : 'lg:pl-80'">
+    <transition name="fade">
+      <div v-if="userMenuOpen" class="fixed inset-0 z-[9980]" @click="closeUserMenu" />
+    </transition>
+
     <aside
       class="fixed left-0 top-0 z-40 h-full -translate-x-full border-r border-slate-800 bg-slate-950/95 p-4 text-slate-300 backdrop-blur transition-all duration-200 lg:translate-x-0"
       :class="[isCollapsed ? 'w-20' : 'w-80', { 'translate-x-0': isSidebarOpen }]"
@@ -223,178 +264,192 @@ const togglePin = () => {
             <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">FG</div>
             <div v-if="!isCollapsed" class="transition-opacity">
               <h2 class="text-lg font-semibold text-white">Fortress</h2>
-              <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Gest�o Imobili�ria</p>
+              <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Gestão Imobiliária</p>
             </div>
           </Link>
-          
 
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 lg:hidden"
-            @click="toggleSidebar"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 lg:hidden" @click="toggleSidebar">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 6h18M3 18h18"/></svg>
             Fechar
           </button>
-          <button
-            type="button"
-            class="hidden lg:inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20"
-            @click="togglePin"
-            :title="pinned ? 'Soltar menu (recolher ao sair)' : 'Fixar menu (sempre aberto)'"
-          >
-            <svg v-if="!pinned" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 00-.586 1.414V17h1.999a2 2 0 001.414-.586L18 9.828m0 0L14.172 6M18 9.828V4"/></svg>
-            <svg v-else class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/></svg>
-            <span v-if="!isCollapsed">{{ pinned ? 'Soltar' : 'Fixar' }}</span>
-          </button>
+          <button type="button" class="hidden lg:inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20" @click="togglePin" :title="pinned ? 'Soltar menu (recolher ao sair)' : 'Fixar menu (sempre aberto)'"><svg v-if="!pinned" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 00-.586 1.414V17h1.999a2 2 0 001.414-.586L18 9.828m0 0L14.172 6M18 9.828V4"/></svg><svg v-else class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/></svg><span v-if="!isCollapsed">{{ pinned ? 'Soltar' : 'Fixar' }}</span></button>
         </div>
 
         <nav class="flex-1 overflow-y-auto">
           <ul class="space-y-1">
             <li v-for="item in navItems" :key="item.key">
-              <Link
-                v-if="item.href && can(item.ability)"
-                :href="item.href"
-                class="group"
-                :class="itemClasses(isLinkActive(item.href, item.exact))"
-                @click="isSidebarOpen = false"
-              >
-                <svg class="h-5 w-5 text-slate-400 group-hover:text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path :d="item.icon" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                <span v-if="!isCollapsed" class="font-medium">{{ item.label }}</span>
-              </Link>
-
-              <div v-else class="px-4 py-2 text-slate-400" v-if="!isCollapsed">{{ item.label }}</div>
-
-              <button
-                v-if="item.children?.length && !isCollapsed"
-                type="button"
-                class="ml-10 mb-1 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
-                @click.stop="toggleExpanded(item.key)"
-              >
-                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                <span>{{ expanded[item.key] ? 'Recolher' : 'Expandir' }}</span>
-              </button>
-
-              <ul v-if="item.children?.length && !isCollapsed" class="mt-1 space-y-1 pl-11" v-show="expanded[item.key]">
-                <li v-for="child in item.children" :key="child.key">
-                  <Link
-                    v-if="child.href"
-                    :href="child.href"
-                    class="group flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-                    :class="childItemClasses(isLinkActive(child.href, child.exact))"
-                    @click="isSidebarOpen = false"
+              <template v-if="item.children?.length && can(item.ability)">
+                <button type="button" :class="itemClasses(false)" @click="toggleExpanded(item.key)">
+                  <svg class="h-5 w-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path :d="item.icon" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  <span v-if="!isCollapsed" class="flex-1 font-medium">{{ item.label }}</span>
+                  <svg
+                    v-if="!isCollapsed"
+                    class="h-4 w-4 text-slate-400 transition-transform"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    :class="{ 'rotate-180 text-indigo-300': expanded[item.key] }"
                   >
-                    <span
-                      class="h-1.5 w-1.5 rounded-full bg-slate-500 transition group-hover:bg-indigo-300"
-                      :class="{ 'bg-indigo-300': isLinkActive(child.href, child.exact) }"
-                    />
-                    <span>{{ child.label }}</span>
-                  </Link>
-                </li>
-              </ul>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                <transition name="accordion">
+                  <ul v-show="expanded[item.key]" class="space-y-1 pl-12">
+                    <li v-for="child in item.children" :key="child.key">
+                      <Link
+                        v-if="child.href && (!child.ability || abilities.includes(child.ability))"
+                        :href="child.href"
+                        class="group flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition hover:bg-slate-900/70"
+                        :class="childItemClasses(isLinkActive(child.href, child.exact))"
+                        @click="isSidebarOpen = false"
+                      >
+                        <span class="h-1.5 w-1.5 rounded-full bg-slate-500 transition group-hover:bg-indigo-300" :class="{ 'bg-indigo-300': isLinkActive(child.href, child.exact) }" />
+                        <span>{{ child.label }}</span>
+                      </Link>
+                    </li>
+                  </ul>
+                </transition>
+              </template>
+              <template v-else>
+                <Link
+                  v-if="item.href && can(item.ability)"
+                  :href="item.href"
+                  class="group"
+                  :class="itemClasses(isLinkActive(item.href, item.exact))"
+                  @click="isSidebarOpen = false"
+                >
+                  <svg class="h-5 w-5 text-slate-400 group-hover:text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path :d="item.icon" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  <span v-if="!isCollapsed" class="font-medium">{{ item.label }}</span>
+                </Link>
+              </template>
             </li>
           </ul>
         </nav>
-
-        <div v-if="false" class="border-t border-slate-800 px-4 py-5 text-sm">
-          <div
-            v-if="user"
-            class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-inner shadow-black/30"
-          >
-            <p class="font-semibold text-white">{{ user.nome }}</p>
-            <p class="text-xs text-slate-400">{{ user.username }}</p>
-            <form class="mt-4" method="post" action="/logout">
-              <input type="hidden" name="_token" :value="csrfToken" />
-              <button
-                type="submit"
-                class="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-sm font-medium text-rose-200 transition hover:border-rose-400 hover:bg-rose-500/25"
-              >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M15 17h5l-3 3m3-3l-3-3m3 3h-8a4 4 0 01-4-4V5a2 2 0 012-2h3"
-                  />
-                </svg>
-                Sair
-              </button>
-            </form>
-          </div>
-          <div class="hidden sm:flex items-center gap-3">
-            <div v-if="user" class="relative">
-              <button type="button" @click="userMenuOpen = !userMenuOpen"
-                class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20">
-                <div class="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-white text-xs">
-                  {{ (user.nome || user.username || 'U').substring(0,2).toUpperCase() }}
-                </div>
-                <span class="hidden xl:inline">{{ user.nome || user.username }}</span>
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
-              </button>
-              <div v-show="userMenuOpen" class="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 text-sm shadow-xl shadow-black/40">
-                <form method="POST" action="/logout">
-                  <input type="hidden" name="_token" :value="csrfToken" />
-                  <button type="submit" class="flex w-full items-center gap-2 px-4 py-2 text-left text-slate-200 hover:bg-slate-800">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-3 3m3-3l-3-3m3 3H9a4 4 0 01-4-4V5a2 2 0 012-2h3"/></svg>
-                    Sair
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-          <div
-            v-if="false"
-            class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300"
-          >
-            <p>Acesso restrito. Fa�a login para continuar.</p>
-            <Link
-              class="mt-2 inline-flex items-center font-medium text-indigo-300 hover:text-indigo-200"
-              href="/login"
-            >
-              Entrar
-            </Link>
-          </div>
-        </div>
       </div>
     </aside>
 
     <div class="flex w-full flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 ">
       <header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-        <div class="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
+        <div class="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-10 overflow-visible">
           <div>
             <h1 class="text-xl font-semibold text-white">{{ props.title }}</h1>
-            <p class="text-sm text-slate-400">Vis�o geral do Fortress Gest�o Imobili�ria</p>
+            <p class="text-sm text-slate-400">Visão geral do Fortress Gestão Imobiliária</p>
           </div>
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 lg:hidden"
-            @click="toggleSidebar"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
+          <div class="flex items-center gap-3">
+            <slot name="header-actions" />
+
+            <div v-if="user" class="relative">
+              <button
+                ref="userMenuButton"
+                type="button"
+                class="group flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-2 py-1.5 text-left text-slate-200 shadow-sm transition hover:border-indigo-500/60 hover:bg-indigo-600/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                @click.stop="toggleUserMenu"
+                :aria-expanded="userMenuOpen ? 'true' : 'false'"
+                aria-haspopup="menu"
+              >
+                <span class="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600/85 text-sm font-semibold text-white shadow-inner shadow-indigo-900/40 ring-2 ring-indigo-500/40 transition group-hover:ring-indigo-400/70">
+                  <img
+                    v-if="userAvatar"
+                    :src="userAvatar"
+                    :alt="'Avatar de ' + userDisplayName"
+                    class="h-full w-full rounded-full object-cover"
+                  />
+                  <span v-else>{{ userInitials }}</span>
+                </span>
+                <div class="hidden min-w-[120px] flex-col sm:flex">
+                  <span class="text-sm font-medium leading-tight text-white">{{ userDisplayName }}</span>
+                  <span class="text-xs text-slate-400">@{{ userLogin }}</span>
+                </div>
+                <svg
+                  class="hidden h-4 w-4 text-slate-400 transition-transform duration-150 sm:block"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  :class="{ 'rotate-180 text-indigo-300': userMenuOpen }"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+
+              <Teleport to="body">
+                <transition name="fade">
+                  <div v-if="userMenuOpen">
+                    <div class="fixed inset-0 z-[9990]" @click="closeUserMenu" />
+                    <div
+                      ref="userMenuContainer"
+                      class="fixed z-[9999] w-64 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/95 shadow-xl shadow-black/40 backdrop-blur"
+                      role="menu"
+                      aria-label="Menu do usuário"
+                      :style="menuStyles"
+                    >
+                      <div class="flex items-center gap-3 px-4 py-3">
+                        <span class="relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600/85 text-sm font-semibold text-white shadow-inner shadow-indigo-900/40 ring-2 ring-indigo-500/40">
+                          <img
+                            v-if="userAvatar"
+                            :src="userAvatar"
+                            :alt="'Avatar de ' + userDisplayName"
+                            class="h-full w-full rounded-full object-cover"
+                          />
+                          <span v-else>{{ userInitials }}</span>
+                        </span>
+                        <div class="min-w-0">
+                          <p class="truncate text-sm font-semibold text-white">{{ userDisplayName }}</p>
+                          <p class="truncate text-xs text-slate-400">@{{ userLogin }}</p>
+                        </div>
+                      </div>
+                      <div class="border-t border-slate-800/80 bg-slate-900/80">
+                        <button
+                          type="button"
+                          class="flex w-full cursor-pointer items-center gap-2 border-b border-slate-800/70 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800/70 hover:text-white focus:outline-none focus-visible:bg-slate-800/80"
+                          @click.stop.prevent="navigateToAccount"
+                        >
+                          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 6.75a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12c0-1.785 1.465-3.25 3.25-3.25h4c1.785 0 3.25 1.465 3.25 3.25 0 1.176-.63 2.2-1.567 2.772a8.983 8.983 0 01-2.433 4.132l-.013.012a1.125 1.125 0 01-1.572 0l-.013-.012a8.983 8.983 0 01-2.433-4.132A3.248 3.248 0 016.75 12z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 1115 0" />
+                          </svg>
+                          Configurações da conta
+                        </button>
+                        <button
+                          type="button"
+                          class="flex w-full cursor-pointer items-center gap-2 border-b border-slate-800/70 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800/70 hover:text-white focus:outline-none focus-visible:bg-slate-800/80"
+                          @click.stop.prevent="navigateToPassword"
+                        >
+                          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15l3-3-3-3" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.5 5.75A2.75 2.75 0 018.25 3h7.5A2.75 2.75 0 0118.5 5.75v12.5A2.75 2.75 0 0115.75 21h-7.5A2.75 2.75 0 015.5 18.25V5.75z" />
+                          </svg>
+                          Alterar senha
+                        </button>
+                        <button
+                          type="button"
+                          class="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-rose-100 transition hover:bg-rose-600/10 hover:text-rose-200 focus:outline-none focus-visible:bg-rose-600/15 focus-visible:text-rose-100"
+                          @click.stop.prevent="submitLogout"
+                        >
+                          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 12H9m3 3l-3-3 3-3" />
+                          </svg>
+                          Desconectar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </transition>
+              </Teleport>
+            </div>
+
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 lg:hidden"
+              @click="toggleSidebar"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-            Menu
-          </button>
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 6h18M3 18h18"/></svg>
+              Menu
+            </button>
+          </div>
         </div>
       </header>
 
@@ -410,30 +465,15 @@ const togglePin = () => {
       </footer>
     </div>
 
-    <transition-group
-      name="toast"
-      tag="div"
-      class="fixed bottom-4 right-4 z-50 flex w-full max-w-xs flex-col gap-3 px-4 sm:px-0"
-    >
-      <div
-        v-for="notification in notifications"
-        :key="notification.id"
-        :class="[
+    <transition-group name="toast" tag="div" class="fixed bottom-4 right-4 z-50 flex w-full max-w-xs flex-col gap-3 px-4 sm:px-0">
+      <div v-for="notification in notifications" :key="notification.id" :class="[
           'relative rounded-xl border px-4 py-3 text-sm shadow-lg shadow-black/40 backdrop-blur transition',
-          notification.type === 'success'
-            ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100'
-            : '',
+          notification.type === 'success' ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100' : '',
           notification.type === 'error' ? 'border-rose-500/40 bg-rose-500/15 text-rose-100' : '',
           notification.type === 'info' ? 'border-slate-500/40 bg-slate-500/15 text-slate-100' : '',
         ]"
       >
-        <button
-          type="button"
-          class="absolute right-2 top-2 text-xs text-slate-400 transition hover:text-white"
-          @click="notificationStore.remove(notification.id)"
-        >
-          fechar
-        </button>
+        <button type="button" class="absolute right-2 top-2 text-xs text-slate-400 transition hover:text-white" @click="notificationStore.remove(notification.id)">fechar</button>
         {{ notification.message }}
       </div>
     </transition-group>
@@ -442,27 +482,23 @@ const togglePin = () => {
 
 <style scoped>
 .toast-enter-active,
-.toast-leave-active {
-  transition: all 0.2s ease;
-}
-
+.toast-leave-active { transition: all 0.2s ease; }
 .toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
+.toast-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active,
+.fade-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; transform: translateY(-6px); }
+.accordion-enter-active,
+.accordion-leave-active { transition: all 0.18s ease-in-out; }
+.accordion-enter-from,
+.accordion-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>
 
 <style>
 /* Densidade compacta global aplicada pelo wrapper .app-compact */
 .app-compact table th,
-.app-compact table td {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-}
+.app-compact table td { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .app-compact .p-6 { padding: 1rem !important; }
 .app-compact header.sticky .py-4 { padding-top: .5rem !important; padding-bottom: .5rem !important; }
 </style>
-
-
-

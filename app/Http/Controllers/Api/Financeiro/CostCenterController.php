@@ -229,9 +229,13 @@ class CostCenterController extends Controller
             return null;
         }
 
-        $parent = CostCenter::query()->whereNull('parent_id')->find($parentId);
+        $parent = CostCenter::query()->find($parentId);
 
-        if ($parent && $current && $current->id === $parent->id) {
+        if (! $parent) {
+            return null;
+        }
+
+        if ($current && $current->id === $parent->id) {
             return null;
         }
 
@@ -244,7 +248,7 @@ class CostCenterController extends Controller
             return null;
         }
 
-        return CostCenter::query()->where('codigo', $codigo)->whereNull('parent_id')->first();
+        return CostCenter::query()->where('codigo', $codigo)->first();
     }
 
     private function resolveCodigo(?string $codigo, ?CostCenter $parent, ?CostCenter $current = null): string
@@ -259,15 +263,16 @@ class CostCenterController extends Controller
     private function generateCodigo(?CostCenter $parent, ?CostCenter $ignore = null): string
     {
         if ($parent) {
-            $prefix = (string) preg_split('/\./', $parent->codigo)[0];
+            $prefix = $this->normalizeParentPrefix($parent->codigo);
             $query = CostCenter::query()->where('parent_id', $parent->id);
             if ($ignore) {
                 $query->where('id', '<>', $ignore->id);
             }
             $siblings = $query->pluck('codigo');
             $max = 0;
+            $pattern = '/^'.preg_quote($prefix, '/').'\.(\d+)$/';
             foreach ($siblings as $code) {
-                if (preg_match('/^'.preg_quote($prefix, '/').'\.(\d+)$/', (string) $code, $matches)) {
+                if (preg_match($pattern, (string) $code, $matches)) {
                     $max = max($max, (int) $matches[1]);
                 }
             }
@@ -288,6 +293,18 @@ class CostCenterController extends Controller
         }
 
         return sprintf('%d.0', max(1, $max + 1));
+    }
+
+    private function normalizeParentPrefix(string $codigo): string
+    {
+        $segments = explode('.', $codigo);
+        while (count($segments) > 1 && end($segments) === '0') {
+            array_pop($segments);
+        }
+
+        $prefix = implode('.', $segments);
+
+        return $prefix !== '' ? $prefix : $codigo;
     }
 
     private function findColumn(array $headers, array $candidates): ?string
@@ -333,9 +350,7 @@ class CostCenterController extends Controller
 
     private function queryRoots()
     {
-        return CostCenter::with(['children' => function ($query) {
-            $query->with('children')->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)");
-        }])
+        return CostCenter::with('childrenRecursive')
             ->whereNull('parent_id')
             ->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)")
             ->get();

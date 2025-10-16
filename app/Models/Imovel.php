@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Imovel extends Model
 {
@@ -82,5 +84,24 @@ class Imovel extends Model
     public function condominio(): BelongsTo
     {
         return $this->belongsTo(Condominio::class, 'condominio_id');
+    }
+
+    public function anexos(): HasMany
+    {
+        return $this->hasMany(ImovelAnexo::class);
+    }
+
+    public function contratos(): HasMany
+    {
+        return $this->hasMany(Contrato::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Imovel $imovel) {
+            $imovel->anexos()->each(function (ImovelAnexo $anexo) {
+                Storage::disk('public')->delete($anexo->path);
+            });
+        });
     }
 }

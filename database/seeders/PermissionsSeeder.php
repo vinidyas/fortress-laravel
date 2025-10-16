@@ -31,14 +31,20 @@ class PermissionsSeeder extends Seeder
             'reports.export',
         ];
 
+        $alertPermissions = [
+            'alerts.view',
+            'alerts.resolve',
+        ];
+
         $basePermissions = [
             'imoveis.view', 'imoveis.create', 'imoveis.update', 'imoveis.delete',
             'pessoas.view', 'pessoas.create', 'pessoas.update', 'pessoas.delete',
+            'condominios.view', 'condominios.create', 'condominios.update', 'condominios.delete',
             'contratos.view', 'contratos.create', 'contratos.update', 'contratos.delete',
             'faturas.view', 'faturas.create', 'faturas.update', 'faturas.delete', 'faturas.settle', 'faturas.cancel',
         ];
 
-        $allPermissions = array_unique(array_merge($financePermissions, $auditPermissions, $reportPermissions, $basePermissions));
+        $allPermissions = array_unique(array_merge($financePermissions, $auditPermissions, $reportPermissions, $alertPermissions, $basePermissions));
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate([
@@ -47,11 +53,16 @@ class PermissionsSeeder extends Seeder
             ]);
         }
 
+        Permission::firstOrCreate([
+            'name' => 'admin.access',
+            'guard_name' => 'web',
+        ]);
+
         $roles = [
             'admin' => [
                 'label' => 'Administrador',
                 'description' => 'Acesso completo ao sistema',
-                'permissions' => $allPermissions,
+                'permissions' => array_values(array_unique(array_merge($allPermissions, ['admin.access']))),
             ],
             'operador' => [
                 'label' => 'Operador',
@@ -59,6 +70,7 @@ class PermissionsSeeder extends Seeder
                 'permissions' => [
                     'imoveis.view', 'imoveis.create', 'imoveis.update',
                     'pessoas.view', 'pessoas.create', 'pessoas.update',
+                    'condominios.view', 'condominios.create', 'condominios.update',
                     'contratos.view', 'contratos.create', 'contratos.update',
                     'reports.view.operacional', 'reports.view.pessoas',
                 ],
@@ -70,6 +82,7 @@ class PermissionsSeeder extends Seeder
                     'financeiro.view', 'financeiro.create', 'financeiro.update', 'financeiro.reconcile', 'financeiro.export',
                     'faturas.view', 'faturas.create', 'faturas.update', 'faturas.settle', 'faturas.cancel',
                     'reports.view.financeiro', 'reports.export',
+                    'alerts.view',
                 ],
             ],
             'auditor' => [
@@ -79,6 +92,7 @@ class PermissionsSeeder extends Seeder
                     'financeiro.view',
                     'auditoria.view', 'auditoria.export',
                     'reports.view.financeiro', 'reports.view.operacional',
+                    'alerts.view', 'alerts.resolve',
                 ],
             ],
         ];

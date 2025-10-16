@@ -56,6 +56,14 @@ class ImovelStoreRequest extends FormRequest
             'area_construida' => ['nullable', 'numeric', 'min:0'],
             'comodidades' => ['nullable', 'array'],
             'comodidades.*' => ['string', 'max:120'],
+            'anexos' => ['nullable', 'array'],
+            'anexos.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png'],
+            'anexos_legendas' => ['nullable', 'array'],
+            'anexos_legendas.*' => ['nullable', 'string', 'max:255'],
+            'anexos_legendas_existentes' => ['nullable', 'array'],
+            'anexos_legendas_existentes.*' => ['nullable', 'string', 'max:255'],
+            'anexos_remover' => ['nullable', 'array'],
+            'anexos_remover.*' => ['integer'],
         ];
     }
 
@@ -91,6 +99,10 @@ class ImovelStoreRequest extends FormRequest
         $data['finalidade'] = $this->normalizeArray($this->input('finalidade'), ['Locacao', 'Venda']);
         $data['comodidades'] = $this->normalizeArray($this->input('comodidades'));
 
+        $data['anexos_legendas'] = $this->normalizeStringArray($this->input('anexos_legendas'));
+        $data['anexos_legendas_existentes'] = $this->normalizeStringAssociativeArray($this->input('anexos_legendas_existentes'));
+        $data['anexos_remover'] = $this->normalizeIntegerArray($this->input('anexos_remover'));
+
         $this->merge($data);
     }
     private function normalizeArray(mixed $value, array $allowed = []): array
@@ -114,5 +126,58 @@ class ImovelStoreRequest extends FormRequest
         }
 
         return $value;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int, string>
+     */
+    private function normalizeStringArray(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(function ($item) {
+            $item = is_string($item) ? trim($item) : '';
+
+            return mb_substr($item, 0, 255);
+        }, $value));
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int|string, string>
+     */
+    private function normalizeStringAssociativeArray(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($value as $key => $item) {
+            $normalized[$key] = mb_substr(is_string($item) ? trim($item) : '', 0, 255);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int, int>
+     */
+    private function normalizeIntegerArray(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(
+            array_filter(
+                array_map(fn ($item) => is_numeric($item) ? (int) $item : null, $value),
+                fn ($item) => $item !== null
+            )
+        );
     }
 }

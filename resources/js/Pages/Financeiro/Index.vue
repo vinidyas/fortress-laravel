@@ -124,7 +124,7 @@ const currentFilters = computed(() => ({ ...store.query }));
             <input
               v-model="stateFilters.search"
               type="search"
-              placeholder="DescriÃ§Ã£o, observaÃ§Ã£o"
+              placeholder="Descrição, observação"
               class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
@@ -171,8 +171,8 @@ const currentFilters = computed(() => ({ ...store.query }));
               class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 text-sm text-white focus:border-indigo-500 focus:outline-none"
             >
               <option value="">Todos</option>
-              <option value="credito">CrÃ©dito</option>
-              <option value="debito">DÃ©bito</option>
+              <option value="credito">Crédito</option>
+              <option value="debito">Débito</option>
             </select>
           </div>
           <div>
@@ -184,7 +184,7 @@ const currentFilters = computed(() => ({ ...store.query }));
             />
           </div>
           <div>
-            <label class="text-xs font-semibold text-slate-400">Data (atÃ©)</label>
+            <label class="text-xs font-semibold text-slate-400">Data (até)</label>
             <input
               v-model="stateFilters.dateTo"
               type="date"
@@ -192,7 +192,7 @@ const currentFilters = computed(() => ({ ...store.query }));
             />
           </div>
           <div>
-            <label class="text-xs font-semibold text-slate-400">Registros / pÃ¡gina</label>
+            <label class="text-xs font-semibold text-slate-400">Registros / página</label>
             <select
               v-model.number="stateFilters.perPage"
               class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 text-sm text-white focus:border-indigo-500 focus:outline-none"
@@ -222,13 +222,13 @@ const currentFilters = computed(() => ({ ...store.query }));
 
         <div class="mt-6 grid gap-4 md:grid-cols-3">
           <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
-            <p class="text-slate-400">Total crÃ©ditos</p>
+            <p class="text-slate-400">Total créditos</p>
             <p class="text-2xl font-semibold text-emerald-300">
               {{ formatCurrency(props.totals.credito) }}
             </p>
           </article>
           <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
-            <p class="text-slate-400">Total dÃ©bitos</p>
+            <p class="text-slate-400">Total débitos</p>
             <p class="text-2xl font-semibold text-rose-300">
               {{ formatCurrency(props.totals.debito) }}
             </p>

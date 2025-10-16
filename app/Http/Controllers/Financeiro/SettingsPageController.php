@@ -7,6 +7,7 @@ use App\Http\Resources\Financeiro\CostCenterResource;
 use App\Models\CostCenter;
 use App\Models\FinancialAccount;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,31 +40,14 @@ class SettingsPageController extends Controller
     {
         $this->authorize('viewAny', CostCenter::class);
 
-        $roots = CostCenter::with(['children' => function ($query) {
-            $query->with('children')
-                ->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)");
-        }])
+        $roots = CostCenter::with('childrenRecursive')
             ->whereNull('parent_id')
             ->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)")
             ->get();
 
         $centersTree = CostCenterResource::collection($roots)->resolve();
 
-        $parentOptions = CostCenter::query()
-            ->whereNull('parent_id')
-            ->with(['children' => fn ($query) => $query->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)")])
-            ->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)")
-            ->get()
-            ->map(fn (CostCenter $center) => [
-                'id' => $center->id,
-                'nome' => $center->nome,
-                'codigo' => $center->codigo,
-                'children' => $center->children->map(fn (CostCenter $child) => [
-                    'id' => $child->id,
-                    'codigo' => $child->codigo,
-                ])->values(),
-            ])
-            ->values();
+        $parentOptions = $this->flattenCostCenters($roots);
 
         return Inertia::render('Financeiro/CostCenters/Index', [
             'centers' => $centersTree,
@@ -76,5 +60,25 @@ class SettingsPageController extends Controller
                 'import' => $request->user()->hasPermission('financeiro.create'),
             ],
         ]);
+    }
+
+    private function flattenCostCenters(Collection $centers, int $depth = 0): array
+    {
+        return $centers->flatMap(function (CostCenter $center) use ($depth) {
+            $children = $center->relationLoaded('childrenRecursive')
+                ? $center->childrenRecursive
+                : $center->children;
+
+            return collect([
+                [
+                    'id' => $center->id,
+                    'nome' => $center->nome,
+                    'codigo' => $center->codigo,
+                    'parent_id' => $center->parent_id,
+                    'depth' => $depth,
+                ],
+                ...$this->flattenCostCenters($children, $depth + 1),
+            ]);
+        })->values()->all();
     }
 }

@@ -22,6 +22,15 @@ class PessoaResource extends JsonResource
             'telefone' => $this->telefone,
             'tipo_pessoa' => $this->tipo_pessoa,
             'papeis' => $this->papeis ?? [],
+            'enderecos' => [
+                'cep' => $this->cep,
+                'estado' => $this->estado,
+                'cidade' => $this->cidade,
+                'bairro' => $this->bairro,
+                'rua' => $this->rua,
+                'numero' => $this->numero,
+                'complemento' => $this->complemento,
+            ],
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

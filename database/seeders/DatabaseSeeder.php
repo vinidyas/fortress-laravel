@@ -69,11 +69,17 @@ class DatabaseSeeder extends Seeder
                 'imovel_id' => Imovel::query()->inRandomOrder()->value('id'),
                 'locador_id' => $pessoas->random()->id,
                 'locatario_id' => $pessoas->random()->id,
-                'fiador_id' => $pessoas->random()->id,
             ])
             ->create();
 
-        $contratos->each(function (Contrato $contrato) {
+        $contratos->each(function (Contrato $contrato) use ($pessoas) {
+            $fiadorCount = rand(0, 2);
+            if ($fiadorCount > 0) {
+                $contrato->fiadores()->sync(
+                    collect($pessoas->random($fiadorCount))->pluck('id')->all()
+                );
+            }
+
             for ($i = 0; $i < 3; $i++) {
                 $competencia = Carbon::now()->subMonths($i)->startOfMonth();
 

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class ImovelResource extends JsonResource
 {
@@ -49,6 +50,12 @@ class ImovelResource extends JsonResource
                 'area_construida' => $this->area_construida,
                 'comodidades' => $this->comodidades,
             ],
+            'anexos_count' => $this->when(isset($this->anexos_count), fn () => (int) $this->anexos_count),
+            'contratos' => $this->whenLoaded('contratos', fn () => $this->contratos->map(fn ($contrato) => [
+                'id' => $contrato->id,
+                'codigo_contrato' => $contrato->codigo_contrato,
+                'status' => $contrato->status,
+            ])),
             'proprietario' => $this->whenLoaded('proprietario', fn () => [
                 'id' => $this->proprietario->id,
                 'nome_razao_social' => $this->proprietario->nome_razao_social,
@@ -65,6 +72,22 @@ class ImovelResource extends JsonResource
                 'id' => $this->condominio?->id,
                 'nome' => $this->condominio?->nome,
             ]),
+            'anexos' => $this->whenLoaded('anexos', fn () => $this->anexos->map(function ($anexo) {
+                return [
+                    'id' => $anexo->id,
+                    'display_name' => $anexo->display_name ?? $anexo->original_name,
+                    'original_name' => $anexo->original_name,
+                    'mime_type' => $anexo->mime_type,
+                    'uploaded_at' => optional($anexo->created_at)->toIso8601String(),
+                    'uploaded_by' => $anexo->uploader
+                        ? [
+                            'id' => $anexo->uploader->id,
+                            'name' => $anexo->uploader->name,
+                        ]
+                        : null,
+                    'url' => Storage::disk('public')->url($anexo->path),
+                ];
+            })),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

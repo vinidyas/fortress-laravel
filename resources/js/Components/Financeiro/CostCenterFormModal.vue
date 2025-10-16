@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import axios from '@/bootstrap';
 import type { AxiosError } from 'axios';
 import { computed, reactive, ref, watch } from 'vue';
@@ -8,7 +8,8 @@ type ParentOption = {
   id: number;
   nome: string;
   codigo: string;
-  children: Array<{ id: number; codigo: string }>;
+  parent_id: number | null;
+  depth: number;
 };
 
 interface CostCenterPayload {
@@ -50,16 +51,39 @@ const form = reactive<CostCenterPayload>({
 });
 
 const isEdit = computed(() => props.mode === 'edit');
-const parentMap = computed(() =>
-  new Map<number, ParentOption>(props.parents.map((parent) => [parent.id, parent]))
+const parentMap = computed(
+  () => new Map<number, ParentOption>(props.parents.map((option) => [option.id, option]))
 );
+
+const isDescendant = (candidateId: number, targetId: number): boolean => {
+  let current = parentMap.value.get(candidateId);
+
+  while (current && current.parent_id) {
+    if (current.parent_id === targetId) {
+      return true;
+    }
+
+    current = parentMap.value.get(current.parent_id);
+  }
+
+  return false;
+};
+
 const availableParents = computed(() => {
   if (!props.center) {
     return props.parents;
   }
 
-  return props.parents.filter((parent) => parent.id !== props.center?.id);
+  const currentId = props.center.id;
+
+  return props.parents.filter((parent) => parent.id !== currentId && !isDescendant(parent.id, currentId));
 });
+
+const formatParentLabel = (option: ParentOption): string => {
+  const indent = '\u00a0\u00a0'.repeat(option.depth);
+
+  return `${indent}${option.codigo} — ${option.nome}`;
+};
 const isSub = computed(() => form.tipo === 'sub');
 
 const resetErrors = () => {
@@ -77,6 +101,17 @@ const syncForm = () => {
   form.tipo = form.parent_id ? 'sub' : 'principal';
 };
 
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
+
+const normalizeParentPrefix = (codigo: string): string => {
+  const segments = codigo.split('.');
+  while (segments.length > 1 && segments[segments.length - 1] === '0') {
+    segments.pop();
+  }
+
+  return segments.join('.') || codigo;
+};
+
 const generateSubCodigo = (parentId: number | null): string => {
   if (!parentId) {
     return '';
@@ -87,31 +122,32 @@ const generateSubCodigo = (parentId: number | null): string => {
     return '';
   }
 
-  const base = parent.codigo.split('.')[0] ?? parent.codigo;
-  const siblings = parent.children ?? [];
-  const maxSuffix = siblings.reduce((acc, child) => {
-    // Ignora o próprio código do centro que está sendo editado na contagem
-    if (isEdit.value && props.center?.id === child.id) {
-      return acc;
-    }
-    const [, suffixValue] = child.codigo.split('.');
-    const parsed = Number.parseInt(suffixValue ?? '0', 10);
-    return Number.isNaN(parsed) ? acc : Math.max(acc, parsed);
-  }, 0);
+  const base = normalizeParentPrefix(parent.codigo);
+  const siblings = props.parents.filter((option) => option.parent_id === parentId);
+  const pattern = new RegExp(`^${escapeRegex(base)}\\.(\\d+)$`);
 
-  // Se estamos editando e o código já pertence a este pai, mantemos o código atual.
+  let maxSuffix = 0;
+  siblings.forEach((sibling) => {
+    const match = sibling.codigo.match(pattern);
+    if (!match) {
+      return;
+    }
+
+    const suffix = Number.parseInt(match[1] ?? '0', 10);
+    if (!Number.isNaN(suffix)) {
+      maxSuffix = Math.max(maxSuffix, suffix);
+    }
+  });
+
   if (
     isEdit.value &&
     props.center?.parent_id === parentId &&
-    props.center.codigo.startsWith(`${base}.`) // CORRIGIDO
+    props.center?.codigo.startsWith(`${base}.`)
   ) {
     return props.center.codigo;
   }
 
-  // Gera o próximo sufixo disponível.
-  const nextSuffix = maxSuffix + 1;
-
-  return `${base}.${nextSuffix}`; // CORRIGIDO e COM LÓGICA COMPLETA
+  return `${base}.${maxSuffix + 1}`;
 };
 
 watch(
@@ -199,7 +235,6 @@ const submit = async () => {
     };
 
     if (isEdit.value && props.center) {
-      // CORRIGIDO: A URL agora é uma string (usando crases) e inclui o ID do centro.
       const response = await axios.put(`/api/financeiro/cost-centers/${props.center.id}`, payload);
       toast.success(response.data?.message ?? 'Centro de custo atualizado com sucesso.');
     } else {
@@ -225,7 +260,7 @@ const submit = async () => {
     }
 
     const message =
-      axiosError.response?.data?.message ?? 'Nao foi possivel salvar o centro de custo. Tente novamente.';
+      axiosError.response?.data?.message ?? 'Não foi possível salvar o centro de custo. Tente novamente.';
     formError.value = message;
     toast.error(message);
   } finally {
@@ -250,7 +285,7 @@ const submit = async () => {
               {{ isEdit ? 'Editar centro de custo' : 'Novo centro de custo' }}
             </h2>
             <p class="text-xs text-slate-400">
-              Estruture centros principais e subcentros para organizar lancamentos.
+              Estruture centros principais e subcentros para organizar lançamentos.
             </p>
           </div>
           <button
@@ -287,7 +322,7 @@ const submit = async () => {
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-slate-200">Codigo</label>
+            <label class="text-sm font-medium text-slate-200">Código</label>
             <input
               v-model="form.codigo"
               type="text"
@@ -330,14 +365,14 @@ const submit = async () => {
             >
               <option :value="null" disabled>Selecione um centro principal</option>
               <option v-for="parent in availableParents" :key="parent.id" :value="parent.id">
-                {{ parent.codigo }} — {{ parent.nome }}
+                {{ formatParentLabel(parent) }}
               </option>
             </select>
             <p v-if="errors.parent_id" class="text-xs text-rose-400">{{ errors.parent_id }}</p>
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-slate-200">Descricao</label>
+            <label class="text-sm font-medium text-slate-200">Descrição</label>
             <textarea
               v-model="form.descricao"
               rows="3"
@@ -379,7 +414,7 @@ const submit = async () => {
                 <path d="M4 12h2" />
                 <path d="M5.636 5.636l1.414 1.414" />
               </svg>
-              {{ submitting ? 'Salvando...' : isEdit ? 'Salvar alteracoes' : 'Criar centro' }}
+              {{ submitting ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar centro' }}
             </button>
           </div>
         </form>

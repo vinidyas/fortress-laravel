@@ -32,6 +32,11 @@ class CostCenter extends Model
         return $this->hasMany(self::class, 'parent_id')->orderByRaw("CAST(REPLACE(codigo, '.', '') AS UNSIGNED)");
     }
 
+    public function childrenRecursive(): HasMany
+    {
+        return $this->children()->with('childrenRecursive');
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(FinancialTransaction::class, 'cost_center_id');

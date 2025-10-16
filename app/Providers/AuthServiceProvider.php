@@ -11,6 +11,7 @@ use App\Models\FinancialTransaction;
 use App\Models\Imovel;
 use App\Models\PaymentSchedule;
 use App\Models\Pessoa;
+use App\Models\DashboardAlert;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ContratoPolicy;
 use App\Policies\CostCenterPolicy;
@@ -20,6 +21,7 @@ use App\Policies\FinancialTransactionPolicy;
 use App\Policies\ImovelPolicy;
 use App\Policies\PaymentSchedulePolicy;
 use App\Policies\PessoaPolicy;
+use App\Policies\DashboardAlertPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -35,6 +37,7 @@ class AuthServiceProvider extends ServiceProvider
         CostCenter::class => CostCenterPolicy::class,
         PaymentSchedule::class => PaymentSchedulePolicy::class,
         AuditLog::class => AuditLogPolicy::class,
+        DashboardAlert::class => DashboardAlertPolicy::class,
     ];
 
     public function register(): void

@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { route } from 'ziggy-js';
 
 const form = useForm({
   username: '',
   password: '',
   remember: false,
 });
+
+const page = usePage();
+const status = computed(() => page.props.status ?? null);
 
 const submit = () => {
   form.post('/login', {
@@ -18,6 +23,10 @@ const submit = () => {
 <template>
   <GuestLayout>
     <Head title="Entrar" />
+
+    <div v-if="status" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+      {{ status }}
+    </div>
 
     <form @submit.prevent="submit" class="space-y-6">
       <div>
@@ -50,7 +59,7 @@ const submit = () => {
         </p>
       </div>
 
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <label class="flex items-center gap-2 text-sm text-slate-600">
           <input
             v-model="form.remember"
@@ -59,7 +68,10 @@ const submit = () => {
           />
           Lembrar-me
         </label>
-        <Link href="/" class="text-sm text-indigo-600 hover:text-indigo-500">Voltar</Link>
+        <div class="flex items-center gap-4 text-sm">
+          <Link :href="route('password.request')" class="text-indigo-600 hover:text-indigo-500">Esqueci minha senha</Link>
+          <Link href="/" class="text-slate-500 hover:text-slate-700">Voltar</Link>
+        </div>
       </div>
 
       <button
@@ -72,4 +84,3 @@ const submit = () => {
     </form>
   </GuestLayout>
 </template>
-

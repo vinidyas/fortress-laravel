@@ -86,7 +86,7 @@ class ReportOperacionalController extends Controller
                 'contrato' => $contrato->codigo_contrato,
                 'imovel' => $contrato->imovel?->codigo,
                 'cidade' => $contrato->imovel?->cidade,
-                'status' => $contrato->status,
+                'status' => $contrato->status?->value,
                 'data_fim' => optional($contrato->data_fim)->toDateString(),
             ])
             ->all();

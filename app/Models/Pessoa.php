@@ -17,6 +17,13 @@ class Pessoa extends Model
         'cpf_cnpj',
         'email',
         'telefone',
+        'cep',
+        'estado',
+        'cidade',
+        'bairro',
+        'rua',
+        'numero',
+        'complemento',
         'tipo_pessoa',
         'papeis',
     ];

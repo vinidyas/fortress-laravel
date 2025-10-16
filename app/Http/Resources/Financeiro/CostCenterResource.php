@@ -23,7 +23,12 @@ class CostCenterResource extends JsonResource
                 'nome' => $this->parent->nome,
                 'codigo' => $this->parent->codigo,
             ]),
-            'children' => $this->whenLoaded('children', fn () => self::collection($this->children)->resolve()),
+            'children' => $this->when(
+                $this->relationLoaded('children') || $this->relationLoaded('childrenRecursive'),
+                fn () => self::collection(
+                    $this->relationLoaded('children') ? $this->children : $this->childrenRecursive
+                )->resolve()
+            ),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

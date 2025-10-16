@@ -55,6 +55,13 @@ class PessoaStoreRequest extends FormRequest
             'cpf_cnpj' => $cpfRules,
             'email' => ['nullable', 'string', 'max:150', 'email'],
             'telefone' => ['nullable', 'string', 'max:30'],
+            'cep' => ['nullable', 'string', 'max:20'],
+            'estado' => ['nullable', 'string', 'size:2'],
+            'cidade' => ['nullable', 'string', 'max:120'],
+            'bairro' => ['nullable', 'string', 'max:120'],
+            'rua' => ['nullable', 'string', 'max:150'],
+            'numero' => ['nullable', 'string', 'max:20'],
+            'complemento' => ['nullable', 'string', 'max:150'],
             'papeis' => ['nullable', 'array'],
             'papeis.*' => [Rule::in(self::PAPEIS_PERMITIDOS)],
         ];

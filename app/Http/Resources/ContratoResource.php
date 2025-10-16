@@ -4,12 +4,11 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class ContratoResource extends JsonResource
 {
     /**
-     * Transform the resource into an array.
-     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -20,17 +19,27 @@ class ContratoResource extends JsonResource
             'imovel_id' => $this->imovel_id,
             'locador_id' => $this->locador_id,
             'locatario_id' => $this->locatario_id,
-            'fiador_id' => $this->fiador_id,
             'data_inicio' => $this->data_inicio,
             'data_fim' => $this->data_fim,
             'dia_vencimento' => $this->dia_vencimento,
+            'prazo_meses' => $this->prazo_meses,
+            'carencia_meses' => $this->carencia_meses,
+            'data_entrega_chaves' => $this->data_entrega_chaves,
             'valor_aluguel' => $this->valor_aluguel,
-            'reajuste_indice' => $this->reajuste_indice,
+            'desconto_mensal' => $this->desconto_mensal,
+            'reajuste_indice' => $this->reajuste_indice?->value,
+            'reajuste_periodicidade_meses' => $this->reajuste_periodicidade_meses,
             'data_proximo_reajuste' => $this->data_proximo_reajuste,
-            'garantia_tipo' => $this->garantia_tipo,
+            'garantia_tipo' => $this->garantia_tipo?->value,
             'caucao_valor' => $this->caucao_valor,
             'taxa_adm_percentual' => $this->taxa_adm_percentual,
-            'status' => $this->status,
+            'multa_atraso_percentual' => $this->multa_atraso_percentual,
+            'juros_mora_percentual_mes' => $this->juros_mora_percentual_mes,
+            'repasse_automatico' => $this->repasse_automatico,
+            'conta_cobranca_id' => $this->conta_cobranca_id,
+            'forma_pagamento_preferida' => $this->forma_pagamento_preferida?->value,
+            'tipo_contrato' => $this->tipo_contrato?->value,
+            'status' => $this->status?->value,
             'observacoes' => $this->observacoes,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
@@ -48,10 +57,20 @@ class ContratoResource extends JsonResource
                 'id' => $this->locatario->id,
                 'nome_razao_social' => $this->locatario->nome_razao_social,
             ]),
-            'fiador' => $this->whenLoaded('fiador', fn () => [
-                'id' => $this->fiador?->id,
-                'nome_razao_social' => $this->fiador?->nome_razao_social,
+            'fiadores' => $this->whenLoaded('fiadores', fn () => $this->fiadores->map(fn ($fiador) => [
+                'id' => $fiador->id,
+                'nome_razao_social' => $fiador->nome_razao_social,
+            ])->all()),
+            'conta_cobranca' => $this->whenLoaded('contaCobranca', fn () => [
+                'id' => $this->contaCobranca->id,
+                'nome' => $this->contaCobranca->nome,
             ]),
+            'anexos' => $this->whenLoaded('anexos', fn () => $this->anexos->map(fn ($anexo) => [
+                'id' => $anexo->id,
+                'original_name' => $anexo->original_name,
+                'mime_type' => $anexo->mime_type,
+                'url' => Storage::disk('public')->url($anexo->path),
+            ])->all()),
         ];
     }
 }

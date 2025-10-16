@@ -73,18 +73,38 @@ class CostCenterRequest extends FormRequest
                 return;
             }
 
+            /** @var CostCenter|null $parent */
             $parent = CostCenter::query()->find($parentId);
             if (! $parent) {
                 return;
             }
 
-            if ($parent->parent_id) {
-                $validator->errors()->add('parent_id', 'Somente centros principais podem ser selecionados como pai.');
+            $current = $this->route('cost_center');
+            $currentId = $current instanceof CostCenter ? $current->id : null;
+
+            if ($currentId === null) {
+                return;
             }
 
-            $current = $this->route('cost_center');
-            if ($current instanceof CostCenter && $current->id === (int) $parentId) {
-                $validator->errors()->add('parent_id', 'Um centro de custo nao pode ser pai de si mesmo.');
+            if ($parent->id === $currentId) {
+                $validator->errors()->add('parent_id', 'Um centro de custo não pode ser pai de si mesmo.');
+
+                return;
+            }
+
+            $ancestor = $parent;
+            while ($ancestor) {
+                if ($ancestor->parent_id === null) {
+                    break;
+                }
+
+                if ($ancestor->parent_id === $currentId) {
+                    $validator->errors()->add('parent_id', 'Não é possível selecionar um descendente como pai.');
+
+                    return;
+                }
+
+                $ancestor = $ancestor->parent()->first();
             }
         });
     }

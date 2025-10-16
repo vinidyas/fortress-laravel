@@ -40,16 +40,28 @@ class PessoaController extends Controller
                     });
                 }),
                 AllowedFilter::exact('tipo_pessoa'),
+                AllowedFilter::exact('estado'),
+                AllowedFilter::callback('cidade', function ($builder, $value) {
+                    $value = trim((string) $value);
+                    if ($value === '') { return; }
+                    $builder->where('cidade', 'like', "%{$value}%");
+                }),
                 AllowedFilter::callback('papel', function ($builder, $value) {
                     $values = collect(is_array($value) ? $value : [$value])
                         ->filter()
                         ->map(fn ($item) => ucfirst(mb_strtolower((string) $item)))
                         ->unique()
-                        ->all();
+                        ->values();
 
-                    foreach ($values as $papel) {
-                        $builder->whereJsonContains('papeis', $papel);
+                    if ($values->isEmpty()) {
+                        return;
                     }
+
+                    $builder->where(function ($q) use ($values) {
+                        foreach ($values as $papel) {
+                            $q->orWhereJsonContains('papeis', $papel);
+                        }
+                    });
                 }),
             ])
             ->paginate($perPage)

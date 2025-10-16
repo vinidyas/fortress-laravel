@@ -29,13 +29,19 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        $userData = $user?->only(['id', 'username', 'nome', 'email', 'ativo']);
+        if ($userData) {
+            $userData['avatar_url'] = $user->avatar_url ?? null;
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $user?->only(['id', 'username', 'nome', 'ativo']) ?? null,
+                'user' => $userData,
                 'abilities' => $abilities,
             ],
             'csrf_token' => csrf_token(),
+            'status' => fn () => $request->session()->get('status'),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

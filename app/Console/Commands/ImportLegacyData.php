@@ -418,7 +418,6 @@ class ImportLegacyData extends Command
                     'imovel_id' => $this->crosswalk['imoveis'][$this->get($row, ['imovel_id'], 0)] ?? null,
                     'locador_id' => $this->crosswalk['pessoas'][$this->get($row, ['locador_id'], 0)] ?? null,
                     'locatario_id' => $this->crosswalk['pessoas'][$this->get($row, ['locatario_id'], 0)] ?? null,
-                    'fiador_id' => $this->crosswalk['pessoas'][$this->get($row, ['fiador_id'], 0)] ?? null,
                     'data_inicio' => $this->parseDate($this->get($row, ['data_inicio'])),
                     'data_fim' => $this->parseDate($this->get($row, ['data_fim'])),
                     'dia_vencimento' => (int) $this->get($row, ['dia_vencimento'], 5),
@@ -443,6 +442,12 @@ class ImportLegacyData extends Command
                     ['codigo_contrato' => $payload['codigo_contrato']],
                     $payload
                 );
+
+                $fiadorId = $this->crosswalk['pessoas'][$this->get($row, ['fiador_id'], 0)] ?? null;
+
+                if ($fiadorId) {
+                    $contrato->fiadores()->syncWithoutDetaching([$fiadorId]);
+                }
 
                 $this->crosswalk['contratos'][$row->id] = $contrato->id;
                 $count++;
@@ -944,3 +949,4 @@ class ImportLegacyData extends Command
         return $default;
     }
 }
+

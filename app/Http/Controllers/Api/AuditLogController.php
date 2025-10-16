@@ -49,7 +49,7 @@ class AuditLogController extends Controller
 
             return response()->streamDownload(function () use ($query, $generatedAt) {
                 echo "{\n";
-                echo '  "generated_at": "'.$generatedAt."",\n";
+                echo '  "generated_at": "'.$generatedAt."\",\n";
                 echo '  "rows": [';
 
                 $first = true;
