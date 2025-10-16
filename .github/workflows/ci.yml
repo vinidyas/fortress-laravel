@@ -16,8 +16,10 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: mbstring, dom, sqlite3
+          php-version: '8.3'
+          extensions: >-
+            mbstring, pdo_mysql, gd, zip, xml, curl, dom, fileinfo, sqlite3
+          tools: composer:v2
           coverage: none
 
       - name: Install Composer Dependencies
