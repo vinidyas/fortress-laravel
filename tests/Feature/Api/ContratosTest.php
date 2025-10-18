@@ -48,6 +48,21 @@ class ContratosTest extends TestCase
         ]);
     }
 
+    public function test_generate_codigo_endpoint_returns_code(): void
+    {
+        $this->actingAsContratoApiUser(['contratos.create']);
+
+        $response = $this->getJson('/api/contratos/generate-codigo');
+
+        $response->assertOk()->assertJsonStructure(['codigo']);
+
+        $codigo = $response->json('codigo');
+
+        $this->assertIsString($codigo);
+        $this->assertNotSame('', $codigo);
+        $this->assertMatchesRegularExpression('/^CTR-\d{5}$/', $codigo);
+    }
+
     public function test_creates_contrato_with_fiadores_and_attachments(): void
     {
         Storage::fake('public');
