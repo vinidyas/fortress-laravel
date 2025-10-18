@@ -20,6 +20,7 @@ class AuditLogResource extends JsonResource
             'payload' => $this->payload ?? [],
             'ip_address' => $this->ip_address,
             'user_agent' => $this->user_agent,
+            'context' => $this->context ?? [],
             'created_at' => $this->created_at,
             'user' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user->id,

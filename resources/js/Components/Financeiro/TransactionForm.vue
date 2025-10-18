@@ -3,6 +3,7 @@ import { Link, router } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
 import { computed, reactive, ref } from 'vue';
 import MoneyInput from '@/Components/Form/MoneyInput.vue';
+import DatePicker from '@/Components/Form/DatePicker.vue';
 import TransactionStatusBadge from '@/Components/Financeiro/TransactionStatusBadge.vue';
 import { useToast } from '@/composables/useToast';
 
@@ -26,6 +27,8 @@ interface TransactionPayload {
   valor: string | number;
   status: Status;
 }
+
+export type { TransactionPayload, Option as TransactionOption };
 
 const props = defineProps<{
   mode: 'create' | 'edit';
@@ -200,12 +203,13 @@ const currentStatus = computed<Status>(() => props.transaction?.status ?? 'pende
 
           <div class="flex flex-col gap-1">
             <label class="text-sm font-medium text-slate-700">Data de ocorrência *</label>
-            <input
+            <DatePicker
               v-model="form.data_ocorrencia"
-              type="date"
+              placeholder="dd/mm/aaaa"
               :required="canEdit"
               :disabled="!canEdit"
-              class="rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              :invalid="Boolean(errors.data_ocorrencia)"
+              appearance="light"
             />
             <p v-if="errors.data_ocorrencia" class="text-xs text-rose-600">
               {{ errors.data_ocorrencia }}
@@ -268,4 +272,3 @@ const currentStatus = computed<Status>(() => props.transaction?.status ?? 'pende
     </form>
   </section>
 </template>
-

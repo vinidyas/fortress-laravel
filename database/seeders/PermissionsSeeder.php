@@ -41,7 +41,7 @@ class PermissionsSeeder extends Seeder
             'pessoas.view', 'pessoas.create', 'pessoas.update', 'pessoas.delete',
             'condominios.view', 'condominios.create', 'condominios.update', 'condominios.delete',
             'contratos.view', 'contratos.create', 'contratos.update', 'contratos.delete',
-            'faturas.view', 'faturas.create', 'faturas.update', 'faturas.delete', 'faturas.settle', 'faturas.cancel',
+            'faturas.view', 'faturas.create', 'faturas.update', 'faturas.delete', 'faturas.settle', 'faturas.cancel', 'faturas.email',
         ];
 
         $allPermissions = array_unique(array_merge($financePermissions, $auditPermissions, $reportPermissions, $alertPermissions, $basePermissions));
@@ -80,7 +80,7 @@ class PermissionsSeeder extends Seeder
                 'description' => 'Gestao financeira e faturamento',
                 'permissions' => [
                     'financeiro.view', 'financeiro.create', 'financeiro.update', 'financeiro.reconcile', 'financeiro.export',
-                    'faturas.view', 'faturas.create', 'faturas.update', 'faturas.settle', 'faturas.cancel',
+                    'faturas.view', 'faturas.create', 'faturas.update', 'faturas.settle', 'faturas.cancel', 'faturas.email',
                     'reports.view.financeiro', 'reports.export',
                     'alerts.view',
                 ],

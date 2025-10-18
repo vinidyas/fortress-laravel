@@ -4,6 +4,7 @@ import type { AxiosError } from 'axios';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useToast } from '@/composables/useToast';
 import DatePicker from '@/Components/Form/DatePicker.vue';
+import MoneyInput from '@/Components/Form/MoneyInput.vue';
 import ImovelSelect from '@/Components/Contratos/ImovelSelect.vue';
 import PessoaSelect from '@/Components/Pessoas/PessoaSelect.vue';
 
@@ -45,8 +46,13 @@ const statusOptions = [
 
 const reajusteOptions = [
   { value: 'IGPM', label: 'IGP-M' },
+  { value: 'IGPDI', label: 'IGP-DI' },
   { value: 'IPCA', label: 'IPCA' },
+  { value: 'IPCA15', label: 'IPCA-15' },
   { value: 'INPC', label: 'INPC' },
+  { value: 'TR', label: 'TR' },
+  { value: 'SELIC', label: 'SELIC' },
+  { value: 'OUTRO', label: 'Outro índice' },
   { value: 'SEM_REAJUSTE', label: 'Sem reajuste' },
 ];
 
@@ -74,19 +80,19 @@ const form = reactive({
   data_inicio: '',
   data_fim: '',
   dia_vencimento: '' as string | number,
-  prazo_meses: '',
   carencia_meses: '',
   data_entrega_chaves: '',
   valor_aluguel: '',
-  desconto_mensal: '',
   reajuste_indice: 'IGPM',
+  reajuste_indice_outro: '',
   reajuste_periodicidade_meses: '12',
+  reajuste_teto_percentual: '',
   data_proximo_reajuste: '',
   garantia_tipo: 'SemGarantia',
   caucao_valor: '',
-  taxa_adm_percentual: '',
   multa_atraso_percentual: '',
   juros_mora_percentual_mes: '',
+  multa_rescisao_alugueis: '3',
   repasse_automatico: true,
   conta_cobranca_id: '' as string | number,
   forma_pagamento_preferida: '',
@@ -95,6 +101,7 @@ const form = reactive({
   observacoes: '',
 });
 
+const fiadores = ref<(number | null)[]>([]);
 const newAttachments = ref<File[]>([]);
 const existingAttachments = ref<ExistingAttachment[]>([]);
 
@@ -123,6 +130,8 @@ const monthInputToIso = (value: string): string => {
 };
 
 const showCaucaoValor = computed(() => form.garantia_tipo === 'Caucao');
+const showFiadorCampos = computed(() => form.garantia_tipo === 'Fiador');
+const normalizedFiadores = computed(() => fiadores.value.filter((id): id is number => typeof id === 'number' && Number.isFinite(id)));
 const showReajusteCampos = computed(() => form.reajuste_indice !== 'SEM_REAJUSTE');
 const arquivosParaRemover = computed(() => existingAttachments.value.filter((a) => a.marked).map((a) => a.id));
 
@@ -138,25 +147,26 @@ const resetForm = () => {
   form.data_inicio = '';
   form.data_fim = '';
   form.dia_vencimento = '';
-  form.prazo_meses = '';
   form.carencia_meses = '';
   form.data_entrega_chaves = '';
   form.valor_aluguel = '';
-  form.desconto_mensal = '';
   form.reajuste_indice = 'IGPM';
+  form.reajuste_indice_outro = '';
   form.reajuste_periodicidade_meses = '12';
+  form.reajuste_teto_percentual = '';
   form.data_proximo_reajuste = '';
   form.garantia_tipo = 'SemGarantia';
   form.caucao_valor = '';
-  form.taxa_adm_percentual = '';
   form.multa_atraso_percentual = '';
   form.juros_mora_percentual_mes = '';
+  form.multa_rescisao_alugueis = '3';
   form.repasse_automatico = true;
   form.conta_cobranca_id = '';
   form.forma_pagamento_preferida = '';
   form.tipo_contrato = '';
   form.status = 'Ativo';
   form.observacoes = '';
+  fiadores.value = [];
   newAttachments.value = [];
   existingAttachments.value = [];
   clearErrors();
@@ -217,26 +227,29 @@ const loadContrato = async () => {
     form.data_inicio = toDateInputValue(payload.data_inicio);
     form.data_fim = toDateInputValue(payload.data_fim);
     form.dia_vencimento = payload.dia_vencimento ?? '';
-    form.prazo_meses = payload.prazo_meses ?? '';
     form.carencia_meses = payload.carencia_meses ?? '';
     form.data_entrega_chaves = toDateInputValue(payload.data_entrega_chaves);
     form.valor_aluguel = formatDecimal(payload.valor_aluguel);
-    form.desconto_mensal = formatDecimal(payload.desconto_mensal);
     form.reajuste_indice = payload.reajuste_indice ?? 'IGPM';
+    form.reajuste_indice_outro = payload.reajuste_indice_outro ?? '';
     form.reajuste_periodicidade_meses = payload.reajuste_periodicidade_meses ?? '';
+    form.reajuste_teto_percentual = formatDecimal(payload.reajuste_teto_percentual);
     form.data_proximo_reajuste = toMonthInputValue(payload.data_proximo_reajuste);
     form.garantia_tipo = payload.garantia_tipo ?? 'SemGarantia';
     form.caucao_valor = formatDecimal(payload.caucao_valor);
-    form.taxa_adm_percentual = formatDecimal(payload.taxa_adm_percentual);
     form.multa_atraso_percentual = formatDecimal(payload.multa_atraso_percentual);
     form.juros_mora_percentual_mes = formatDecimal(payload.juros_mora_percentual_mes);
+    form.multa_rescisao_alugueis = formatDecimal(payload.multa_rescisao_alugueis ?? '3');
     form.repasse_automatico = Boolean(payload.repasse_automatico);
     form.conta_cobranca_id = payload.conta_cobranca_id ?? '';
     form.forma_pagamento_preferida = payload.forma_pagamento_preferida ?? '';
     form.tipo_contrato = payload.tipo_contrato ?? '';
     form.status = payload.status ?? 'Ativo';
     form.observacoes = payload.observacoes ?? '';
-
+    fiadores.value = (payload.fiadores ?? []).map((f: { id: number }) => f.id);
+    if (form.garantia_tipo === 'Fiador' && fiadores.value.length === 0) {
+      fiadores.value.push(null);
+    }
     existingAttachments.value = (payload.anexos ?? []).map((a: ExistingAttachment) => ({ ...a, marked: false }));
   } catch (error) {
     console.error(error);
@@ -278,25 +291,26 @@ const submit = async () => {
   formData.append('data_inicio', form.data_inicio || '');
   formData.append('data_fim', form.data_fim || '');
   formData.append('dia_vencimento', String(form.dia_vencimento ?? ''));
-  formData.append('prazo_meses', form.prazo_meses ?? '');
   formData.append('carencia_meses', form.carencia_meses ?? '');
   formData.append('data_entrega_chaves', form.data_entrega_chaves || '');
   formData.append('valor_aluguel', form.valor_aluguel ?? '');
-  formData.append('desconto_mensal', form.desconto_mensal ?? '');
   formData.append('reajuste_indice', form.reajuste_indice ?? '');
+  formData.append('reajuste_indice_outro', form.reajuste_indice === 'OUTRO' ? form.reajuste_indice_outro.trim() : '');
   formData.append('reajuste_periodicidade_meses', form.reajuste_periodicidade_meses ?? '');
+  formData.append('reajuste_teto_percentual', form.reajuste_teto_percentual ?? '');
   formData.append('data_proximo_reajuste', monthInputToIso(form.data_proximo_reajuste) || '');
   formData.append('garantia_tipo', form.garantia_tipo ?? '');
   formData.append('caucao_valor', form.caucao_valor ?? '');
-  formData.append('taxa_adm_percentual', form.taxa_adm_percentual ?? '');
   formData.append('multa_atraso_percentual', form.multa_atraso_percentual ?? '');
   formData.append('juros_mora_percentual_mes', form.juros_mora_percentual_mes ?? '');
+  formData.append('multa_rescisao_alugueis', form.multa_rescisao_alugueis ?? '');
   formData.append('repasse_automatico', form.repasse_automatico ? '1' : '0');
   formData.append('conta_cobranca_id', String(form.conta_cobranca_id ?? ''));
   formData.append('forma_pagamento_preferida', form.forma_pagamento_preferida ?? '');
   formData.append('tipo_contrato', form.tipo_contrato ?? '');
   formData.append('status', form.status ?? '');
   formData.append('observacoes', form.observacoes ?? '');
+  normalizedFiadores.value.forEach((id, index) => formData.append(`fiadores[${index}]`, String(id)));
 
   arquivosParaRemover.value.forEach((id, index) => formData.append(`anexos_remover[${index}]`, String(id)));
   newAttachments.value.forEach((file) => formData.append('anexos[]', file, file.name));
@@ -330,15 +344,39 @@ const submit = async () => {
   }
 };
 
-watch(() => form.garantia_tipo, (v) => { if (v !== 'Caucao') form.caucao_valor = ''; });
+watch(() => form.garantia_tipo, (v) => {
+  if (v !== 'Caucao') form.caucao_valor = '';
+  if (v === 'Fiador') {
+    if (fiadores.value.length === 0) fiadores.value.push(null);
+  } else {
+    fiadores.value = [];
+  }
+});
 watch(() => form.reajuste_indice, (v) => {
   if (v === 'SEM_REAJUSTE') {
     form.reajuste_periodicidade_meses = '';
     form.data_proximo_reajuste = '';
-  } else if (!form.reajuste_periodicidade_meses) {
-    form.reajuste_periodicidade_meses = '12';
+    form.reajuste_teto_percentual = '';
+  } else {
+    if (!form.reajuste_periodicidade_meses) {
+      form.reajuste_periodicidade_meses = '12';
+    }
+    if (v !== 'OUTRO') {
+      form.reajuste_indice_outro = '';
+    }
   }
 });
+
+watch(
+  () => props.mode,
+  (mode) => {
+    if (mode === 'create') {
+      form.garantia_tipo = 'SemGarantia';
+      form.caucao_valor = '';
+    }
+  },
+  { immediate: true }
+);
 
 onMounted(() => {
   if (props.mode === 'edit') {
@@ -436,11 +474,6 @@ watch(
           <input v-model="form.dia_vencimento" type="number" min="1" max="28" required class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           <p v-if="errors.dia_vencimento" class="text-xs text-rose-400">{{ errors.dia_vencimento }}</p>
         </div>
-          <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-slate-200">Prazo (meses)</label>
-          <input v-model="form.prazo_meses" type="number" min="0" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-          <p v-if="errors.prazo_meses" class="text-xs text-rose-400">{{ errors.prazo_meses }}</p>
-        </div>
         <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-slate-200">Carência (meses)</label>
           <input v-model="form.carencia_meses" type="number" min="0" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
@@ -460,32 +493,57 @@ watch(
           <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Financeiro</h3>
         </header>
         <div class="grid gap-6 lg:grid-cols-3">
-          <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-slate-200">Valor do aluguel *</label>
-          <input v-model="form.valor_aluguel" type="text" inputmode="decimal" required class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-          <p v-if="errors.valor_aluguel" class="text-xs text-rose-400">{{ errors.valor_aluguel }}</p>
-        </div>
-          <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-slate-200">Desconto mensal</label>
-          <input v-model="form.desconto_mensal" type="text" inputmode="decimal" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-          <p v-if="errors.desconto_mensal" class="text-xs text-rose-400">{{ errors.desconto_mensal }}</p>
-        </div>
-          <div class="grid gap-6 sm:grid-cols-2 lg:col-span-3">
-            <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-slate-200">Taxa administrativa (%)</label>
-            <input v-model="form.taxa_adm_percentual" type="text" inputmode="decimal" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-            <p v-if="errors.taxa_adm_percentual" class="text-xs text-rose-400">{{ errors.taxa_adm_percentual }}</p>
+          <div class="flex flex-col gap-1 lg:col-span-3">
+            <label class="text-sm font-medium text-slate-200">Valor do aluguel *</label>
+            <MoneyInput
+              v-model="form.valor_aluguel"
+              required
+              :input-class="'border-slate-700 bg-slate-900 text-white'"
+            />
+            <p v-if="errors.valor_aluguel" class="text-xs text-rose-400">{{ errors.valor_aluguel }}</p>
           </div>
-            <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-slate-200">Multa por atraso (%)</label>
-            <input v-model="form.multa_atraso_percentual" type="text" inputmode="decimal" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-slate-200">Multa por atraso</label>
+            <div class="relative">
+              <input
+                v-model="form.multa_atraso_percentual"
+                type="text"
+                inputmode="decimal"
+                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 pr-12 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-slate-400">%</span>
+            </div>
             <p v-if="errors.multa_atraso_percentual" class="text-xs text-rose-400">{{ errors.multa_atraso_percentual }}</p>
           </div>
-            <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-slate-200">Juros mensal (%)</label>
-            <input v-model="form.juros_mora_percentual_mes" type="text" inputmode="decimal" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-slate-200">Juros por atraso (ao mês)</label>
+            <div class="relative">
+              <input
+                v-model="form.juros_mora_percentual_mes"
+                type="text"
+                inputmode="decimal"
+                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 pr-12 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-slate-400">%</span>
+            </div>
             <p v-if="errors.juros_mora_percentual_mes" class="text-xs text-rose-400">{{ errors.juros_mora_percentual_mes }}</p>
           </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-slate-200">Multa rescisão de contrato *</label>
+            <div class="relative">
+              <input
+                v-model="form.multa_rescisao_alugueis"
+                type="number"
+                min="0"
+                step="0.1"
+                required
+                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 pr-20 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-slate-400">
+                aluguéis
+              </span>
+            </div>
+            <p v-if="errors.multa_rescisao_alugueis" class="text-xs text-rose-400">{{ errors.multa_rescisao_alugueis }}</p>
           </div>
         </div>
       </section>
@@ -502,10 +560,32 @@ watch(
           </select>
           <p v-if="errors.reajuste_indice" class="text-xs text-rose-400">{{ errors.reajuste_indice }}</p>
         </div>
+        <div v-if="form.reajuste_indice === 'OUTRO'" class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-slate-200">Informe o índice personalizado *</label>
+          <input
+            v-model="form.reajuste_indice_outro"
+            type="text"
+            maxlength="60"
+            placeholder="Ex.: Índice setorial, contrato coletivo"
+            class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <p v-if="errors.reajuste_indice_outro" class="text-xs text-rose-400">{{ errors.reajuste_indice_outro }}</p>
+        </div>
         <div v-if="showReajusteCampos" class="flex flex-col gap-1">
           <label class="text-sm font-medium text-slate-200">Periodicidade (meses)</label>
           <input v-model="form.reajuste_periodicidade_meses" type="number" min="1" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           <p v-if="errors.reajuste_periodicidade_meses" class="text-xs text-rose-400">{{ errors.reajuste_periodicidade_meses }}</p>
+        </div>
+        <div v-if="showReajusteCampos" class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-slate-200">Teto de reajuste (%)</label>
+          <input
+            v-model="form.reajuste_teto_percentual"
+            type="text"
+            inputmode="decimal"
+            placeholder="Opcional"
+            class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <p v-if="errors.reajuste_teto_percentual" class="text-xs text-rose-400">{{ errors.reajuste_teto_percentual }}</p>
         </div>
         <div v-if="showReajusteCampos" class="flex flex-col gap-1">
           <label class="text-sm font-medium text-slate-200">Próximo reajuste</label>
@@ -532,6 +612,39 @@ watch(
           <input v-model="form.caucao_valor" type="text" inputmode="decimal" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           <p v-if="errors.caucao_valor" class="text-xs text-rose-400">{{ errors.caucao_valor }}</p>
         </div>
+        </div>
+        <div v-if="showFiadorCampos" class="space-y-3">
+          <div
+            v-for="(fiadorId, index) in fiadores"
+            :key="`fiador-${index}`"
+            class="flex items-start gap-3"
+          >
+            <div class="flex-1">
+              <PessoaSelect
+                v-model="fiadores[index]"
+                :label="fiadores.length > 1 ? `Fiador ${index + 1}` : 'Fiador'"
+                role="Fiador"
+                :disabled="saving"
+                :error="errors[`fiadores.${index}`] ?? null"
+              />
+            </div>
+            <button
+              type="button"
+              class="mt-6 inline-flex items-center rounded-md border border-rose-500/60 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20"
+              @click="fiadores.splice(index, 1)"
+              v-if="fiadores.length > 1"
+            >
+              Remover
+            </button>
+          </div>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800"
+            @click="fiadores.push(null)"
+          >
+            + Adicionar fiador
+          </button>
+          <p v-if="errors.fiadores" class="text-xs text-rose-400">{{ errors.fiadores }}</p>
         </div>
       </section>
 

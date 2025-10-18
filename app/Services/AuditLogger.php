@@ -23,6 +23,8 @@ class AuditLogger
                 $user = request()->user();
             }
 
+            $context = $this->buildContext($user);
+
             AuditLog::create([
                 'user_id' => $user?->getAttribute('id'),
                 'action' => $action,
@@ -31,6 +33,7 @@ class AuditLogger
                 'payload' => $this->redactPayload($payload),
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
+                'context' => $context === [] ? null : $context,
             ]);
         } catch (\Throwable $exception) {
             Log::warning('Falha ao registrar auditoria: '.$exception->getMessage(), [
@@ -45,6 +48,76 @@ class AuditLogger
         $base = Str::snake(class_basename($model));
 
         return $base.'.'.$event;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildContext(?Authenticatable $user): array
+    {
+        if (app()->runningInConsole()) {
+            return [
+                'guard' => 'console',
+                'origin' => 'Console',
+            ];
+        }
+
+        $request = request();
+        if (! $request) {
+            return [];
+        }
+
+        $guard = $this->resolveGuardName($user);
+        $origin = $this->mapOrigin($guard, $request->isJson() || $request->wantsJson());
+
+        $context = [
+            'guard' => $guard,
+            'origin' => $origin,
+            'http_method' => $request->method(),
+            'url' => $request->fullUrl() ?: $request->getRequestUri(),
+            'route_name' => optional($request->route())->getName(),
+            'route_uri' => optional($request->route())->uri(),
+            'referer' => $request->headers->get('referer'),
+            'ip_forwarded_for' => $request->headers->get('x-forwarded-for'),
+            'request_id' => $request->headers->get('x-request-id'),
+        ];
+
+        if ($request->hasSession()) {
+            $context['session_id'] = $request->session()->getId();
+        }
+
+        return array_filter(
+            $context,
+            static fn ($value) => ! is_null($value) && $value !== ''
+        );
+    }
+
+    private function resolveGuardName(?Authenticatable $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $guards = array_keys(config('auth.guards', []));
+
+        foreach ($guards as $guard) {
+            $guardUser = auth()->guard($guard)->user();
+            if ($guardUser instanceof Authenticatable && $guardUser->getAuthIdentifier() === $user->getAuthIdentifier()) {
+                return $guard;
+            }
+        }
+
+        return null;
+    }
+
+    private function mapOrigin(?string $guard, bool $expectsJson): string
+    {
+        return match ($guard) {
+            'sanctum', 'api' => 'API',
+            'web' => 'Painel',
+            'console' => 'Console',
+            default => $expectsJson ? 'API' : 'Painel',
+        };
     }
 
     /**

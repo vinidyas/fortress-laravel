@@ -17,6 +17,8 @@ use App\Http\Controllers\Reports\OperacionalReportPageController;
 use App\Http\Controllers\Reports\PessoasReportPageController;
 use App\Http\Controllers\Profile\AccountController;
 use App\Http\Controllers\Profile\PasswordController;
+use App\Http\Controllers\FaturaBillingController;
+use App\Http\Controllers\FaturaReceiptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -77,6 +79,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/faturas/novo', fn () => Inertia::render('Faturas/Show', [
         'faturaId' => null,
     ]))->name('faturas.create');
+    Route::get('/faturas/{fatura}/cobranca', FaturaBillingController::class)->name('faturas.billing');
+    Route::get('/faturas/{fatura}/recibo', FaturaReceiptController::class)->name('faturas.receipt');
     Route::get('/faturas/{fatura}', fn (int $fatura) => Inertia::render('Faturas/Show', [
         'faturaId' => $fatura,
     ]))->name('faturas.show');

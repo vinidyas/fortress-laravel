@@ -4,6 +4,7 @@ import axios from '@/bootstrap';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { reactive, ref, watch } from 'vue';
+import DatePicker from '@/Components/Form/DatePicker.vue';
 
 type Defaults = {
   parcela_atual?: number;
@@ -180,12 +181,12 @@ const submit = async () => {
 
         <div>
           <label class="block text-sm font-medium text-slate-300" for="vencimento">Vencimento</label>
-          <input
+          <DatePicker
             id="vencimento"
             v-model="form.vencimento"
-            type="date"
+            placeholder="dd/mm/aaaa"
             required
-            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            :invalid="Boolean(fieldErrors.vencimento)"
           />
           <p v-if="fieldErrors.vencimento" class="mt-1 text-xs text-rose-300">{{ fieldErrors.vencimento }}</p>
         </div>

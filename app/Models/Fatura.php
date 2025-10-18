@@ -46,6 +46,16 @@ class Fatura extends Model
         return $this->hasMany(FaturaLancamento::class);
     }
 
+    public function anexos(): HasMany
+    {
+        return $this->hasMany(FaturaAnexo::class);
+    }
+
+    public function emailLogs(): HasMany
+    {
+        return $this->hasMany(FaturaEmailLog::class)->latest();
+    }
+
     public function recalcTotals(): self
     {
         $total = $this->relationLoaded('itens')

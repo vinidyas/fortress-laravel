@@ -4,6 +4,7 @@ import { useToast } from '@/composables/useToast';
 import { computed, reactive, ref, watch, onBeforeUnmount } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { lookupCep, normalizeCep } from '@/utils/cep';
+import type { PageProps } from '@/types/page';
 
 type Nullable<T> = T | null;
 
@@ -81,6 +82,38 @@ type NewAttachment = {
   uploadedByName: string;
 };
 
+type ExistingPhotoItem = {
+  kind: 'existing';
+  id: number;
+  legenda: string;
+  initialLegenda: string;
+  originalName: string;
+  mimeType: string | null;
+  url: string;
+  thumbnailUrl: string;
+  size: number | null;
+  ordem: number;
+  width: number | null;
+  height: number | null;
+  markedForRemoval: boolean;
+};
+
+type NewPhotoItem = {
+  kind: 'new';
+  id: string;
+  file: File;
+  legenda: string;
+  previewUrl: string;
+};
+
+type PhotoItem = ExistingPhotoItem | NewPhotoItem;
+
+type PhotoPreview = {
+  url: string;
+  legenda: string | null;
+  originalName: string;
+};
+
 const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: 'saved', id?: number): void;
@@ -88,7 +121,7 @@ const emit = defineEmits<{
   (e: 'request-create-condominio', draft: ImovelFormDraft): void;
 }>();
 
-const page = usePage();
+const page = usePage<PageProps>();
 const toast = useToast();
 const isEditing = computed(() => props.mode === 'edit' && Boolean(props.imovelId));
 const loading = ref(isEditing.value);
@@ -151,10 +184,33 @@ let proprietarioSearchTimeout: ReturnType<typeof setTimeout> | null = null;
 const existingAttachments = ref<ExistingAttachment[]>([]);
 const newAttachments = ref<NewAttachment[]>([]);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const photoItems = ref<PhotoItem[]>([]);
+const photoFileInputRef = ref<HTMLInputElement | null>(null);
+const photoPreview = ref<PhotoPreview | null>(null);
+const downloadingPhotos = ref(false);
+const maxPhotos = 15;
+const maxPhotoSizeBytes = 5 * 1024 * 1024;
 const currentUserName = computed(() => {
   const name = page.props.auth?.user?.name;
   return typeof name === 'string' && name.trim() !== '' ? name : 'Você';
 });
+
+function isExistingPhoto(item: PhotoItem): item is ExistingPhotoItem {
+  return item.kind === 'existing';
+}
+
+function isNewPhoto(item: PhotoItem): item is NewPhotoItem {
+  return item.kind === 'new';
+}
+
+const activePhotosCount = computed(() =>
+  photoItems.value.filter((item) => !isExistingPhoto(item) || !item.markedForRemoval).length
+);
+const photosLimitReached = computed(() => activePhotosCount.value >= maxPhotos);
+const hasAnyPhotos = computed(() => activePhotosCount.value > 0);
+const canDownloadPhotos = computed(
+  () => isEditing.value && photoItems.value.some((item) => isExistingPhoto(item) && !item.markedForRemoval)
+);
 
 const fieldLabels: Record<string, string> = {
   proprietario_id: 'Proprietário',
@@ -307,6 +363,7 @@ function resetForm(): void {
   proprietarioOptions.value = [];
   existingAttachments.value = [];
   newAttachments.value = [];
+  resetPhotos();
 }
 
 function normalizeDecimal(value: unknown): string {
@@ -423,6 +480,28 @@ async function loadImovel(id: number): Promise<void> {
         }))
       : [];
     newAttachments.value = [];
+    resetPhotos();
+    photoItems.value = Array.isArray(payload.fotos)
+      ? [...payload.fotos]
+          .sort((a: any, b: any) => Number(a.ordem ?? 0) - Number(b.ordem ?? 0))
+          .map(
+            (foto: any): ExistingPhotoItem => ({
+              kind: 'existing',
+              id: Number(foto.id),
+              legenda: typeof foto.legenda === 'string' ? foto.legenda : '',
+              initialLegenda: typeof foto.legenda === 'string' ? foto.legenda : '',
+              originalName: foto.original_name ?? `Foto ${foto.id}`,
+              mimeType: foto.mime_type ?? null,
+              url: foto.url ?? '',
+              thumbnailUrl: foto.thumbnail_url ?? foto.url ?? '',
+              size: typeof foto.size === 'number' ? foto.size : null,
+              ordem: typeof foto.ordem === 'number' ? foto.ordem : 0,
+              width: typeof foto.width === 'number' ? foto.width : null,
+              height: typeof foto.height === 'number' ? foto.height : null,
+              markedForRemoval: false,
+            })
+          )
+      : [];
     proprietarioSearchTerm.value = selectedProprietarioName;
     proprietarioDropdownOpen.value = false;
     condominioSearchTerm.value = selectedCondominioName;
@@ -757,6 +836,38 @@ function buildFormData(): FormData {
     formData.append(key, normalizeFormValue(value));
   });
 
+  const photoOrderItems = photoItems.value.filter(
+    (item) => !isExistingPhoto(item) || !item.markedForRemoval
+  );
+
+  photoOrderItems.forEach((item, index) => {
+    const descriptor = isExistingPhoto(item) ? `existing:${item.id}` : `new:${item.id}`;
+    formData.append(`fotos_ordem[${index}]`, descriptor);
+  });
+
+  photoItems.value
+    .filter((item): item is ExistingPhotoItem => isExistingPhoto(item) && !item.markedForRemoval)
+    .forEach((photo) => {
+      const trimmed = photo.legenda.trim();
+      const initial = photo.initialLegenda.trim();
+      if (trimmed !== initial) {
+        formData.append(`fotos_legendas_existentes[${photo.id}]`, trimmed);
+      }
+    });
+
+  photoItems.value
+    .filter((item): item is ExistingPhotoItem => isExistingPhoto(item) && item.markedForRemoval)
+    .forEach((photo, index) => {
+      formData.append(`fotos_remover[${index}]`, String(photo.id));
+    });
+
+  const newPhotoItems = photoItems.value.filter((item): item is NewPhotoItem => isNewPhoto(item));
+  newPhotoItems.forEach((photo, index) => {
+    formData.append(`fotos[${index}]`, photo.file, photo.file.name);
+    formData.append(`fotos_ids[${index}]`, photo.id);
+    formData.append(`fotos_legendas[${index}]`, photo.legenda.trim());
+  });
+
   newAttachments.value.forEach((attachment, index) => {
     formData.append(`anexos[${index}]`, attachment.file, attachment.file.name);
     const label = (attachment.displayName ?? '').trim();
@@ -866,6 +977,198 @@ function toggleExistingAttachmentRemoval(attachment: ExistingAttachment): void {
   attachment.markedForRemoval = !attachment.markedForRemoval;
   if (attachment.markedForRemoval) {
     attachment.displayName = attachment.initialDisplayName;
+  }
+}
+
+function cleanupPhotoPreviews(): void {
+  photoItems.value.forEach((item) => {
+    if (isNewPhoto(item)) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+  });
+}
+
+function resetPhotos(): void {
+  cleanupPhotoPreviews();
+  photoItems.value = [];
+  photoPreview.value = null;
+}
+
+function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) {
+    return '-';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const precision = size < 10 && unitIndex > 0 ? 1 : 0;
+  return `${size.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+function extractFilenameFromDisposition(disposition: unknown, fallback: string): string {
+  if (typeof disposition !== 'string') {
+    return fallback;
+  }
+
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const asciiMatch = disposition.match(/filename="?([^\";]+)"?/i);
+  if (asciiMatch?.[1]) {
+    return asciiMatch[1];
+  }
+
+  return fallback;
+}
+
+function openPhotoPicker(): void {
+  photoFileInputRef.value?.click();
+}
+
+function handlePhotoFilesSelected(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  if (!input.files) {
+    return;
+  }
+
+  const files = Array.from(input.files);
+  input.value = '';
+
+  const remainingSlots = maxPhotos - activePhotosCount.value;
+  if (remainingSlots <= 0) {
+    toast.error(`Limite de ${maxPhotos} fotos atingido.`);
+    return;
+  }
+
+  if (files.length > remainingSlots) {
+    toast.error(
+      `Você só pode adicionar mais ${remainingSlots} foto${remainingSlots > 1 ? 's' : ''} neste imóvel.`
+    );
+  }
+
+  files.slice(0, remainingSlots).forEach((file) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error(`"${file.name}" não é uma imagem suportada e foi ignorada.`);
+      return;
+    }
+
+    if (file.size > maxPhotoSizeBytes) {
+      toast.error(`"${file.name}" excede o limite de 5MB e foi ignorada.`);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    const baseLegend = file.name.replace(/\.[^/.]+$/, '').trim();
+
+    photoItems.value.push({
+      kind: 'new',
+      id: generateTemporaryId(),
+      file,
+      legenda: baseLegend,
+      previewUrl,
+    });
+  });
+}
+
+function removeNewPhoto(id: string): void {
+  const index = photoItems.value.findIndex((item) => item.kind === 'new' && item.id === id);
+  if (index === -1) {
+    return;
+  }
+
+  const [removed] = photoItems.value.splice(index, 1);
+  if (removed && isNewPhoto(removed)) {
+    URL.revokeObjectURL(removed.previewUrl);
+  }
+}
+
+function toggleExistingPhotoRemovalFlag(photo: ExistingPhotoItem): void {
+  photo.markedForRemoval = !photo.markedForRemoval;
+  if (photo.markedForRemoval) {
+    photo.legenda = photo.initialLegenda;
+  }
+}
+
+function movePhotoUp(index: number): void {
+  if (index <= 0) {
+    return;
+  }
+
+  const items = photoItems.value;
+  [items[index - 1], items[index]] = [items[index], items[index - 1]];
+}
+
+function movePhotoDown(index: number): void {
+  if (index < 0 || index >= photoItems.value.length - 1) {
+    return;
+  }
+
+  const items = photoItems.value;
+  [items[index + 1], items[index]] = [items[index], items[index + 1]];
+}
+
+function openPhotoPreview(photo: PhotoItem): void {
+  const url = isExistingPhoto(photo) ? photo.url : photo.previewUrl;
+  const legenda = photo.legenda?.trim() ?? null;
+  const original = isExistingPhoto(photo) ? photo.originalName : photo.file.name;
+
+  photoPreview.value = {
+    url,
+    legenda: legenda && legenda !== '' ? legenda : null,
+    originalName: original,
+  };
+}
+
+function closePhotoPreview(): void {
+  photoPreview.value = null;
+}
+
+async function downloadPhotosZip(): Promise<void> {
+  if (!props.imovelId || downloadingPhotos.value) {
+    return;
+  }
+
+  downloadingPhotos.value = true;
+  try {
+    const response = await axios.get(`/api/imoveis/${props.imovelId}/fotos/download`, {
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data], { type: response.headers['content-type'] ?? 'application/zip' });
+    const filename = extractFilenameFromDisposition(
+      response.headers['content-disposition'],
+      `imovel-${props.imovelId}-fotos.zip`
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      toast.info('Nenhuma foto disponível para download.');
+    } else {
+      toast.error('Não foi possível gerar o download das fotos.');
+    }
+  } finally {
+    downloadingPhotos.value = false;
   }
 }
 
@@ -990,6 +1293,7 @@ onBeforeUnmount(() => {
   if (proprietarioSearchTimeout) {
     clearTimeout(proprietarioSearchTimeout);
   }
+  cleanupPhotoPreviews();
 });
 </script>
 
@@ -1330,6 +1634,173 @@ onBeforeUnmount(() => {
       <section class="space-y-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-inner shadow-black/20">
         <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-center gap-3">
+            <span class="h-6 w-1 rounded-full bg-fuchsia-500"></span>
+            <div>
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Fotos do imóvel</h3>
+              <p class="text-xs text-slate-400">
+                Envie até {{ maxPhotos }} imagens (JPG, JPEG, PNG ou WEBP). Geramos automaticamente miniaturas leves
+                para o cadastro.
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <input
+              ref="photoFileInputRef"
+              type="file"
+              class="hidden"
+              accept="image/*"
+              multiple
+              @change="handlePhotoFilesSelected"
+            />
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="photosLimitReached"
+              @click="openPhotoPicker"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Adicionar fotos
+            </button>
+            <button
+              v-if="canDownloadPhotos"
+              type="button"
+              class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800/60 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="downloadingPhotos"
+              @click="downloadPhotosZip"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4 4 4-4m-4 4V4" />
+              </svg>
+              {{ downloadingPhotos ? 'Gerando...' : 'Baixar ZIP' }}
+            </button>
+          </div>
+        </header>
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>
+            {{ activePhotosCount }}
+            /
+            {{ maxPhotos }}
+            foto{{ activePhotosCount === 1 ? '' : 's' }} ativas
+          </span>
+          <span v-if="photosLimitReached" class="font-semibold text-rose-300">Limite atingido.</span>
+        </div>
+        <div v-if="photoItems.length > 0" class="grid gap-4 md:grid-cols-3">
+          <article
+            v-for="(photo, index) in photoItems"
+            :key="photo.kind === 'existing' ? `existing-photo-${photo.id}` : `new-photo-${photo.id}`"
+            class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-inner shadow-black/20"
+            :class="photo.kind === 'existing' && photo.markedForRemoval ? 'opacity-60' : ''"
+          >
+            <div class="relative aspect-[4/3] overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60">
+              <img
+                :src="photo.kind === 'existing' ? photo.thumbnailUrl : photo.previewUrl"
+                alt="Foto do imóvel"
+                class="h-full w-full cursor-pointer object-cover transition hover:scale-[1.02]"
+                loading="lazy"
+                @click="openPhotoPreview(photo)"
+              />
+              <div
+                v-if="photo.kind === 'existing' && photo.markedForRemoval"
+                class="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xs font-semibold uppercase tracking-wide text-rose-200"
+              >
+                Remoção pendente
+              </div>
+              <div class="absolute bottom-2 left-2 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200">
+                #{{ index + 1 }}
+              </div>
+              <button
+                type="button"
+                class="absolute right-2 top-2 inline-flex items-center justify-center rounded-full bg-slate-900/70 p-2 text-white transition hover:bg-slate-800/90"
+                title="Ver em tela cheia"
+                @click.stop="openPhotoPreview(photo)"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 3h6m0 0v6m0-6L13 11m-4 10H3m0 0v-6m0 6 8-8" />
+                </svg>
+              </button>
+            </div>
+            <div class="space-y-2">
+              <input
+                v-model="photo.legenda"
+                type="text"
+                :class="inputClass"
+                placeholder="Legenda da foto"
+                :disabled="photo.kind === 'existing' && photo.markedForRemoval"
+              />
+              <p class="text-xs text-slate-400">
+                <span class="font-semibold text-slate-200">
+                  {{ photo.kind === 'existing' ? photo.originalName : photo.file.name }}
+                </span>
+                •
+                <span>
+                  {{ photo.kind === 'existing' ? formatFileSize(photo.size) : formatFileSize(photo.file.size) }}
+                </span>
+                <template v-if="photo.kind === 'existing' && photo.width && photo.height">
+                  • {{ photo.width }}×{{ photo.height }} px
+                </template>
+              </p>
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="rounded-md border border-slate-700 px-3 py-1 font-semibold text-slate-200 transition hover:bg-slate-800/70 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="index === 0"
+                    @click="movePhotoUp(index)"
+                  >
+                    Subir
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-md border border-slate-700 px-3 py-1 font-semibold text-slate-200 transition hover:bg-slate-800/70 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="index === photoItems.length - 1"
+                    @click="movePhotoDown(index)"
+                  >
+                    Descer
+                  </button>
+                </div>
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    class="font-semibold text-indigo-300 transition hover:text-indigo-200"
+                    @click="openPhotoPreview(photo)"
+                  >
+                    Ver maior
+                  </button>
+                  <button
+                    v-if="photo.kind === 'existing'"
+                    type="button"
+                    class="font-semibold transition"
+                    :class="photo.markedForRemoval ? 'text-emerald-300 hover:text-emerald-200' : 'text-rose-300 hover:text-rose-200'"
+                    @click="toggleExistingPhotoRemovalFlag(photo)"
+                  >
+                    {{ photo.markedForRemoval ? 'Desfazer' : 'Remover' }}
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    class="font-semibold text-rose-300 transition hover:text-rose-200"
+                    @click="removeNewPhoto(photo.id)"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div
+          v-else
+          class="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-8 text-center text-sm text-slate-400"
+        >
+          Nenhuma foto adicionada até o momento. Utilize o botão acima para enviar imagens do imóvel.
+        </div>
+      </section>
+
+      <section class="space-y-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-inner shadow-black/20">
+        <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-3">
             <span class="h-6 w-1 rounded-full bg-cyan-500"></span>
             <div>
               <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Documentos anexos</h3>
@@ -1484,4 +1955,34 @@ onBeforeUnmount(() => {
       </div>
     </form>
   </div>
+
+  <transition name="fade">
+    <div
+      v-if="photoPreview"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6 backdrop-blur"
+      @click.self="closePhotoPreview"
+    >
+      <div class="relative w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/40">
+        <button
+          type="button"
+          class="absolute right-4 top-4 rounded-full bg-slate-900/80 p-2 text-slate-300 transition hover:text-white"
+          @click="closePhotoPreview"
+        >
+          <span class="sr-only">Fechar</span>
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div class="rounded-2xl p-5">
+          <img :src="photoPreview.url" alt="Pré-visualização da foto" class="mx-auto max-h-[70vh] w-full rounded-xl object-contain" />
+          <div class="mt-4 space-y-1 text-center text-sm text-slate-300">
+            <div class="font-semibold text-white">
+              {{ photoPreview.legenda ?? photoPreview.originalName }}
+            </div>
+            <div class="text-xs text-slate-400">{{ photoPreview.originalName }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </transition>
 </template>

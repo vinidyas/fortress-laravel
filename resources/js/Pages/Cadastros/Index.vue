@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { computed } from 'vue';
+import type { PageProps } from '@/types/page';
 
 type CadastroItem = {
   key: string;
@@ -13,8 +14,8 @@ type CadastroItem = {
   ability?: string;
 };
 
-const page = usePage();
-const abilities = computed<string[]>(() => (page.props.auth?.abilities ?? []) as string[]);
+const page = usePage<PageProps>();
+const abilities = computed<string[]>(() => page.props.auth?.abilities ?? []);
 const can = (permission?: string) => !permission || abilities.value.includes(permission);
 
 const cadastros: CadastroItem[] = [

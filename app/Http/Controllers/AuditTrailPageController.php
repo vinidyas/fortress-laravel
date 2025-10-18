@@ -29,7 +29,11 @@ class AuditTrailPageController extends Controller
             'action',
             'user_id',
             'auditable_type',
+            'auditable_id',
             'ip_address',
+            'guard',
+            'origin',
+            'http_method',
             'date_from',
             'date_to',
             'search',
@@ -49,6 +53,7 @@ class AuditTrailPageController extends Controller
                 'payload' => $log->payload,
                 'ip_address' => $log->ip_address,
                 'user_agent' => $log->user_agent,
+                'context' => $log->context,
                 'created_at' => $log->created_at?->toDateTimeString(),
             ]);
 
@@ -56,7 +61,11 @@ class AuditTrailPageController extends Controller
             'action' => $request->input('action'),
             'user_id' => $request->input('user_id'),
             'auditable_type' => $request->input('auditable_type'),
+            'auditable_id' => $request->input('auditable_id'),
             'ip_address' => $request->input('ip_address'),
+            'guard' => $request->input('guard'),
+            'origin' => $request->input('origin'),
+            'http_method' => $request->input('http_method'),
             'date_from' => $request->input('date_from'),
             'date_to' => $request->input('date_to'),
             'search' => $request->input('search'),
@@ -79,6 +88,30 @@ class AuditTrailPageController extends Controller
             ->filter()
             ->values();
 
+        $guards = AuditLog::query()
+            ->whereNotNull('context->guard')
+            ->selectRaw("DISTINCT JSON_UNQUOTE(JSON_EXTRACT(context, '$.guard')) AS guard")
+            ->orderBy('guard')
+            ->pluck('guard')
+            ->filter()
+            ->values();
+
+        $origins = AuditLog::query()
+            ->whereNotNull('context->origin')
+            ->selectRaw("DISTINCT JSON_UNQUOTE(JSON_EXTRACT(context, '$.origin')) AS origin")
+            ->orderBy('origin')
+            ->pluck('origin')
+            ->filter()
+            ->values();
+
+        $requestMethods = AuditLog::query()
+            ->whereNotNull('context->http_method')
+            ->selectRaw("DISTINCT JSON_UNQUOTE(JSON_EXTRACT(context, '$.http_method')) AS method")
+            ->orderBy('method')
+            ->pluck('method')
+            ->filter()
+            ->values();
+
         $users = User::query()
             ->orderBy('nome')
             ->get(['id', 'nome', 'username']);
@@ -88,6 +121,9 @@ class AuditTrailPageController extends Controller
             'filters' => $filters,
             'actions' => $actions,
             'resourceTypes' => $resourceTypes,
+            'guards' => $guards,
+            'origins' => $origins,
+            'requestMethods' => $requestMethods,
             'users' => $users,
             'canExport' => $request->user()->hasPermission('auditoria.export'),
         ]);
@@ -99,7 +135,11 @@ class AuditTrailPageController extends Controller
             ->when($request->filled('action'), fn ($q) => $q->where('action', $request->string('action')))
             ->when($request->filled('user_id'), fn ($q) => $q->where('user_id', $request->integer('user_id')))
             ->when($request->filled('auditable_type'), fn ($q) => $q->where('auditable_type', $request->string('auditable_type')))
+            ->when($request->filled('auditable_id'), fn ($q) => $q->where('auditable_id', $request->integer('auditable_id')))
             ->when($request->filled('ip_address'), fn ($q) => $q->where('ip_address', $request->string('ip_address')))
+            ->when($request->filled('guard'), fn ($q) => $q->where('context->guard', $request->string('guard')))
+            ->when($request->filled('origin'), fn ($q) => $q->where('context->origin', $request->string('origin')))
+            ->when($request->filled('http_method'), fn ($q) => $q->where('context->http_method', $request->string('http_method')))
             ->when(
                 $request->filled('date_from'),
                 fn ($q) => $q->whereDate('created_at', '>=', $request->date('date_from')->toDateString())
@@ -124,6 +164,7 @@ class AuditTrailPageController extends Controller
                         ->orWhereRaw('LOWER(ip_address) LIKE ?', [$term]);
 
                     $this->orWhereJsonContainsLike($inner, 'payload', $term);
+                    $this->orWhereJsonContainsLike($inner, 'context', $term);
                 });
             });
     }

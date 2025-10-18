@@ -14,6 +14,11 @@ type EmailLog = {
   recipients: string[];
   cc: string[];
   bcc: string[];
+  attachments?: {
+    id: number | null;
+    original_name?: Nullable<string>;
+    display_name?: Nullable<string>;
+  }[];
   message: Nullable<string>;
   status: string;
   error_message: Nullable<string>;
@@ -26,12 +31,22 @@ type EmailLog = {
   } | null;
 };
 
+type AttachmentOption = {
+  id: number;
+  display_name: string;
+  original_name?: Nullable<string>;
+  mime_type?: Nullable<string>;
+  size?: Nullable<number>;
+};
+
 type Props = {
   show: boolean;
   defaults: EmailDefaults;
   submitting: boolean;
   error: string;
   history: EmailLog[];
+  attachments: AttachmentOption[];
+  selectedAttachmentIds: number[];
 };
 
 const props = withDefaults(defineProps<Props>(), {
@@ -39,6 +54,8 @@ const props = withDefaults(defineProps<Props>(), {
   submitting: false,
   error: '',
   history: () => [],
+  attachments: () => [],
+  selectedAttachmentIds: () => [],
 });
 
 type SendPayload = {
@@ -46,11 +63,14 @@ type SendPayload = {
   cc: string;
   bcc: string;
   message: string;
+  attachments: number[];
 };
 
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'send', payload: SendPayload): void;
+  (e: 'toggle-attachment', attachmentId: number, checked: boolean): void;
+  (e: 'toggle-all-attachments', checked: boolean): void;
 }>();
 
 const recipients = ref('');
@@ -90,6 +110,7 @@ function submitForm() {
     cc: cc.value,
     bcc: bcc.value,
     message: message.value,
+    attachments: props.selectedAttachmentIds ?? [],
   });
 }
 
@@ -118,6 +139,39 @@ function formatDate(value: string): string {
 }
 
 const hasHistory = computed(() => props.history?.length > 0);
+const totalAttachments = computed(() => props.attachments?.length ?? 0);
+const selectedAttachments = computed(() => props.selectedAttachmentIds?.length ?? 0);
+const hasAttachments = computed(() => totalAttachments.value > 0);
+
+function formatAttachmentSize(value?: Nullable<number>): string {
+  if (!value || value <= 0) {
+    return '';
+  }
+
+  const units = ['bytes', 'KB', 'MB', 'GB'];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  if (unitIndex === 0) {
+    return `${size} ${units[unitIndex]}`;
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function toggleAttachment(attachmentId: number, event: Event) {
+  const target = event.target as HTMLInputElement;
+  emit('toggle-attachment', attachmentId, target.checked);
+}
+
+function toggleAllAttachments(checked: boolean) {
+  emit('toggle-all-attachments', checked);
+}
 </script>
 
 <template>
@@ -196,6 +250,59 @@ const hasHistory = computed(() => props.history?.length > 0);
                 />
                 <p class="mt-2 text-xs text-slate-500">Esta mensagem será exibida acima do resumo enviado por e-mail.</p>
               </div>
+
+              <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Arquivos disponíveis</h3>
+                    <p class="text-xs text-slate-500">Selecione quais anexos serão enviados com a fatura.</p>
+                  </div>
+                  <div v-if="hasAttachments" class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <span>{{ selectedAttachments }} de {{ totalAttachments }} selecionados</span>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-800/70"
+                      @click="toggleAllAttachments(true)"
+                    >
+                      Selecionar todos
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-800/70"
+                      @click="toggleAllAttachments(false)"
+                    >
+                      Limpar seleção
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="hasAttachments" class="mt-3 space-y-2 text-xs">
+                  <label
+                    v-for="attachment in props.attachments"
+                    :key="attachment.id"
+                    class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-slate-200 transition hover:border-indigo-500"
+                  >
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500"
+                      :checked="props.selectedAttachmentIds.includes(attachment.id)"
+                      @change="toggleAttachment(attachment.id, $event)"
+                    />
+                    <div class="flex flex-1 flex-col">
+                      <span class="font-semibold text-white">{{ attachment.display_name }}</span>
+                      <span class="text-[11px] text-slate-400">
+                        {{ attachment.mime_type ?? 'Arquivo' }}
+                        <span v-if="formatAttachmentSize(attachment.size)" class="ml-1">
+                          • {{ formatAttachmentSize(attachment.size) }}
+                        </span>
+                      </span>
+                    </div>
+                  </label>
+                </div>
+                <p v-else class="mt-3 text-xs text-slate-500">
+                  Nenhum anexo disponível. Adicione arquivos na tela da fatura para disponibilizá-los aqui.
+                </p>
+              </div>
             </div>
 
             <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -219,6 +326,18 @@ const hasHistory = computed(() => props.history?.length > 0);
                   <p v-if="log.cc?.length" class="text-slate-300">
                     <strong>CC:</strong> {{ formatRecipients(log.cc) }}
                   </p>
+                  <div v-if="log.attachments?.length" class="mt-2 text-slate-300">
+                    <strong>Anexos:</strong>
+                    <ul class="mt-1 space-y-1">
+                      <li
+                        v-for="attachment in log.attachments"
+                        :key="`${log.id}-${attachment.id ?? attachment.original_name}`"
+                        class="text-xs text-slate-400"
+                      >
+                        {{ attachment.display_name ?? attachment.original_name ?? 'Arquivo' }}
+                      </li>
+                    </ul>
+                  </div>
                   <p v-if="log.message" class="mt-2 rounded-md bg-slate-800/60 p-2 text-slate-200">
                     {{ log.message }}
                   </p>

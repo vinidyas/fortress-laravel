@@ -24,7 +24,7 @@ class PessoaFactory extends Factory
             'email' => fake()->safeEmail(),
             'telefone' => fake()->phoneNumber(),
             'tipo_pessoa' => $tipo,
-            'papeis' => [fake()->randomElement(['Proprietario', 'Inquilino', 'Fiador', 'Corretor', 'Fornecedor', 'Funcionario'])],
+            'papeis' => [fake()->randomElement(['Proprietario', 'Locatario', 'Fiador', 'Corretor', 'Fornecedor', 'Funcionario'])],
         ];
     }
 }

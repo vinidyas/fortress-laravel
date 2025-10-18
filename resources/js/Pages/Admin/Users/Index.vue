@@ -5,6 +5,7 @@ import axios from '@/bootstrap';
 import { useToast } from '@/composables/useToast';
 import { usePage } from '@inertiajs/vue3';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import type { PageProps } from '@/types/page';
 
 type RoleOption = {
   id: number;
@@ -49,10 +50,10 @@ const props = defineProps<{
 }>();
 
 const toast = useToast();
-const page = usePage();
+const page = usePage<PageProps>();
 const emailRegex = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const currentUserId = computed<number | null>(() => {
-  const authUser: any = page.props.auth?.user ?? null;
+  const authUser = page.props.auth?.user;
   return typeof authUser?.id === 'number' ? authUser.id : null;
 });
 

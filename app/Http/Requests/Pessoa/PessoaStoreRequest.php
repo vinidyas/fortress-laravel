@@ -9,11 +9,16 @@ class PessoaStoreRequest extends FormRequest
 {
     private const PAPEIS_PERMITIDOS = [
         'Proprietario',
-        'Inquilino',
+        'Locatario',
         'Fiador',
         'Corretor',
         'Fornecedor',
         'Funcionario',
+    ];
+
+    private const PAPEIS_ALIASES = [
+        'Inquilino' => 'Locatario',
+        'Locatário' => 'Locatario',
     ];
 
     public function authorize(): bool
@@ -102,7 +107,11 @@ class PessoaStoreRequest extends FormRequest
         }
 
         $papeis = array_filter($papeis, fn ($item) => is_string($item) && $item !== '');
-        $papeis = array_unique(array_map(fn ($item) => ucfirst(strtolower($item)), $papeis));
+        $papeis = array_unique(array_map(function ($item) {
+            $normalized = ucfirst(mb_strtolower($item));
+
+            return self::PAPEIS_ALIASES[$normalized] ?? $normalized;
+        }, $papeis));
 
         return array_values(array_intersect($papeis, self::PAPEIS_PERMITIDOS));
     }

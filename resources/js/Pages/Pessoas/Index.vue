@@ -28,7 +28,7 @@ type MetaPagination = {
 
 const tipoOptions = ['Fisica', 'Juridica'];
 const papelOptions = [
-  { value: 'Inquilino', label: 'Locatário' },
+  { value: 'Locatario', label: 'Locatário' },
   { value: 'Proprietario', label: 'Proprietário' },
   { value: 'Fiador', label: 'Fiador' },
   { value: 'Corretor', label: 'Corretor' },
@@ -80,6 +80,17 @@ const createForm = reactive({
   numero: '',
   complemento: '',
 });
+
+const normalizePapeis = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((papel) => {
+      if (typeof papel !== 'string') return null;
+      return papel === 'Inquilino' ? 'Locatario' : papel;
+    })
+    .filter((papel): papel is string => Boolean(papel));
+};
 
 function openCreate() {
   createError.value = '';
@@ -188,7 +199,10 @@ async function fetchPessoas(page = 1) {
       return;
     }
 
-    pessoas.value = rows;
+    pessoas.value = rows.map((row) => ({
+      ...row,
+      papeis: normalizePapeis(row.papeis),
+    }));
     meta.value = metaData;
     currentPage.value = metaData?.current_page ?? page;
   } catch (error) {
@@ -522,7 +536,5 @@ onMounted(() => {
   </transition>
   </AuthenticatedLayout>
 </template>
-
-
 
 

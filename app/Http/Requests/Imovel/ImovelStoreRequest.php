@@ -64,6 +64,18 @@ class ImovelStoreRequest extends FormRequest
             'anexos_legendas_existentes.*' => ['nullable', 'string', 'max:255'],
             'anexos_remover' => ['nullable', 'array'],
             'anexos_remover.*' => ['integer'],
+            'fotos' => ['nullable', 'array'],
+            'fotos.*' => ['image', 'max:5120', 'mimes:jpg,jpeg,png,webp'],
+            'fotos_legendas' => ['nullable', 'array'],
+            'fotos_legendas.*' => ['nullable', 'string', 'max:255'],
+            'fotos_legendas_existentes' => ['nullable', 'array'],
+            'fotos_legendas_existentes.*' => ['nullable', 'string', 'max:255'],
+            'fotos_remover' => ['nullable', 'array'],
+            'fotos_remover.*' => ['integer'],
+            'fotos_ordem' => ['nullable', 'array'],
+            'fotos_ordem.*' => ['string', 'regex:/^(existing|new):[A-Za-z0-9_-]+$/'],
+            'fotos_ids' => ['nullable', 'array'],
+            'fotos_ids.*' => ['string', 'max:120'],
         ];
     }
 
@@ -102,6 +114,11 @@ class ImovelStoreRequest extends FormRequest
         $data['anexos_legendas'] = $this->normalizeStringArray($this->input('anexos_legendas'));
         $data['anexos_legendas_existentes'] = $this->normalizeStringAssociativeArray($this->input('anexos_legendas_existentes'));
         $data['anexos_remover'] = $this->normalizeIntegerArray($this->input('anexos_remover'));
+        $data['fotos_legendas'] = $this->normalizeStringArray($this->input('fotos_legendas'));
+        $data['fotos_legendas_existentes'] = $this->normalizeStringAssociativeArray($this->input('fotos_legendas_existentes'));
+        $data['fotos_remover'] = $this->normalizeIntegerArray($this->input('fotos_remover'));
+        $data['fotos_ordem'] = $this->normalizeStringArray($this->input('fotos_ordem'));
+        $data['fotos_ids'] = $this->normalizeStringArray($this->input('fotos_ids'));
 
         $this->merge($data);
     }

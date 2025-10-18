@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Console\Commands\ImportLegacyData::class,
     ])
     ->withSchedule(function (Schedule $schedule) {
-        $schedule->command('invoices:generate')->monthlyOn(1, '02:00');
+        // Geracao automatica de faturas congelada; nenhuma tarefa agendada aqui no momento.
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

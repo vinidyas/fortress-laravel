@@ -11,7 +11,7 @@ class FaturaUpdateRequest extends FormRequest
 {
     use NormalizesDecimalValues;
 
-    private const ITEM_CATEGORIES = ['Aluguel', 'Condominio', 'IPTU', 'Multa', 'Juros', 'Desconto', 'Outros'];
+    private const ITEM_CATEGORIES = ['Aluguel', 'Condominio', 'IPTU', 'Multa', 'Juros', 'Desconto', 'Outros', 'Agua', 'Luz', 'Gas'];
 
     public function authorize(): bool
     {
@@ -36,7 +36,7 @@ class FaturaUpdateRequest extends FormRequest
             'itens' => ['nullable', 'array'],
             'itens.*.categoria' => ['required', Rule::in(self::ITEM_CATEGORIES)],
             'itens.*.descricao' => ['nullable', 'string', 'max:200'],
-            'itens.*.quantidade' => ['nullable', 'numeric', 'min:0'],
+            'itens.*.quantidade' => ['nullable', 'integer', 'min:0'],
             'itens.*.valor_unitario' => ['required_with:itens.*.categoria', 'numeric'],
         ];
     }
@@ -81,7 +81,7 @@ class FaturaUpdateRequest extends FormRequest
                 return [
                     'categoria' => $item['categoria'],
                     'descricao' => $item['descricao'],
-                    'quantidade' => $item['quantidade'] === null ? null : (float) $item['quantidade'],
+                    'quantidade' => $item['quantidade'] === null ? null : (int) round((float) $item['quantidade']),
                     'valor_unitario' => $item['valor_unitario'] === null ? null : (float) $item['valor_unitario'],
                 ];
             })

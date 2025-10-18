@@ -9,6 +9,7 @@ const props = defineProps<{
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
+  inputClass?: string;
 }>();
 
 const emit = defineEmits<{
@@ -127,7 +128,10 @@ const handleFocus = (event: FocusEvent) => {
       :value="displayValue"
       :disabled="props.disabled"
       :required="props.required"
-      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+      :class="[
+        'w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-indigo-500 focus:ring-indigo-500',
+        props.inputClass ?? 'border-slate-300 bg-white text-slate-900',
+      ]"
       @input="updateValue"
       @blur="handleBlur"
       @focus="handleFocus"

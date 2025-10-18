@@ -91,6 +91,11 @@ class Imovel extends Model
         return $this->hasMany(ImovelAnexo::class);
     }
 
+    public function fotos(): HasMany
+    {
+        return $this->hasMany(ImovelFoto::class)->orderBy('ordem');
+    }
+
     public function contratos(): HasMany
     {
         return $this->hasMany(Contrato::class);
@@ -101,6 +106,9 @@ class Imovel extends Model
         static::deleting(function (Imovel $imovel) {
             $imovel->anexos()->each(function (ImovelAnexo $anexo) {
                 Storage::disk('public')->delete($anexo->path);
+            });
+            $imovel->fotos()->each(function (ImovelFoto $foto) {
+                Storage::disk('public')->delete([$foto->path, $foto->thumbnail_path]);
             });
         });
     }

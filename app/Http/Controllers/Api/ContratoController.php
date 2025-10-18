@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Contrato\GenerateCodigo as GenerateContratoCodigo;
 use App\Enums\ContratoGarantiaTipo;
 use App\Enums\ContratoReajusteIndice;
 use App\Enums\ContratoStatus;
@@ -31,7 +32,7 @@ class ContratoController extends Controller
     {
         $this->authorize('viewAny', Contrato::class);
 
-        $query = Contrato::query()->with(['imovel', 'locador', 'locatario']);
+        $query = Contrato::query()->with(['imovel.condominio', 'locador', 'locatario']);
 
         $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $contratos = QueryBuilder::for($query)
@@ -106,11 +107,20 @@ class ContratoController extends Controller
         return ContratoResource::collection($contratos);
     }
 
+    public function generateCodigo(GenerateContratoCodigo $generateCodigo)
+    {
+        $this->authorize('create', Contrato::class);
+
+        return response()->json([
+            'codigo' => $generateCodigo->generate(),
+        ]);
+    }
+
     public function show(Contrato $contrato)
     {
         $this->authorize('view', $contrato);
 
-        return new ContratoResource($contrato->load(['imovel', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos']));
+        return new ContratoResource($contrato->load(['imovel.condominio', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos']));
     }
 
     public function store(ContratoStoreRequest $request)
@@ -134,7 +144,7 @@ class ContratoController extends Controller
 
             $this->storeAnexos($contrato, $request);
 
-            return (new ContratoResource($contrato->load(['imovel', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos'])))
+            return (new ContratoResource($contrato->load(['imovel.condominio', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos'])))
                 ->response()
                 ->setStatusCode(Response::HTTP_CREATED);
         });
@@ -168,7 +178,7 @@ class ContratoController extends Controller
 
             $this->storeAnexos($contrato, $request);
 
-            return new ContratoResource($contrato->load(['imovel', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos']));
+            return new ContratoResource($contrato->load(['imovel.condominio', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos']));
         });
     }
 
@@ -211,10 +221,19 @@ class ContratoController extends Controller
         if (($validated['reajuste_indice'] ?? null) === ContratoReajusteIndice::SemReajuste->value) {
             $validated['reajuste_periodicidade_meses'] = null;
             $validated['data_proximo_reajuste'] = null;
+            $validated['reajuste_teto_percentual'] = null;
         } elseif (empty($validated['data_proximo_reajuste']) && ! empty($validated['reajuste_periodicidade_meses'])) {
             $validated['data_proximo_reajuste'] = Carbon::parse($validated['data_inicio'])
                 ->addMonths((int) $validated['reajuste_periodicidade_meses'])
                 ->toDateString();
+        }
+
+        if (($validated['reajuste_indice'] ?? null) !== ContratoReajusteIndice::Outro->value) {
+            $validated['reajuste_indice_outro'] = null;
+        }
+
+        if ($validated['reajuste_teto_percentual'] === '') {
+            $validated['reajuste_teto_percentual'] = null;
         }
 
         foreach (['forma_pagamento_preferida', 'tipo_contrato'] as $enumField) {
@@ -254,8 +273,16 @@ class ContratoController extends Controller
         }
     }
 
-    private function ensureUniqueActiveContrato(?int $imovelId, $status, ?string $dataFim, ?int $ignoreId = null, ?Contrato $current = null): void
+    private function ensureUniqueActiveContrato($imovelId, $status, ?string $dataFim, ?int $ignoreId = null, ?Contrato $current = null): void
     {
+        if ($imovelId === '') {
+            $imovelId = null;
+        }
+
+        if ($imovelId !== null) {
+            $imovelId = (int) $imovelId;
+        }
+
         $imovelId ??= $current?->imovel_id;
         $statusValue = $status instanceof ContratoStatus ? $status->value : $status;
         $statusValue ??= $current?->status?->value;

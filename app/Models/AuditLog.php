@@ -18,10 +18,12 @@ class AuditLog extends Model
         'payload',
         'ip_address',
         'user_agent',
+        'context',
     ];
 
     protected $casts = [
         'payload' => 'array',
+        'context' => 'array',
     ];
 
     public function user(): BelongsTo

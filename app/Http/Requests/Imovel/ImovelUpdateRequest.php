@@ -45,6 +45,11 @@ class ImovelUpdateRequest extends ImovelStoreRequest
             Rule::exists('imovel_anexos', 'id')->where('imovel_id', $imovelKey),
         ];
 
+        $rules['fotos_remover.*'] = [
+            'integer',
+            Rule::exists('imovel_fotos', 'id')->where('imovel_id', $imovelKey),
+        ];
+
         return $rules;
     }
 }

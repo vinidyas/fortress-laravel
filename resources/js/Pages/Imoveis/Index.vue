@@ -27,6 +27,7 @@ type ImovelRow = {
   valores: {
     valor_locacao: Nullable<string | number>;
   };
+  condominio?: { id: number; nome: string } | null;
   caracteristicas: {
     dormitorios: Nullable<number>;
     vagas_garagem: Nullable<number>;

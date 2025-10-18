@@ -6,6 +6,7 @@ import axios from '@/bootstrap';
 import { computed, reactive, ref } from 'vue';
 import { useNotificationStore } from '@/Stores/notifications';
 import { route } from 'ziggy-js';
+import DatePicker from '@/Components/Form/DatePicker.vue';
 
 interface AlertRow {
   id: number;
@@ -267,19 +268,11 @@ const formatPayload = (payload: Record<string, unknown>) => {
         </div>
         <div>
           <label class="text-xs font-semibold uppercase text-slate-400">Data inicial</label>
-          <input
-            v-model="localFilters.date_from"
-            type="date"
-            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
-          />
+          <DatePicker v-model="localFilters.date_from" placeholder="dd/mm/aaaa" />
         </div>
         <div>
           <label class="text-xs font-semibold uppercase text-slate-400">Data final</label>
-          <input
-            v-model="localFilters.date_to"
-            type="date"
-            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
-          />
+          <DatePicker v-model="localFilters.date_to" placeholder="dd/mm/aaaa" />
         </div>
         <div class="md:col-span-2 flex items-end gap-2">
           <button

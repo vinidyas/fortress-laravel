@@ -17,4 +17,16 @@ enum ContratoFormaPagamento: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Boleto => 'Boleto',
+            self::Pix => 'Pix',
+            self::Deposito => 'Depósito',
+            self::Transferencia => 'Transferência',
+            self::CartaoCredito => 'Cartão de crédito',
+            self::Dinheiro => 'Dinheiro',
+        };
+    }
 }

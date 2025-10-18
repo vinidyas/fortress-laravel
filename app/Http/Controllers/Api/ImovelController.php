@@ -9,16 +9,27 @@ use App\Http\Requests\Imovel\ImovelUpdateRequest;
 use App\Http\Resources\ImovelResource;
 use App\Models\Imovel;
 use App\Models\ImovelAnexo;
+use App\Models\ImovelFoto;
+use App\Services\ImovelFotoService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
+use ZipStream\ZipStream;
 
 class ImovelController extends Controller
 {
+    private const MAX_PHOTOS = 15;
+
+    public function __construct(private readonly ImovelFotoService $fotoService)
+    {
+    }
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', Imovel::class);
@@ -29,7 +40,7 @@ class ImovelController extends Controller
             'responsavel',
             'condominio',
             'contratos:id,imovel_id,codigo_contrato,status',
-        ])->withCount('anexos');
+        ])->withCount(['anexos', 'fotos']);
 
         $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $imoveis = QueryBuilder::for($query)
@@ -107,6 +118,7 @@ class ImovelController extends Controller
             'responsavel',
             'condominio',
             'anexos.uploader',
+            'fotos',
         ]));
     }
 
@@ -122,6 +134,7 @@ class ImovelController extends Controller
         $imovel = Imovel::query()->create($data);
 
         $this->syncAttachments($imovel, $request);
+        $this->syncPhotos($imovel, $request);
 
         $imovel->refresh()->load([
             'proprietario',
@@ -129,6 +142,7 @@ class ImovelController extends Controller
             'responsavel',
             'condominio',
             'anexos.uploader',
+            'fotos',
         ]);
 
         return (new ImovelResource($imovel))
@@ -147,6 +161,7 @@ class ImovelController extends Controller
 
         $imovel->update($data);
         $this->syncAttachments($imovel, $request);
+        $this->syncPhotos($imovel, $request);
 
         $imovel->refresh()->load([
             'proprietario',
@@ -154,6 +169,7 @@ class ImovelController extends Controller
             'responsavel',
             'condominio',
             'anexos.uploader',
+            'fotos',
         ]);
 
         return new ImovelResource($imovel);
@@ -234,5 +250,204 @@ class ImovelController extends Controller
                 'uploaded_by' => $userId,
             ]);
         }
+    }
+
+    private function syncPhotos(Imovel $imovel, Request $request): void
+    {
+        $removeIds = collect($request->input('fotos_remover', []))
+            ->filter(fn ($value) => is_numeric($value))
+            ->map(fn ($value) => (int) $value)
+            ->values();
+
+        if ($removeIds->isNotEmpty()) {
+            $imovel->fotos()
+                ->whereIn('id', $removeIds)
+                ->get()
+                ->each(function (ImovelFoto $foto) {
+                    $this->fotoService->delete($foto);
+                });
+        }
+
+        $existingPhotos = $imovel->fotos()->get()->keyBy('id');
+
+        $existingLegendas = $request->input('fotos_legendas_existentes', []);
+        if (is_array($existingLegendas) && $existingLegendas !== []) {
+            foreach ($existingLegendas as $id => $legenda) {
+                $photo = $existingPhotos->get((int) $id);
+                if (! $photo) {
+                    continue;
+                }
+                $trimmed = is_string($legenda) ? trim($legenda) : '';
+                $photo->legenda = $trimmed !== '' ? mb_substr($trimmed, 0, 255) : null;
+                $photo->save();
+            }
+        }
+
+        $newFiles = collect((array) $request->file('fotos', []))
+            ->filter(fn ($file) => $file instanceof UploadedFile)
+            ->values();
+
+        $newIds = is_array($request->input('fotos_ids')) ? array_values($request->input('fotos_ids')) : [];
+        $newLegendas = is_array($request->input('fotos_legendas')) ? array_values($request->input('fotos_legendas')) : [];
+
+        $newPhotos = [];
+        foreach ($newFiles as $index => $file) {
+            $tempId = $newIds[$index] ?? null;
+            if (! is_string($tempId) || $tempId === '') {
+                $tempId = Str::uuid()->toString();
+            }
+
+            $newPhotos[$tempId] = [
+                'file' => $file,
+                'legenda' => $newLegendas[$index] ?? null,
+                'ordem' => null,
+            ];
+        }
+
+        $currentCount = $existingPhotos->count();
+        $newCount = count($newPhotos);
+        if (($currentCount + $newCount) > self::MAX_PHOTOS) {
+            throw ValidationException::withMessages([
+                'fotos' => ["Limite máximo de ".self::MAX_PHOTOS." fotos por imóvel atingido."],
+            ]);
+        }
+
+        $orderEntries = collect($request->input('fotos_ordem', []))
+            ->filter(fn ($value) => is_string($value) && str_contains($value, ':'))
+            ->map(function ($value) {
+                [$type, $identifier] = explode(':', (string) $value, 2);
+
+                return [
+                    'type' => $type === 'existing' ? 'existing' : ($type === 'new' ? 'new' : null),
+                    'id' => $identifier,
+                ];
+            })
+            ->filter(fn ($entry) => $entry['type'] !== null && is_string($entry['id']) && $entry['id'] !== '')
+            ->values();
+
+        $existingOrderAssignments = [];
+        $newOrderAssignments = [];
+        $order = 1;
+
+        foreach ($orderEntries as $entry) {
+            if ($entry['type'] === 'existing') {
+                $photoId = (int) $entry['id'];
+                if (! $existingPhotos->has($photoId) || isset($existingOrderAssignments[$photoId])) {
+                    continue;
+                }
+                $existingOrderAssignments[$photoId] = $order++;
+            } elseif ($entry['type'] === 'new') {
+                $tempId = (string) $entry['id'];
+                if (! array_key_exists($tempId, $newPhotos) || isset($newOrderAssignments[$tempId])) {
+                    continue;
+                }
+                $newOrderAssignments[$tempId] = $order++;
+            }
+        }
+
+        foreach ($existingPhotos as $id => $photo) {
+            if (isset($existingOrderAssignments[$id])) {
+                continue;
+            }
+            $existingOrderAssignments[$id] = $order++;
+        }
+
+        foreach ($newPhotos as $tempId => $info) {
+            if (isset($newOrderAssignments[$tempId])) {
+                continue;
+            }
+            $newOrderAssignments[$tempId] = $order++;
+        }
+
+        foreach ($existingOrderAssignments as $id => $ordem) {
+            $photo = $existingPhotos->get($id);
+            if (! $photo) {
+                continue;
+            }
+            if ($photo->ordem !== $ordem) {
+                $photo->ordem = $ordem;
+                $photo->save();
+            }
+        }
+
+        foreach ($newPhotos as $tempId => $info) {
+            $ordem = $newOrderAssignments[$tempId] ?? null;
+            if ($ordem === null) {
+                continue;
+            }
+
+            $legenda = is_string($info['legenda']) ? trim($info['legenda']) : null;
+            $this->fotoService->store(
+                $imovel,
+                $info['file'],
+                $ordem,
+                $legenda !== '' ? $legenda : null
+            );
+        }
+    }
+
+    public function downloadPhotos(Imovel $imovel)
+    {
+        $this->authorize('view', $imovel);
+
+        $photos = $imovel->fotos()->orderBy('ordem')->get();
+
+        if ($photos->isEmpty()) {
+            return response()->json([
+                'message' => 'Nenhuma foto disponível para download.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $filename = $this->buildPhotosZipFilename($imovel);
+        $storage = Storage::disk('public');
+
+        return response()->streamDownload(function () use ($photos, $storage) {
+            $zip = new ZipStream(sendHttpHeaders: false);
+
+            foreach ($photos as $photo) {
+                if (! $storage->exists($photo->path)) {
+                    continue;
+                }
+
+                $stream = $storage->readStream($photo->path);
+                if (! $stream) {
+                    continue;
+                }
+
+                $zip->addFileFromStream(
+                    $this->buildPhotoFilename($photo),
+                    $stream
+                );
+
+                fclose($stream);
+            }
+
+            $zip->finish();
+        }, $filename, [
+            'Content-Type' => 'application/zip',
+        ]);
+    }
+
+    private function buildPhotosZipFilename(Imovel $imovel): string
+    {
+        $codigo = $imovel->codigo ? Str::slug($imovel->codigo) : null;
+        $timestamp = now()->format('Ymd_His');
+
+        $basename = $codigo !== null && $codigo !== '' ? "imovel-{$codigo}" : "imovel-{$imovel->id}";
+
+        return "{$basename}-fotos-{$timestamp}.zip";
+    }
+
+    private function buildPhotoFilename(ImovelFoto $foto): string
+    {
+        $basename = $foto->legenda ?: $foto->original_name ?: "foto-{$foto->id}";
+        $basename = Str::slug(pathinfo($basename, PATHINFO_FILENAME));
+        $extension = pathinfo($foto->path, PATHINFO_EXTENSION) ?: 'jpg';
+
+        if ($basename === '') {
+            $basename = "foto-{$foto->id}";
+        }
+
+        return "{$basename}.{$extension}";
     }
 }

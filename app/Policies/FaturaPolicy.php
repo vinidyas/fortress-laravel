@@ -42,6 +42,11 @@ class FaturaPolicy
         return $this->checkAbility($user, 'faturas.cancel');
     }
 
+    public function email(User $user, Fatura $fatura): bool
+    {
+        return $this->checkAbility($user, 'faturas.email');
+    }
+
     private function checkAbility(User $user, string $permission): bool
     {
         return $user->hasPermission($permission);

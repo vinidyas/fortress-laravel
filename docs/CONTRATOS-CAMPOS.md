@@ -16,15 +16,16 @@
 | carencia_meses | smallint | nullable, 0-120 | |
 | data_entrega_chaves | date | nullable | |
 | valor_aluguel | decimal(12,2) | required, min 0 | Monetario principal |
-| desconto_mensal | decimal(12,2) | nullable, min 0 | |
-| reajuste_indice | enum | required, in {IGPM, IPCA, INPC, SEM_REAJUSTE} | Define logica de reajuste |
-| reajuste_periodicidade_meses | tinyint | nullable, 1-120 | Obrigatorio quando indice != SEM_REAJUSTE |
+| reajuste_indice | enum | required, in {IGPM, IGPDI, IPCA, IPCA15, INPC, TR, SELIC, OUTRO, SEM_REAJUSTE} | Define lógica de reajuste |
+| reajuste_indice_outro | string(60) | required se indice = OUTRO | Nome do índice personalizado |
+| reajuste_periodicidade_meses | tinyint | nullable, 1-120 | Obrigatório quando indice != SEM_REAJUSTE |
+| reajuste_teto_percentual | decimal(5,2) | nullable, min 0 | Limita o reajuste anual |
 | data_proximo_reajuste | date | nullable | Calculada automaticamente se nao enviada |
 | garantia_tipo | enum | required, in {Fiador, Seguro, Caucao, SemGarantia} | |
 | caucao_valor | decimal(12,2) | required_if garantia_tipo=Caucao | Zera automaticamente quando tipo difere |
-| taxa_adm_percentual | decimal(5,2) | nullable, min 0, max 100 | |
 | multa_atraso_percentual | decimal(5,2) | nullable, min 0, max 100 | |
 | juros_mora_percentual_mes | decimal(5,2) | nullable, min 0, max 100 | |
+| multa_rescisao_alugueis | decimal(5,2) | required, min 0 | Representa quantidade de aluguéis para multa |
 | repasse_automatico | boolean | default false | Checkbox no front |
 | conta_cobranca_id | fk financial_accounts.id | nullable, exists | Opcional para integracao financeira |
 | forma_pagamento_preferida | enum | nullable, in {Boleto, Pix, Deposito, Transferencia, CartaoCredito, Dinheiro} | |

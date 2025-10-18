@@ -47,9 +47,15 @@ class PessoaController extends Controller
                     $builder->where('cidade', 'like', "%{$value}%");
                 }),
                 AllowedFilter::callback('papel', function ($builder, $value) {
+                    $aliasMap = [
+                        'Inquilino' => 'Locatario',
+                        'Locatário' => 'Locatario',
+                    ];
+
                     $values = collect(is_array($value) ? $value : [$value])
                         ->filter()
                         ->map(fn ($item) => ucfirst(mb_strtolower((string) $item)))
+                        ->map(fn ($item) => $aliasMap[$item] ?? $item)
                         ->unique()
                         ->values();
 
@@ -57,8 +63,19 @@ class PessoaController extends Controller
                         return;
                     }
 
-                    $builder->where(function ($q) use ($values) {
-                        foreach ($values as $papel) {
+                    $searchValues = $values
+                        ->flatMap(function ($papel) use ($aliasMap) {
+                            if ($papel === 'Locatario') {
+                                return ['Locatario', 'Inquilino'];
+                            }
+
+                            return [$papel];
+                        })
+                        ->unique()
+                        ->values();
+
+                    $builder->where(function ($q) use ($searchValues) {
+                        foreach ($searchValues as $papel) {
                             $q->orWhereJsonContains('papeis', $papel);
                         }
                     });

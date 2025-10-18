@@ -30,9 +30,20 @@ const loading = ref(false);
 const saving = ref(false);
 const errorMessage = ref('');
 
+const normalizePapeis = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((papel) => {
+      if (typeof papel !== 'string') return null;
+      return papel === 'Inquilino' ? 'Locatario' : papel;
+    })
+    .filter((papel): papel is string => Boolean(papel));
+};
+
 const tipoOptions = ['Fisica', 'Juridica'];
 const papelOptions = [
-  { value: 'Inquilino', label: 'Locatário' },
+  { value: 'Locatario', label: 'Locatário' },
   { value: 'Proprietario', label: 'Proprietário' },
   { value: 'Fiador', label: 'Fiador' },
   { value: 'Corretor', label: 'Corretor' },
@@ -74,7 +85,7 @@ async function loadPessoa() {
     form.cpf_cnpj = payload.cpf_cnpj ?? '';
     form.email = payload.email ?? '';
     form.telefone = payload.telefone ?? '';
-    form.papeis = Array.isArray(payload.papeis) ? payload.papeis : [];
+    form.papeis = normalizePapeis(payload.papeis);
     form.cep = payload.enderecos?.cep ?? '';
     form.estado = payload.enderecos?.estado ?? '';
     form.cidade = payload.enderecos?.cidade ?? '';

@@ -28,13 +28,16 @@ class ContratoResource extends JsonResource
             'valor_aluguel' => $this->valor_aluguel,
             'desconto_mensal' => $this->desconto_mensal,
             'reajuste_indice' => $this->reajuste_indice?->value,
+            'reajuste_indice_outro' => $this->reajuste_indice_outro,
             'reajuste_periodicidade_meses' => $this->reajuste_periodicidade_meses,
+            'reajuste_teto_percentual' => $this->reajuste_teto_percentual,
             'data_proximo_reajuste' => $this->data_proximo_reajuste,
             'garantia_tipo' => $this->garantia_tipo?->value,
             'caucao_valor' => $this->caucao_valor,
             'taxa_adm_percentual' => $this->taxa_adm_percentual,
             'multa_atraso_percentual' => $this->multa_atraso_percentual,
             'juros_mora_percentual_mes' => $this->juros_mora_percentual_mes,
+            'multa_rescisao_alugueis' => $this->multa_rescisao_alugueis,
             'repasse_automatico' => $this->repasse_automatico,
             'conta_cobranca_id' => $this->conta_cobranca_id,
             'forma_pagamento_preferida' => $this->forma_pagamento_preferida?->value,
@@ -43,12 +46,22 @@ class ContratoResource extends JsonResource
             'observacoes' => $this->observacoes,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'imovel' => $this->whenLoaded('imovel', fn () => [
-                'id' => $this->imovel->id,
-                'codigo' => $this->imovel->codigo,
-                'cidade' => $this->imovel->cidade,
-                'bairro' => $this->imovel->bairro,
-            ]),
+            'imovel' => $this->whenLoaded('imovel', function () {
+                $imovel = $this->imovel;
+                $condominio = $imovel->relationLoaded('condominio') ? $imovel->condominio : null;
+
+                return [
+                    'id' => $imovel->id,
+                    'codigo' => $imovel->codigo,
+                    'cidade' => $imovel->cidade,
+                    'bairro' => $imovel->bairro,
+                    'complemento' => $imovel->complemento,
+                    'condominio' => $condominio ? [
+                        'id' => $condominio->id,
+                        'nome' => $condominio->nome,
+                    ] : null,
+                ];
+            }),
             'locador' => $this->whenLoaded('locador', fn () => [
                 'id' => $this->locador->id,
                 'nome_razao_social' => $this->locador->nome_razao_social,

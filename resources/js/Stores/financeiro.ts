@@ -32,7 +32,7 @@ export const useFinanceiroStore = defineStore('financeiro', {
   }),
   getters: {
     query(state) {
-      const query: Record<string, unknown> = {};
+      const query: Record<string, string | number | null> = {};
 
       if (state.filters.search) {
         query['filter[search]'] = state.filters.search;

@@ -40,19 +40,24 @@ class ContratoStoreRequest extends FormRequest
             'data_inicio' => ['required', 'date'],
             'data_fim' => ['nullable', 'date', 'after_or_equal:data_inicio'],
             'dia_vencimento' => ['required', 'integer', 'between:1,28'],
-            'prazo_meses' => ['nullable', 'integer', 'min:0', 'max:600'],
             'carencia_meses' => ['nullable', 'integer', 'min:0', 'max:120'],
             'data_entrega_chaves' => ['nullable', 'date'],
             'valor_aluguel' => ['required', 'numeric', 'min:0'],
-            'desconto_mensal' => ['nullable', 'numeric', 'min:0'],
             'reajuste_indice' => ['required', Rule::in(ContratoReajusteIndice::values())],
+            'reajuste_indice_outro' => [
+                'nullable',
+                'string',
+                'max:60',
+                Rule::requiredIf(fn () => $this->input('reajuste_indice') === ContratoReajusteIndice::Outro->value),
+            ],
             'reajuste_periodicidade_meses' => ['nullable', 'integer', 'min:1', 'max:120'],
             'data_proximo_reajuste' => ['nullable', 'date'],
+            'reajuste_teto_percentual' => ['nullable', 'numeric', 'min:0'],
             'garantia_tipo' => ['required', Rule::in(ContratoGarantiaTipo::values())],
             'caucao_valor' => ['nullable', 'numeric', 'min:0', 'required_if:garantia_tipo,' . ContratoGarantiaTipo::Caucao->value],
-            'taxa_adm_percentual' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'multa_atraso_percentual' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'juros_mora_percentual_mes' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'multa_rescisao_alugueis' => ['required', 'numeric', 'min:0'],
             'repasse_automatico' => ['nullable', 'boolean'],
             'conta_cobranca_id' => ['nullable', 'integer', 'exists:financial_accounts,id'],
             'forma_pagamento_preferida' => ['nullable', Rule::in(ContratoFormaPagamento::values())],
@@ -68,11 +73,11 @@ class ContratoStoreRequest extends FormRequest
     {
         $decimalFields = [
             'valor_aluguel',
-            'desconto_mensal',
             'caucao_valor',
-            'taxa_adm_percentual',
             'multa_atraso_percentual',
             'juros_mora_percentual_mes',
+            'multa_rescisao_alugueis',
+            'reajuste_teto_percentual',
         ];
 
         $data = $this->all();
@@ -99,6 +104,14 @@ class ContratoStoreRequest extends FormRequest
             if (array_key_exists($enumField, $data) && $data[$enumField] === '') {
                 $data[$enumField] = null;
             }
+        }
+
+        if (($data['reajuste_indice'] ?? null) !== ContratoReajusteIndice::Outro->value) {
+            $data['reajuste_indice_outro'] = null;
+        }
+
+        if (($data['reajuste_indice'] ?? null) === ContratoReajusteIndice::SemReajuste->value) {
+            $data['reajuste_teto_percentual'] = null;
         }
 
         $this->merge($data);

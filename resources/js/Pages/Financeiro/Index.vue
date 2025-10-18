@@ -1,11 +1,13 @@
 ﻿<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import TransactionTable from '@/Components/Financeiro/TransactionTable.vue';
+import type { TransactionRow } from '@/Components/Financeiro/TransactionTable.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import { computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useFinanceiroStore } from '@/Stores/financeiro';
+import DatePicker from '@/Components/Form/DatePicker.vue';
 
 interface AccountOption {
   id: number;
@@ -18,9 +20,11 @@ interface CostCenterOption {
 }
 
 interface TransactionResource {
-  data: Array<Record<string, any>>;
+  data: TransactionRow[];
   links: Array<{ url: string | null; label: string; active: boolean }>;
-  meta: Record<string, any>;
+  meta: {
+    per_page?: number;
+  };
 }
 
 const props = defineProps<{
@@ -59,8 +63,10 @@ watch(
   }
 );
 
+type SelectModel<T> = T | '' | undefined | null | string;
+
 watch(
-  () => stateFilters.value.accountId,
+  () => stateFilters.value.accountId as SelectModel<number>,
   (value) => {
     if (value === '' || value === undefined) {
       store.setFilters({ accountId: null });
@@ -68,13 +74,14 @@ watch(
     }
 
     if (typeof value === 'string') {
-      store.setFilters({ accountId: Number(value) });
+      const parsed = Number(value);
+      store.setFilters({ accountId: Number.isNaN(parsed) ? null : parsed });
     }
   }
 );
 
 watch(
-  () => stateFilters.value.costCenterId,
+  () => stateFilters.value.costCenterId as SelectModel<number>,
   (value) => {
     if (value === '' || value === undefined) {
       store.setFilters({ costCenterId: null });
@@ -82,7 +89,8 @@ watch(
     }
 
     if (typeof value === 'string') {
-      store.setFilters({ costCenterId: Number(value) });
+      const parsed = Number(value);
+      store.setFilters({ costCenterId: Number.isNaN(parsed) ? null : parsed });
     }
   }
 );
@@ -107,7 +115,27 @@ const saldoClasses = computed(() =>
   props.totals.saldo >= 0 ? 'text-emerald-300' : 'text-rose-300'
 );
 
-const currentFilters = computed(() => ({ ...store.query }));
+const currentFilters = computed<Record<string, string | number | null>>(() => ({
+  ...store.query,
+}));
+
+watch(
+  () => stateFilters.value.dateFrom,
+  (value) => {
+    if (value === '') {
+      store.setFilters({ dateFrom: null });
+    }
+  }
+);
+
+watch(
+  () => stateFilters.value.dateTo,
+  (value) => {
+    if (value === '') {
+      store.setFilters({ dateTo: null });
+    }
+  }
+);
 </script>
 
 <template>
@@ -177,18 +205,16 @@ const currentFilters = computed(() => ({ ...store.query }));
           </div>
           <div>
             <label class="text-xs font-semibold text-slate-400">Data (de)</label>
-            <input
+            <DatePicker
               v-model="stateFilters.dateFrom"
-              type="date"
-              class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 text-sm text-white focus:border-indigo-500 focus:outline-none"
+              placeholder="dd/mm/aaaa"
             />
           </div>
           <div>
             <label class="text-xs font-semibold text-slate-400">Data (até)</label>
-            <input
+            <DatePicker
               v-model="stateFilters.dateTo"
-              type="date"
-              class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 text-sm text-white focus:border-indigo-500 focus:outline-none"
+              placeholder="dd/mm/aaaa"
             />
           </div>
           <div>

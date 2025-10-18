@@ -51,6 +51,7 @@ class ImovelResource extends JsonResource
                 'comodidades' => $this->comodidades,
             ],
             'anexos_count' => $this->when(isset($this->anexos_count), fn () => (int) $this->anexos_count),
+            'fotos_count' => $this->when(isset($this->fotos_count), fn () => (int) $this->fotos_count),
             'contratos' => $this->whenLoaded('contratos', fn () => $this->contratos->map(fn ($contrato) => [
                 'id' => $contrato->id,
                 'codigo_contrato' => $contrato->codigo_contrato,
@@ -86,6 +87,20 @@ class ImovelResource extends JsonResource
                         ]
                         : null,
                     'url' => Storage::disk('public')->url($anexo->path),
+                ];
+            })),
+            'fotos' => $this->whenLoaded('fotos', fn () => $this->fotos->map(function ($foto) {
+                return [
+                    'id' => $foto->id,
+                    'legenda' => $foto->legenda,
+                    'original_name' => $foto->original_name,
+                    'mime_type' => $foto->mime_type,
+                    'size' => $foto->size,
+                    'ordem' => $foto->ordem,
+                    'width' => $foto->width,
+                    'height' => $foto->height,
+                    'url' => Storage::disk('public')->url($foto->path),
+                    'thumbnail_url' => Storage::disk('public')->url($foto->thumbnail_path),
                 ];
             })),
             'created_at' => $this->created_at,

@@ -23,6 +23,8 @@ const props = defineProps<{
   filters: Record<string, unknown>;
 }>();
 
+export type { TransactionRow };
+
 const hasItems = computed(() => props.items.length > 0);
 
 const exportUrl = () => {
@@ -145,4 +147,3 @@ const handlePagination = (link: { url: string | null }) => {
     </footer>
   </section>
 </template>
-

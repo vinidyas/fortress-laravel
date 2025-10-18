@@ -64,6 +64,7 @@ class AuditLogController extends Controller
                         'ip_address' => $row->ip_address,
                         'user_agent' => $row->user_agent,
                         'payload' => $row->payload,
+                        'context' => $row->context,
                     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
                     if (! $entry) {
@@ -88,7 +89,7 @@ class AuditLogController extends Controller
 
         return response()->streamDownload(function () use ($query) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['ID', 'Data', 'Usuario', 'Acao', 'Recurso', 'IP', 'Payload']);
+            fputcsv($handle, ['ID', 'Data', 'Usuario', 'Acao', 'Recurso', 'IP', 'Metodo', 'Origem', 'URL', 'Payload']);
 
             foreach ((clone $query)->lazy(500) as $row) {
                 fputcsv($handle, [
@@ -98,6 +99,9 @@ class AuditLogController extends Controller
                     $row->action,
                     $row->auditable_type.'#'.$row->auditable_id,
                     $row->ip_address,
+                    $row->context['http_method'] ?? null,
+                    $row->context['origin'] ?? null,
+                    $row->context['url'] ?? null,
                     json_encode($row->payload),
                 ]);
             }
@@ -114,7 +118,11 @@ class AuditLogController extends Controller
             ->when($request->filled('action'), fn ($q) => $q->where('action', $request->string('action')))
             ->when($request->filled('user_id'), fn ($q) => $q->where('user_id', $request->integer('user_id')))
             ->when($request->filled('auditable_type'), fn ($q) => $q->where('auditable_type', $request->string('auditable_type')))
+            ->when($request->filled('auditable_id'), fn ($q) => $q->where('auditable_id', $request->integer('auditable_id')))
             ->when($request->filled('ip_address'), fn ($q) => $q->where('ip_address', $request->string('ip_address')))
+            ->when($request->filled('guard'), fn ($q) => $q->where('context->guard', $request->string('guard')))
+            ->when($request->filled('origin'), fn ($q) => $q->where('context->origin', $request->string('origin')))
+            ->when($request->filled('http_method'), fn ($q) => $q->where('context->http_method', $request->string('http_method')))
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('created_at', '>=', $request->date('date_from')->toDateString()))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('created_at', '<=', $request->date('date_to')->toDateString()))
             ->when($request->filled('search'), function ($q) use ($request) {
@@ -133,6 +141,7 @@ class AuditLogController extends Controller
                         ->orWhereRaw('LOWER(ip_address) LIKE ?', [$term]);
 
                     $this->orWhereJsonContainsLike($inner, 'payload', $term);
+                    $this->orWhereJsonContainsLike($inner, 'context', $term);
                 });
             });
     }

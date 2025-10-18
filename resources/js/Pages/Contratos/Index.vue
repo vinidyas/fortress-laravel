@@ -5,6 +5,8 @@ import axios from '@/bootstrap';
 import type { AxiosError } from 'axios';
 import { useToast } from '@/composables/useToast';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import DatePicker from '@/Components/Form/DatePicker.vue';
+import { Link } from '@inertiajs/vue3';
 
 type Nullable<T> = T | null;
 
@@ -16,7 +18,14 @@ type ContratoRow = {
   data_fim: Nullable<string>;
   dia_vencimento: number;
   valor_aluguel: string;
-  imovel: Nullable<{ id: number; codigo: string; cidade: Nullable<string>; bairro: Nullable<string> }>;
+  imovel: Nullable<{
+    id: number;
+    codigo: string;
+    cidade: Nullable<string>;
+    bairro: Nullable<string>;
+    complemento: Nullable<string>;
+    condominio: Nullable<{ id: number; nome: Nullable<string> }>;
+  }>;
   locador: Nullable<{ id: number; nome_razao_social: string }>;
   locatario: Nullable<{ id: number; nome_razao_social: string }>;
 };
@@ -104,6 +113,36 @@ function resetFilters() {
 }
 function changePage(page: number) { if (!meta.value) return; if (page < 1 || page > meta.value.last_page) return; fetchContratos(page); }
 
+function formatImovelLabel(imovel: ContratoRow['imovel']): string {
+  if (!imovel) return '-';
+
+  const base = imovel.condominio?.nome?.trim();
+  const fallback = base && base.length ? base : 'Sem condomínio';
+  const complemento = imovel.complemento?.trim();
+
+  return complemento && complemento.length ? `${fallback} — ${complemento}` : fallback;
+}
+
+function formatImovelInfo(imovel: ContratoRow['imovel']): string {
+  if (!imovel) return '-';
+
+  const parts: string[] = [];
+
+  if (imovel.codigo) {
+    parts.push(`Código ${imovel.codigo}`);
+  }
+
+  if (imovel.cidade) {
+    parts.push(imovel.cidade);
+  }
+
+  if (imovel.bairro) {
+    parts.push(imovel.bairro);
+  }
+
+  return parts.length > 0 ? parts.join(' • ') : '-';
+}
+
 async function deleteContrato(contrato: ContratoRow) {
   const confirmed = window.confirm(`Deseja realmente excluir o contrato ${contrato.codigo_contrato}? Essa ação não pode ser desfeita.`);
   if (!confirmed) return;
@@ -170,7 +209,7 @@ onMounted(() => { fetchContratos(); });
           </div>
           <div>
             <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Vigência em</label>
-            <input v-model="filters.vigencia_em" type="date" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+            <DatePicker v-model="filters.vigencia_em" placeholder="dd/mm/aaaa" />
           </div>
           <div>
             <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Registros por página</label>
@@ -210,8 +249,8 @@ onMounted(() => { fetchContratos(); });
             <tr v-else v-for="contrato in contratos" :key="contrato.id" class="hover:bg-slate-900/60">
               <td class="px-4 py-3 font-semibold text-white">{{ contrato.codigo_contrato }}</td>
               <td class="px-4 py-3">
-                <div class="text-slate-200">{{ contrato.imovel?.codigo ?? '-' }}</div>
-                <div class="text-xs text-slate-500">{{ contrato.imovel?.cidade ?? '-' }}</div>
+                <div class="text-slate-200">{{ formatImovelLabel(contrato.imovel) }}</div>
+                <div class="text-xs text-slate-500">{{ formatImovelInfo(contrato.imovel) }}</div>
               </td>
               <td class="px-4 py-3 text-slate-200">{{ contrato.locador?.nome_razao_social ?? '-' }}</td>
               <td class="px-4 py-3 text-slate-200">{{ contrato.locatario?.nome_razao_social ?? '-' }}</td>
@@ -224,13 +263,17 @@ onMounted(() => { fetchContratos(); });
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end gap-2">
-                  <button type="button" :class="actionButtonClass" title="Ver contrato" @click="openEditModal(contrato.id)">
+                  <Link
+                    :href="`/contratos/${contrato.id}/visualizar`"
+                    :class="actionButtonClass"
+                    title="Ver contrato"
+                  >
                     <span class="sr-only">Ver contrato</span>
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75 9.75 6.75 9.75 6.75-3.75 6.75-9.75 6.75S2.25 12 2.25 12z" />
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                  </button>
+                  </Link>
                   <button type="button" :class="actionButtonClass" title="Editar contrato" @click="openEditModal(contrato.id)">
                     <span class="sr-only">Editar contrato</span>
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">

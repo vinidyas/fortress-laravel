@@ -3,29 +3,41 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Enums\ContratoFormaPagamento;
 use App\Http\Requests\Fatura\FaturaBaixaRequest;
 use App\Http\Requests\Fatura\FaturaStoreRequest;
 use App\Http\Requests\Fatura\FaturaUpdateRequest;
+use App\Http\Requests\Fatura\FaturaEmailRequest;
 use App\Http\Resources\FaturaResource;
 use App\Models\Contrato;
 use App\Models\Fatura;
+use App\Services\FaturaGenerator;
+use App\Services\FaturaEmailService;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 class FaturaController extends Controller
 {
-    public function __construct(private readonly DatabaseManager $db) {}
+    public function __construct(
+        private readonly DatabaseManager $db,
+        private readonly FaturaGenerator $faturaGenerator
+    ) {}
 
     public function index(Request $request)
     {
         $this->authorize('viewAny', Fatura::class);
 
-        $query = Fatura::query()->with(['contrato.imovel']);
+        $query = Fatura::query()->with([
+            'contrato.imovel.condominio',
+            'anexos',
+            'emailLogs' => fn ($q) => $q->latest()->limit(1),
+        ]);
 
         $perPage = min(max($request->integer('per_page', 15), 1), 100);
         $faturas = QueryBuilder::for($query)
@@ -87,7 +99,7 @@ class FaturaController extends Controller
     {
         $this->authorize('view', $fatura);
 
-        $fatura->load(['contrato.imovel', 'itens']);
+        $this->loadFaturaRelations($fatura);
 
         return new FaturaResource($fatura);
     }
@@ -116,7 +128,7 @@ class FaturaController extends Controller
             $this->syncItens($fatura, $request->input('itens', []));
 
             $fatura->recalcTotals()->save();
-            $fatura->load(['contrato.imovel', 'itens']);
+            $this->loadFaturaRelations($fatura);
 
             return (new FaturaResource($fatura))
                 ->response()
@@ -137,7 +149,7 @@ class FaturaController extends Controller
             }
 
             $fatura->save();
-            $fatura->load(['contrato.imovel', 'itens']);
+            $this->loadFaturaRelations($fatura);
 
             return new FaturaResource($fatura);
         });
@@ -165,7 +177,7 @@ class FaturaController extends Controller
             $fatura->status = 'Paga';
             $fatura->save();
 
-            $fatura->load(['contrato.imovel', 'itens']);
+            $this->loadFaturaRelations($fatura);
 
             return new FaturaResource($fatura);
         });
@@ -182,9 +194,179 @@ class FaturaController extends Controller
         $fatura->status = 'Cancelada';
         $fatura->save();
 
-        $fatura->load(['contrato.imovel', 'itens']);
+        $this->loadFaturaRelations($fatura);
 
         return new FaturaResource($fatura);
+    }
+
+    public function updateContractPaymentMethod(Request $request, Fatura $fatura)
+    {
+        $this->authorize('update', $fatura);
+
+        $contrato = $fatura->contrato;
+
+        if (! $contrato) {
+            return response()->json(['message' => 'Contrato não encontrado para esta fatura.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $validated = $request->validate([
+            'forma_pagamento_preferida' => ['nullable', 'string', Rule::in(ContratoFormaPagamento::values())],
+        ]);
+
+        $contrato->forma_pagamento_preferida = $validated['forma_pagamento_preferida'] ?? null;
+        $contrato->save();
+
+        $this->loadFaturaRelations($fatura);
+
+        return new FaturaResource($fatura);
+    }
+
+    public function sendEmail(
+        FaturaEmailRequest $request,
+        Fatura $fatura,
+        FaturaEmailService $emailService
+    ) {
+        $this->authorize('email', $fatura);
+
+        $this->loadFaturaRelations($fatura);
+
+        $payload = $request->sanitized();
+        $defaults = $emailService->buildDefaults($fatura);
+
+        $to = $payload['recipients'] ?: $defaults['to'];
+        $cc = $payload['cc'] ?: $defaults['cc'];
+        $bcc = $payload['bcc'] ?? [];
+        $message = $payload['message'] ?? null;
+        $attachmentIds = array_values(array_unique($payload['attachments'] ?? []));
+
+        $selectedAttachments = ! empty($attachmentIds)
+            ? $fatura->anexos()->whereIn('id', $attachmentIds)->get()
+            : collect();
+
+        if ($selectedAttachments->count() !== count($attachmentIds)) {
+            throw ValidationException::withMessages([
+                'attachments' => 'Alguns anexos selecionados não pertencem a esta fatura.',
+            ]);
+        }
+
+        $emailService->send($fatura, $to, $cc, $bcc, $message, $request->user(), $selectedAttachments);
+
+        $this->loadFaturaRelations($fatura);
+
+        return (new FaturaResource($fatura))->additional([
+            'meta' => [
+                'message' => 'Fatura enviada por e-mail com sucesso.',
+            ],
+        ]);
+    }
+
+    public function generateCurrentMonth(Request $request)
+    {
+        $this->authorize('create', Fatura::class);
+
+        $competencia = Carbon::now()->startOfMonth();
+        $contratoId = $request->filled('contrato_id') ? $request->integer('contrato_id') : null;
+
+        $result = $this->faturaGenerator->generateForCompetencia($competencia, $contratoId);
+
+        if ($result['processed_contracts'] === 0) {
+            return response()->json([
+                'message' => 'Nenhum contrato elegivel encontrado para a competencia atual.',
+                'created' => 0,
+                'skipped' => 0,
+                'processed_contracts' => 0,
+            ]);
+        }
+
+        $message = sprintf(
+            'Faturas geradas: %d | Ignoradas (ja existentes): %d',
+            $result['created'],
+            $result['skipped']
+        );
+
+        if ($contratoId && $result['processed_contracts'] > 0) {
+            $message = $result['created'] > 0
+                ? 'Fatura gerada com sucesso para o contrato selecionado.'
+                : 'A fatura deste contrato já foi gerada no mês vigente.';
+        }
+
+        return response()->json([
+            'message' => $message,
+            'created' => $result['created'],
+            'skipped' => $result['skipped'],
+            'processed_contracts' => $result['processed_contracts'],
+        ]);
+    }
+
+    public function eligibleContracts(Request $request)
+    {
+        $this->authorize('create', Fatura::class);
+
+        $competencia = Carbon::now()->startOfMonth();
+        $competenciaDate = $competencia->toDateString();
+        $competenciaEndDate = $competencia->clone()->endOfMonth()->toDateString();
+
+        $limit = min(max($request->integer('limit', 20), 1), 50);
+        $search = trim((string) $request->query('search', ''));
+
+        $query = Contrato::query()
+            ->with([
+                'imovel' => fn ($imovelQuery) => $imovelQuery->with('condominio'),
+            ])
+            ->withCount([
+                'faturas as invoices_in_month_count' => fn ($q) => $q->whereDate('competencia', $competenciaDate),
+            ])
+            ->where('status', 'Ativo')
+            ->where('data_inicio', '<=', $competenciaEndDate)
+            ->where(function ($query) use ($competenciaDate) {
+                $query->whereNull('data_fim')
+                    ->orWhere('data_fim', '>=', $competenciaDate);
+            });
+
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search) {
+                $builder->where('codigo_contrato', 'like', "%{$search}%")
+                    ->orWhereHas('imovel', function ($imovelQuery) use ($search) {
+                        $imovelQuery->where('codigo', 'like', "%{$search}%")
+                            ->orWhere('cidade', 'like', "%{$search}%");
+                    });
+
+                if (is_numeric($search)) {
+                    $builder->orWhere('id', (int) $search);
+                }
+            });
+        }
+
+        $contracts = $query
+            ->orderBy('codigo_contrato')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get()
+            ->map(function (Contrato $contrato) {
+                $imovel = $contrato->imovel;
+
+                return [
+                    'id' => $contrato->id,
+                    'codigo_contrato' => $contrato->codigo_contrato,
+                    'imovel' => $imovel ? [
+                        'codigo' => $imovel->codigo,
+                        'cidade' => $imovel->cidade,
+                        'bairro' => $imovel->bairro,
+                        'condominio_nome' => $imovel->condominio?->nome,
+                        'complemento' => $imovel->complemento,
+                    ] : null,
+                    'imovel_label' => $imovel
+                        ? ($imovel->condominio?->nome ?: 'Sem condomínio')
+                        : null,
+                    'imovel_sub_label' => $imovel ? ($imovel->complemento ?: null) : null,
+                    'has_invoice_in_month' => ($contrato->invoices_in_month_count ?? 0) > 0,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $contracts,
+        ]);
     }
 
     private function syncItens(Fatura $fatura, array $itens): void
@@ -260,5 +442,17 @@ class FaturaController extends Controller
         }
 
         return Carbon::parse($value)->startOfMonth()->toDateString();
+    }
+
+    private function loadFaturaRelations(Fatura $fatura): void
+    {
+        $fatura->load([
+            'contrato.locatario',
+            'contrato.locador',
+            'contrato.imovel.condominio',
+            'itens',
+            'anexos' => fn ($query) => $query->latest()->with('uploader'),
+            'emailLogs' => fn ($query) => $query->latest()->with(['user:id,nome,email'])->limit(10),
+        ]);
     }
 }

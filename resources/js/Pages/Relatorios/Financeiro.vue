@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
 import { reactive, ref } from 'vue';
+import DatePicker from '@/Components/Form/DatePicker.vue';
 
 const props = defineProps<{
   accounts: Array<{ id: number; nome: string }>;
@@ -55,19 +56,11 @@ const exportReport = () => {
       <form class="grid gap-4 md:grid-cols-5" @submit.prevent="loadReport">
         <div>
           <label class="text-xs font-semibold text-slate-400">Período de</label>
-          <input
-            v-model="filters.de"
-            type="date"
-            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-          />
+          <DatePicker v-model="filters.de" placeholder="dd/mm/aaaa" />
         </div>
         <div>
           <label class="text-xs font-semibold text-slate-400">Período até</label>
-          <input
-            v-model="filters.ate"
-            type="date"
-            class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-          />
+          <DatePicker v-model="filters.ate" placeholder="dd/mm/aaaa" />
         </div>
         <div>
           <label class="text-xs font-semibold text-slate-400">Conta</label>
