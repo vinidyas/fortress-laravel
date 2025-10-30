@@ -1,0 +1,331 @@
+Introdução
+Bem-vindo ao Bradesco Developers, o portal oficial do Bradesco para comercialização de APIs.
+Este guia foi desenvolvido para orientar nossos clientes na utilização eficiente do portal,
+proporcionando uma experiência de integração simples e intuitiva.
+O passo a passo a seguir foi elaborado para a API de Cobrança, mas pode ser aplicado a
+qualquer API disponível em nosso portal.
+Vamos começar essa jornada de inovação juntos!
+
+Cadastro
+
+1.
+
+Portal Developers
+
+Passo
+
+Ícone
+Descrição gerada automaticamente
+
+Clique no botão “Entrar / Registrar”
+para efetuar seu cadastro na
+plataforma.
+
+Clique em “inscreva-se”, para iniciar o
+cadastro de sua organização.
+
+Preencha os dados do usuário que será
+cadastrado, crie sua senha de acesso e
+finalize seu cadastro, clicando em
+“Inscrever-se”.
+
+Ao receber o e-mail de
+ativação, clique no botão
+“Ative sua Conta”, você será
+direcionado para home do
+Portal Bradesco Developers.
+Atenção!
+Caso não identifique o e-mail
+para ativação da sua conta,
+certifique sua caixa de spam.
+
+Para realizar seu login, clique no botão
+“Entra / Registrar”
+
+Preencha os dados do usuário para
+acessar a plataforma e clique em
+“Entrar”.
+
+Como gerar sua credencial
+API COBRANÇA
+
+2.
+
+Passo
+
+Ícone
+Descrição gerada automaticamente
+
+Clique em “Produtos” para
+visualizar nosso catálogo.
+
+Utilize o campo de busca para
+pesquisar produtos
+
+Selecione o produto deseja
+conhecer ou utilizar
+
+Consulte os produtos
+utilizando diversos filtros
+disponíveis
+
+Clique em “inscrever-se” para efetuar
+a assinatura no produto selecionado.
+
+Selecione qual plano de uso será utilizado
+para assinatura: Sandbox ou Produção.
+SANDBOX: Ambiente de teste
+Selecione
+qual plano de uso será utilizado
+PRODUÇÃO: Ambiente
+produtivo
+para assinatura: Sandbox ou Produção.
+
+Informe
+o seu
+grupo
+trabalho
+que
+será
+Informe
+o seu
+grupo
+dede
+trabalho
+que
+será
+responsável
+pela
+assinatura
+responsável
+pela
+assinatura
+
+Obs:
+Você
+pode
+utilizar
+o “Default
+team”
+criar
+time
+Obs:
+Você
+pode
+utilizar
+o “Default
+team”
+ouou
+criar
+umum
+time
+novo
+menu
+lateral
+direito
+“Organização
+e “Equipes”.
+novo
+nono
+menu
+lateral
+direito
+emem
+“Organização
+” e”“Equipes”.
+
+Insira um nome da sua Assinatura e clique
+em “Enviar Solicitação”
+Insira um nome da sua Assinatura e clique
+em “Enviar Solicitação”
+
+Aprovação da Assinatura
+Para o ambiente de SANDBOX a aprovação
+é instantânea.
+Para o ambiente de PRODUÇÃO a
+aprovação pode levar até 48 horas
+Você será informando sobre a aprovação de
+sua assinatura por e-mail.
+
+Em seguida, você será informando sobre a
+de sua
+assinatura.
+Cliqueaprovação
+em “Registrar
+sua
+aplicação”.
+
+Como gerar sua aplicação
+
+3.
+
+API COBRANÇA
+Passo
+
+Ícone
+Descrição gerada automaticamente
+
+Clique em “Registar Aplicação” para
+registrar uma nova aplicação no produto.
+
+Escrever o nome do Aplicativo que deseja armazenar suas
+credencias.
+Exemplo:
+
+Clique na caixa
+em vermelho
+
+Selecione o nome da
+equipe.
+Exemplo: Default time.
+
+Clique em Criar para
+registrar o nome de sua
+aplicação.
+
+Selecionae sua assinatura
+
+Clique em
+próximo
+
+Selecione os recursos que deseja
+cadastrar.
+
+Clique em
+próximo
+
+Clique em Registrar
+Aplicação
+
+Clique em Solicitar
+Credencial
+
+Informe um nome para a credencial.
+
+Informe qualquer um dos recursos de
+Produção.
+(1 recurso apenas)
+
+Selecione seu aplicativo”
+
+Selecione a opção “Nova Credencial”
+Informe o CNPJ da empresa.
+Infore a razão social da empresa.
+Anexe o certificado público, conforme
+orientação a seguir.
+
+Ao final do preenchimento dos dados da sua credencial, tenha
+em mãos seu certificado público. Para anexar o certificado
+público com êxito, necessário que seja importado apenas o
+corpo do certificado, conforme abaixo:
+Se houver cabeçalho será preciso retira-lo.
+Exemplo
+
+Clicar em
+Criar
+
+Em seguida, você receberá uma
+notificação para que aguarde a criação
+de sua credencial.
+
+Importante: O tempo limite de habilitação de sua credencial é de até 10 minutos.
+Você poderá verificar o status da sua credencial no menu lateral esquerdo.
+
+Caso necessário entre em contato com nosso suporte.
+
+ATENÇÂO: Por questões de segurança,
+o Client Secret estará visível somente
+por 3 dias. Caso o perca, será
+necessário gerar uma nova credencial
+para obter um novo Client Secret.
+
+Clique aqui para visualizar
+o seu cliente secret
+
+No menu lateral, temos o Botão Aplicativos, nele
+o cliente pode realizar o controle e gestão dos
+recursos gerados
+
+No menu lateral, temos o Botão Assinaturas, nele
+o cliente pode realizar o controle e gestão das
+assinaturas que foram geradas.
+Cada Api precisa ter uma assinatura.
+
+No menu lateral, temos o Botão
+Credenciais, nele o cliente pode realizar
+o controle e gestão das credenciais que
+foram geradas.
+A mesma credencial pode ser usada para
+todas as APIS, exceto Pix que vai possuir
+sua própria credencial de forma
+independente..
+
+Concluído: Sua credencial de Cobrança foi gerada com
+sucesso. Agora, é necessário configurá-la em seu sistema para
+iniciar o consumo.
+Caso precise de suporte, entre em contato pelo nosso canal
+disponível na aba de Suporte dentro do Portal ou pelo e-mail:
+Transações API - suportetransacoes_api@bradesco.com.br
+
+Reaproveitamento de Credencial de Cobrança
+Reaproveitamento
+de Credencial
+de Cobrança
+A credencial de Cobrança
+gerada
+pode ser reutilizada para as seguintes APIs:
+A credencial de Cobrança gerada pode ser reutilizada para as seguintes APIs:
+• API Cobrança com QR Code
+API• Cobrança
+QR Code
+API Saldocom
+e Extrato
+API• Saldo
+e Extrato
+API TED
+API• TED
+API Pagamento de Boletos de Cobrança
+API• Pagamento
+de Cobrança
+API Pagamento
+de Contas de Consumo e Tributos
+ATENÇÂO: Para API do PIX não é
+API• Pagamento
+deVeiculares
+Tributos e SP,
+Contas
+de Consumo
+possível reaproveitar a mesma
+API Débitos
+PR, MG
+e BA.
+credencial das APIS listadas ao lado.
+API• Débitos
+Veiculares
+API Débito
+Automático
+Necessário gerar uma nova credencial.
+API Débito Automático
+Passo
+a Passo
+para Reutilizar
+Credencial a Credencial
+Passo
+a Passo
+paraaReutilizar
+Acesse a API desejada no Portal.
+Clique em Inscrever-se.
+1. Acesse a API desejada no Portal.
+Após a aprovação da assinatura, clique em Registrar Aplicação.
+2. Clique em Inscrever-se.
+Selecione os recursos desejados e clique em Próximo.
+3. Após a aprovação da assinatura, clique em Registrar Aplicação.
+Clique novamente em Registrar Aplicação.
+4. Selecione os recursos desejados e clique em Próximo.
+Pronto! Os recursos foram vinculados à credencial de Cobrança previamente gerada.
+5. Clique novamente em Registrar Aplicação.
+Para incluir outras APIs da lista acima, basta repetir o processo para cada uma delas.
+Pronto! Os recursos foram vinculados à credencial de Cobrança previamente gerada.
+Para incluir outras APIs da lista acima, basta repetir o processo para cada uma delas.
+
+

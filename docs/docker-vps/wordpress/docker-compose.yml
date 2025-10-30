@@ -1,0 +1,52 @@
+version: '3.7'
+
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: wppassword
+      WORDPRESS_DB_NAME: wpdatabase
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress-https.rule=Host(`fortressempreendimentos.com.br`)"
+      - "traefik.http.routers.wordpress-https.entrypoints=websecure"
+      - "traefik.http.routers.wordpress-https.tls.certresolver=letsencrypt"
+
+    networks:
+      - pangolin
+
+  db:
+    image: mysql:5.7
+    container_name: wordpress_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wpdatabase
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: wppassword
+      MYSQL_ROOT_PASSWORD: R6tU2v2neo5FLXlO8eez
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - pangolin
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - pangolin
+
+volumes:
+  wordpress_data:
+  db_data:
+
+networks:
+  pangolin:
+    external: true

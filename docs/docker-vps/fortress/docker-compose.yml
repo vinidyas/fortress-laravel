@@ -1,0 +1,117 @@
+version: "3.9"
+
+services:
+  fortress-app:
+    build:
+      context: ../../..
+      dockerfile: docs/docker-vps/fortress/Dockerfile
+      target: php
+    image: fortress-laravel:php
+    container_name: fortress_app
+    restart: unless-stopped
+    depends_on:
+      - fortress-db
+      - fortress-redis
+    env_file:
+      - ./fortress.env
+    volumes:
+      - fortress_storage:/var/www/html/storage
+    networks:
+      - pangolin
+
+  fortress-web:
+    build:
+      context: ../../..
+      dockerfile: docs/docker-vps/fortress/Dockerfile
+      target: nginx
+    image: fortress-laravel:nginx
+    container_name: fortress_web
+    restart: unless-stopped
+    depends_on:
+      - fortress-app
+    volumes:
+      - fortress_storage:/var/www/html/storage
+    networks:
+      - pangolin
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=pangolin"
+      - "traefik.http.middlewares.fortress-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.fortress-http.entrypoints=web"
+      - "traefik.http.routers.fortress-http.rule=Host(`${FORTRESS_DOMAIN}`)"
+      - "traefik.http.routers.fortress-http.middlewares=fortress-https-redirect"
+      - "traefik.http.routers.fortress-http.service=noop@internal"
+      - "traefik.http.routers.fortress-https.entrypoints=websecure"
+      - "traefik.http.routers.fortress-https.rule=Host(`${FORTRESS_DOMAIN}`)"
+      - "traefik.http.routers.fortress-https.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.fortress-https.middlewares=fortress-compress"
+      - "traefik.http.routers.fortress-https.service=fortress-web"
+      - "traefik.http.services.fortress-web.loadbalancer.server.port=80"
+      - "traefik.http.services.fortress-web.loadbalancer.passhostheader=true"
+      - "traefik.http.middlewares.fortress-compress.compress=true"
+
+  fortress-queue:
+    image: fortress-laravel:php
+    container_name: fortress_queue
+    restart: unless-stopped
+    depends_on:
+      - fortress-app
+    env_file:
+      - ./fortress.env
+    command: php artisan queue:work --queue=receipts,default --sleep=3 --tries=3 --memory=256
+    volumes:
+      - fortress_storage:/var/www/html/storage
+    networks:
+      - pangolin
+
+  fortress-scheduler:
+    image: fortress-laravel:php
+    container_name: fortress_scheduler
+    restart: unless-stopped
+    depends_on:
+      - fortress-app
+    env_file:
+      - ./fortress.env
+    command: >
+      sh -c "while true; do php artisan schedule:run --no-interaction --verbose; sleep 60; done"
+    volumes:
+      - fortress_storage:/var/www/html/storage
+    networks:
+      - pangolin
+
+  fortress-db:
+    image: mysql:8.0
+    container_name: fortress_db
+    restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${FORTRESS_DB_DATABASE}
+      MYSQL_USER: ${FORTRESS_DB_USERNAME}
+      MYSQL_PASSWORD: ${FORTRESS_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${FORTRESS_DB_ROOT_PASSWORD}
+    volumes:
+      - fortress_db_data:/var/lib/mysql
+    networks:
+      - pangolin
+
+  fortress-redis:
+    image: redis:7-alpine
+    container_name: fortress_redis
+    restart: unless-stopped
+    command: redis-server --save 60 1000 --appendonly yes
+    volumes:
+      - fortress_redis_data:/data
+    networks:
+      - pangolin
+
+volumes:
+  fortress_storage:
+  fortress_db_data:
+  fortress_redis_data:
+
+networks:
+  pangolin:
+    external: true

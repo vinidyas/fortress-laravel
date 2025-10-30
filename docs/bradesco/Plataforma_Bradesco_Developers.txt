@@ -1,0 +1,9614 @@
+Plataforma Bradesco Developers
+
+1 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Source : https://developers.bradesco.com.br/productDetails/8a2e869e9549334601954cca1ee604c3/version/8a2e879b99a282920199bc191c767d73/docs/
+viewer/8a2e879b99a282920199bc191cf87d80/0/8a2e85119621daed0196343220fe6e11#iss=https%3A%2F%2Flogin.axway.com%2Fauth%2Frealms%2FBroker
+Documentação
+Documentos
+Resultados da Busca
+Sua busca não retornou resultados.
+Como Gerar sua Credencial para API Cobrança
+Manual API Cobrança
+Manual API Cobrança
+Manual da API token - Cobrança
+
+Cobrança
+
+Introdução
+Nessa documentação, você encontrará informações sobre as regras de negócio e orientações sobre o uso da API Cobrança.
+
+Público alvo
+Empresas de todos os setores, como indústrias, comércios, prestadoras de serviços e agronegócios, podem utilizar essa forma de recebimento. Além disso, órgãos governamentais em qualquer
+nível (municipal, estadual ou federal), tanto da administração direta quanto indireta, também são beneficiados. Profissionais liberais, produtores rurais e autônomos que precisam receber
+pagamentos por ofertas, propostas, vendas ou serviços prestados encontram nessa solução uma ferramenta eficiente.
+
+Pré requisitos
+Para promover a integração sistêmica da API de Cobrança, o cliente deve:
+1. Possuir Contrato de Cobrança Bradesco ativo;
+2. O gerente deve habilitar o uso da funcionalidade do indicador “175 - Registro via Webservice”.
+3. O habilitado ao uso do Bradesco Net Empresa*;
+4. Desenvolver a sistemática de conectividade descrita neste Manual, integrada ao seu sistema de geração/emissão de Boleto de Cobrança.
+(*) Clientes que, mesmo possuindo Contrato ativo, ainda não acessaram o Bradesco Net Empresa necessitam fazer o primeiro acesso antes de comandar registro de boleto por essa sistemática. Tal
+procedimento é premissa para o reconhecimento e a autenticação do cliente na Plataforma Bradesco para a utilização do novo serviço.
+
+Registo de boleto via API
+A API de registro de boleto de Cobrança é uma solução voltada para as empresas que necessitam gerar seu boleto de Cobrança de forma ágil, prática e segura, sem a necessidade de acessar o NET
+EMPRESA através de uma interface própria.
+Realizar requisição conforme abaixo:
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-registro/v1/cobranca
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-registro/v1/cobranca
+
+Layout de desenvolvimento
+O exemplo abaixo é apenas como referência para formatação dos campos:
+Observações sobre o preenchimento dos campos:
+1. Todos os campos devem ser informados conforme layout, entretanto para os tipos não obrigatórios devem ser preenchidos com zeros para campo numérico, ou espaços para campo
+alfanumérico;
+2. Nos campos referentes a multa, juros, bonificação ou desconto, devem ser preenchidos com valor ou percentual, nunca os dois campos mutualmente.
+3. Todos os campos devem ser informados conforme layout; entretanto, para os campos não obrigatórios, devem ser preenchidos com zero para campo numérico, ou sem preenchimento para campo
+alfanumérico.
+4. Para os campos referentes à multa, juros, bonificação ou desconto, devem ser preenchidos com valor ou percentual, nunca os dois campos mutuamente.
+5. A formatação do campo em percentual na API é composta por 2 números inteiros e 3 decimais, conforme exemplo abaixo:
+6. Para uso do campo Decurso de prazo “tipoPrazoDecursoTres” na requisição, o indicador no contrato de cobrança precisa estar cadastrado como ZERO.
+
+(%) Preenchimento na API
+0,5
+
+0.5
+
+10
+
+10 ou 10.00
+
+12,12 12.12
+7. Juros: Juros é o valor cobrado diariamente, após o vencimento.
+Cálculo para cobrar Juros ao dia:
+O valor do título x % mensal de juros / 30 = Mora dia em Reais.
+8. Desconto: É um valor fixo cobrado a menor no boleto até o dia do vencimento.
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+2 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+9. Abatimento: É um valor fixo cobrado a menor até o final da vida do título, independente do vencimento.
+10. Bonificação: É o contrário do Juros ao dia, é cobrado a menor de forma diário, até o vencimento.
+Exemplo: Título gerado dia 01/04 com vencimento dia 20/04. Bonificação de R$ 1,00 por dia, até dia 20. Ou seja, se for pago 01/04, terei R$ 20,00 reais de bonificação. Ou no caso de percentual,
+bonificação de 1% por dia, até dia 20. Ou seja, se for pago em 01/04, terei 20% de bonificação.
+11. Multa: A multa é mensal, cobrado em porcentagem apenas uma vez após o vencimento.
+Cálculo:
+10% em cima do valor do boleto R$100,00. Se cobra R$10,00 de Multa.
+Layout de comunicação - Entrada
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+3 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Nome do Campo
+
+Tipo
+
+Descrição
+
+debitoAutomatico
+
+Informe 'S' (Sim) para
+automático ou 'N' (Não)
+caso não deseje ativá-lo.
+Alfanumérico
+OBS: Instituições
+autorizadas BACEN não
+devem utilizar.
+
+FilialCPFCNPJ
+
+Numérico
+
+ctrlCPFCNPJ
+idProduto
+
+Tamanho Tamanho
+Obrigatório
+Mínimo Máximo
+
+0
+
+1
+
+Não
+
+filial CPFCNPJ do
+Beneficiário. OBS: Se
+CPF, filial = 0
+
+1
+
+4
+
+Sim
+
+Numérico
+
+Dígito de Controle do
+CPF/CNPJ Beneficiário
+
+1
+
+2
+
+Sim
+
+Numérico
+
+Carteira de Cobrança
+
+1
+
+2
+
+Sim
+
+Numérico
+
+Número da Negociação.
+Formato: Agência (4
+posições), Zeros (7
+18
+posições), Conta (7
+posições). Ex.:
+AAAA0000000CCCCCCC
+
+18
+
+Sim
+
+nuTitulo
+
+Numérico
+
+Número do Título. É o
+Nosso Número, sem o
+dígito. É a identificação
+do título para o banco,
+pode ser informado pelo
+1
+cliente ou gerado pelo
+banco, esse número
+deverá ser único, de
+acordo com a carteira e
+negociação utilizadas.
+
+11
+
+Não
+
+nuCliente
+
+Número do Cliente. Seu
+Alfanumérico Número. É a identificação 1
+do título para o cliente.
+
+25
+
+Sim
+
+dtEmissaoTitulo
+
+Alfanumérico
+
+10
+
+10
+
+Sim
+
+dtVencimentoTitulo
+
+Data de Vencimento do
+Título. Deve ser maior ou
+Alfanumérico
+10
+igual a data de emissão do
+título.
+
+10
+
+Sim
+
+vlNominalTitulo
+
+Numérico
+
+Valor Nominal do Título. 10
+
+10
+
+Sim
+
+Numérico
+
+Código da Espécie do
+Título. Verificar na
+TABELA DE ESPÉCIES
+DE TÍTULOS.
+
+1
+
+2
+
+Sim
+
+Numérico
+
+Tipo de Protesto
+Automático ou
+Negativação: Informar 1 - 1
+para dias corridos ou 2 para dias úteis
+
+1
+
+Não
+
+prazoProtestoAutomaticoNegativacao
+
+Numérico
+
+Protesto: A partir de 3
+dias úteis após
+vencimento. Para
+1
+negativação: A partir de 5
+dias corridos após o
+vencimento.
+
+2
+
+Não. Obrigatório se preencher
+tpProtestoAutomáticoNegativação.
+
+controleParticipante
+
+Controle Participante.
+Campo de
+responsabilidade do
+Alfanumérico
+cliente, caso desejado.
+Não consistido pelo
+banco.
+
+0
+
+25
+
+Não
+
+cdPagamentoParcial
+
+Informe 'S' (Sim) para
+permitir pagamento
+Alfanumérico
+0
+parcial ou 'N' (Não) para
+não permitir.
+
+1
+
+Não
+
+nuNegociacao
+
+cdEspecieTítulo
+
+tpProtestoAutomaticoNegativacao
+
+Data de Emissão do
+Título
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+4 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+não permitir.
+Numérico
+
+Quantidade de
+Pagamentos Parciais.
+
+1
+
+3
+
+Não. Obrigatório se preencher
+cdPagamentoParcial.
+
+tipoPrazoDecursoTres
+
+Numérico
+
+Quantidade de dias de
+decurso. Para o comando
+ser acatado via API, no
+1
+Cadastro de Cobrança do
+cliente, o parâmetro
+deverá estar zerado.
+
+3
+
+Não
+
+percentualJuros
+
+Numérico
+
+Percentual de Juros.
+1
+Pattern = "^\d+(.00)?$"
+
+5
+
+Não. Este campo não deve ser
+preenchido caso escolha cobrar
+Juros por Valor (campo vlJuros).
+
+Numérico
+
+Valor de Juros.
+Pattern="^\d+.\d{2}$"
+
+10
+
+Não. Este campo não deve ser
+preenchido caso escolha cobrar
+juros por percentual (campo
+percentualJuros).
+
+qtdeDiasJuros
+
+Numérico
+
+Dias a partir da data de
+vencimento
+(dtVencimentoTítulo)
+para início da cobrança de
+juros.
+
+Exemplo: se dtVencimentoTítulo for
+01/10 e qtdeDiasJuros for 2, os juros
+começarão a ser cobrados a partir de
+04/10 (ou seja, 2 dias após o
+vencimento).
+
+1
+
+2
+
+percentualMulta
+
+Numérico
+
+Percentual de Multa.
+1
+Pattern = "^\d+(.00)?$"
+
+5
+
+Não
+
+vlMulta
+
+Numérico
+
+Valor da Multa. Pattern =
+1
+"^\d+(.00)?$"
+
+10
+
+Não
+
+Numérico
+
+Dias a partir da data de
+vencimento
+(dtVencimentoTítulo)
+para cobrança de multa.
+
+qtdePagamentoParcial
+
+vlJuros
+
+qtdeDiasMulta
+
+1
+
+Não
+
+Exemplo: se dtVencimentoTítulo for
+01/10 e qtdeDiasMulta for 2, a multa será
+1
+cobrada a partir de 04/10 (ou seja, 2 dias
+após o vencimento).
+
+3
+
+Não
+
+percentualDesconto1
+
+Numérico
+
+Percentual do Primeiro
+Desconto. Pattern =
+"^\d+(.00)?$"
+
+1
+
+5
+
+Não
+
+vlDesconto1
+
+Numérico
+
+Valor do Primeiro
+Desconto. Pattern =
+"^\d+(.00)?$"
+
+1
+
+10
+
+Não
+
+dataLimiteDesconto1
+
+Data Limite para
+Alfanumérico Primeiro Desconto.
+0
+Formato: DD.MM.AAAA
+
+11
+
+Não. Obrigarório se
+percentualDesconto1 ou
+vlDesconto1 informados.
+
+percentualDesconto2
+
+Numérico
+
+Percentual do Segundo
+Desconto. Pattern =
+"^\d+(.00)?$"
+
+1
+
+5
+
+Não
+
+vlDesconto2
+
+Numérico
+
+Valor do Segundo
+Desconto. Pattern =
+"^\d+(.00)?$"
+
+0
+
+10
+
+Não
+
+dataLimiteDesconto2
+
+Data Limite para Segundo
+Alfanumérico Desconto. Formato:
+0
+DD.MM.AAAA
+
+11
+
+Não. Obrigarório se
+percentualDesconto2 ou
+vlDesconto2 informados.
+
+percentualDesconto3
+
+Numérico
+
+Percentual do Terceiro
+Desconto. Pattern =
+"^\d+(.00)?$"
+
+1
+
+5
+
+Não
+
+vlDesconto3
+
+Numérico
+
+Valor do Desconto 3.
+0
+Pattern = "^\d+(.00)?$"
+
+10
+
+Não
+
+dataLimiteDesconto3
+
+Data Limite para
+Alfanumérico Desconto 3. Formato:
+DD.MM.AAAA
+
+11
+
+Não. Obrigarório se
+percentualDesconto3 ou
+vlDesconto3 informados.
+
+0
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+5 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+percentualBonificacao
+
+Numérico
+
+-
+
+-
+
+Não
+
+vlBonificacao
+
+Numérico
+
+Valor de bonificação.
+1
+Pattern = "^\d+(.00)?$"
+
+100
+
+Não
+
+dtLimiteBonificacao
+
+Data Limite Bonificação
+Alfanumérico (Formato:
+DD.MM.AAAA)
+
+1
+
+100
+
+Não
+
+vlAbatimento
+
+Numérico
+
+Valor do abatimento.
+1
+Pattern = "^\d+(.00)?$"
+
+10
+
+Não
+
+vlIOF
+
+Numérico
+
+Valor do IOF. Pattern =
+"^\d+(.00)?$"
+
+1
+
+30
+
+Não
+
+nomePagador
+
+Alfanumérico Nome do Sacado
+
+1
+
+70
+
+Sim
+
+logradouroPagador
+
+Alfanumérico Endereço do Sacado
+
+1
+
+100
+
+Sim
+
+nuLogradouroPagador
+
+Número do endereço do
+Alfanumérico
+Sacado
+
+1
+
+10
+
+Sim
+
+complementoLogradouroPagador
+
+Alfanumérico
+
+Complemento do
+endereço do Sacado
+
+0
+
+30
+
+Não
+
+tpVencimento
+
+Numérico
+
+Tipo de Vencimento –
+Fixo “0”
+
+1
+
+1
+
+Sim
+
+cepPagador
+
+Numérico
+
+CEP do Sacado
+
+5
+
+8
+
+Não
+
+complementoCepPagador
+
+Numérico
+
+Complemento do CEP do
+1
+Sacado
+
+3
+
+Não
+
+bairroPagador
+
+Alfanumérico Bairro do Sacado
+
+1
+
+50
+
+Sim
+
+municipioPagador
+
+Alfanumérico Município Sacado
+
+1
+
+50
+
+Sim
+
+ufPagador
+
+Alfanumérico Estado Sacado
+
+2
+
+2
+
+Sim
+
+cdIndCpfcnpjPagador
+
+Numérico
+
+Indicador do tipo de
+documento:
+
+2 – CNPJ (Cadastro Nacional da Pessoa
+Jurídica)
+
+1
+
+1
+
+nuCpfcnpjPagador
+
+Numérico
+
+Para CPF, o número deve
+conter 11 dígitos,
+incluindo o dígito
+verificador. Para CNPJ, o
+11
+número deve conter 14
+dígitos, incluindo o
+número da filial e o dígito
+verificador.
+
+14
+
+Não
+
+endEletronicoPagador
+
+Alfanumérico E-mail do Pagador.
+
+0
+
+100
+
+Não
+
+bancoDoDebAutomatico
+
+Numérico
+
+Banco Débito
+
+2
+
+3
+
+Não. Obrigatório se o campo
+debitoAutomatico estiver com “S”
+
+agenciaDoDebAutomatico
+
+Numérico
+
+Agência Débito
+
+1
+
+5
+
+Não. Obrigatório se o campo
+debitoAutomatico estiver com “S”
+
+digitoAgenciaDoDebAutomat
+
+Numérico
+
+Dígito Agência de Débito 1
+
+3
+
+Não. Obrigatório se o campo
+debitoAutomatico estiver com “S”
+
+Não
+
+contaDoDebAutomatico
+
+Numérico
+
+Conta Débito
+
+1
+
+13
+
+Informar o número completo da
+conta, incluindo o dígito
+verificador. Exemplo: Conta
+Corrente '123-4', deve ser
+informado '1234'. Caso o dígito
+seja 'P', substitua por '0'. Por
+exemplo, '123-P' deve ser
+preenchido como '1230'.
+Obrigatório se o campo
+debitoAutomatico estiver com “S”
+
+razaoDoDebAutomatico
+
+Numérico
+
+Razão Conta de Débito
+
+1
+
+6
+
+Não. Obrigatório se o campo
+debitoAutomatico estiver com “S”
+
+nomeSacadorAvalista
+
+Alfanumérico Nome Sacador Avalista
+
+1
+
+40
+
+Não
+
+logradouroSacadorAvalista
+
+Endereço Sacador
+Alfanumérico
+Avalista
+
+1
+
+40
+
+Não
+
+nuLogradouroSacadorAvalista
+
+Alfanumérico
+
+Número do endereço do
+Sacador Avalista
+
+1
+
+10
+
+Não
+
+complementoLogradouroSacadorAvalista Alfanumérico
+
+Complemento endereço
+Sacador Avalista
+
+1
+
+15
+
+Não
+
+cepSacadorAvalista
+
+CEP Sacador Avalista
+
+1
+
+5
+
+Não
+
+Numérico
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+6 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+cepSacadorAvalista
+
+Numérico
+
+CEP Sacador Avalista
+
+1
+
+5
+
+Não
+
+complementoCepSacadorAvalista
+
+Numérico
+
+Complemento do CEP
+Sacador Avalista
+
+1
+
+3
+
+Não
+
+bairroSacadorAvalista
+
+Alfanumérico Bairro Sacador Avalista
+
+1
+
+40
+
+Não
+
+municipioSacadorAvalista
+
+Município Sacador
+Alfanumérico
+Avalista
+
+1
+
+40
+
+Não
+
+ufSacadorAvalista
+
+Numérico
+
+Estado Sacador Avalista
+
+2
+
+2
+
+Não
+
+cdIndCpfcnpjSacadorAvalista
+
+Numérico
+
+Indicador do tipo de
+documento:
+
+2 – CNPJ (Cadastro Nacional da Pessoa
+Jurídica)
+
+1
+
+1
+
+nuCpfcnpjSacadorAvalista
+
+Numérico
+
+Para CPF, o número deve
+conter 11 dígitos,
+incluindo o dígito
+verificador. Para CNPJ, o
+11
+número deve conter 14
+dígitos, incluindo o
+número da filial e o dígito
+verificador.
+
+14
+
+Não
+
+enderecoSacadorAvalista
+
+Alfanumérico
+
+Endereço Sacador
+Avalista
+
+1
+
+70
+
+Não
+
+mensagem
+
+Alfanumérico
+
+Mensagem a ser exibida
+no Boleto
+
+1
+
+80
+
+Não
+
+Não
+
+Exemplo de json - layout - Entrada
+{
+"debitoAutomatico": "S",
+"nuCPFCNPJ": 417554892,
+"filialCPFCNPJ": 1,
+"ctrlCPFCNPJ": 55,
+"idProduto": 9,
+"nuNegociacao": 285600000000222652,
+"nuTitulo": 0,
+"nuCliente": ".",
+"dtEmissaoTitulo": "18.08.2025",
+"dtVencimentoTitulo": "21.09.2025",
+"indicadorMoeda": 1,
+"vlNominalTitulo": 1255.99,
+"qmoedaNegocTitlo": 0,
+"cdEspecieTitulo": 1,
+"tpProtestoAutomaticoNegativacao": 0,
+"prazoProtestoAutomaticoNegativacao": 0,
+"controleParticipante": "",
+"cdPagamentoParcial": "",
+"qtdePagamentoParcial": 0,
+"tipoPrazoDecursoTres": 1,
+"percentualJuros": 5.35,
+"vlJuros": 0,
+"qtdeDiasJuros": 1,
+"percentualMulta": 0,
+"vlMulta": 0.99,
+"qtdeDiasMulta": 1,
+"percentualDesconto1": 5.15,
+"vlDesconto1": 0,
+"dataLimiteDesconto1": "19.09.2025",
+"percentualDesconto2": 0,
+"vlDesconto2": 0.25,
+"dataLimiteDesconto2": "20.09.2025",
+"percentualDesconto3": 0,
+"vlDesconto3": 0,
+"dataLimiteDesconto3": "",
+"prazoBonificacao": 0,
+"percentualBonificacao": 1.00,
+"vlBonificacao": 0,
+"dtLimiteBonificacao": "21.09.2025",
+"vlAbatimento": 20.00,
+"vlIOF": 0,
+"nomePagador": "JOÃO JOSÉ DA SILVA",
+"logradouroPagador": "AVENIDA COPACABANA",
+"nuLogradouroPagador": "237",
+"complementoLogradouroPagador": "3 ANDAR",
+"cepPagador": 6050,
+"complementoCepPagador": 40,
+"bairroPagador": "ALPHAVILLE",
+"municipioPagador": "BARUERI",
+"ufPagador": "SP",
+"cdIndCpfcnpjPagador": 1,
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+7 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"nuCpfcnpjPagador": 11438390807,
+"endEletronicoPagador": "",
+"dddFoneSacado": 0,
+"foneSacado": 0,
+"bancoDoDebAutomatico": 237,
+"agenciaDoDebAutomatico": 2,
+"digitoAgenciaDoDebAutomat": 7,
+"contaDoDebAutomatico": 5223,
+"razaoDoDebAutomatico": 705,
+"codBancoDoProtesto": 0,
+"agenciaDoProtesto": 0,
+"listaMsgs": [
+{
+"mensagem": "CONFERIR DESCONTOS, JUROS, MULTA E ABATIMENTO"
+}
+]
+}
+
+Layout de comunicação - Retorno
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+8 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Nome do Campo
+
+Tipo
+
+Descrição Tamanho Mínimo
+
+idProduto
+
+numérico
+
+2
+
+Identificador do produto
+
+negociacao
+
+numérico
+
+18
+
+Número da negociação
+
+cpssoaJuridContr
+
+numérico
+
+7
+
+Código da pessoa jurídica
+
+contratantectpoContrNegoc
+
+numérico
+
+2
+
+Tipo de contrato da negociação
+
+nseqContrNegoc
+
+numérico
+
+10
+
+Número sequencial do contrato da
+negociação
+
+cprodtServcOper
+
+numérico
+
+8
+
+Código do produto ou serviço da operação
+
+nuTituloGerado
+
+numérico
+
+11
+
+Número do título gerado
+
+tp08Reg1
+
+numérico
+
+1
+
+Tipo de registro 1
+
+agencCred10
+
+numérico
+
+5
+
+Agência de crédito
+
+ctaCred10
+
+numérico
+
+13
+
+Conta de crédito
+
+digCred10
+
+numérico
+
+2
+
+Dígito da conta de crédito
+
+cip10
+
+numérico
+
+3
+
+Código CIP
+
+codStatus10
+
+numérico
+
+2
+
+Código do status do título
+
+status10
+
+alfanumérico 40
+
+Descrição do status do título
+
+nomeBeneficiario
+
+alfanumérico 40
+
+Nome do beneficiário
+
+logradouroBeneficiario
+
+alfanumérico 40
+
+Logradouro do beneficiário
+
+nuLogradouroBeneficiario
+
+alfanumérico 7
+
+Número do logradouro do beneficiário
+
+complementoLogradouroBeneficiario alfanumérico 20
+
+Complemento do logradouro do
+beneficiário
+
+bairroBeneficiario
+
+alfanumérico 20
+
+Bairro do beneficiário
+
+cepBeneficiario
+
+numérico
+
+5
+
+CEP do beneficiário
+
+cepComplementoBeneficiario
+
+numérico
+
+3
+
+Complemento do CEP do beneficiário
+
+municipioBeneficiario
+
+alfanumérico 50
+
+Município do beneficiário
+
+ufBeneficiario
+
+alfanumérico 2
+
+UF do beneficiário
+
+razCredt10
+
+numérico
+
+6
+
+Razão do crédito
+
+nomePagador
+
+alfanumérico 40
+
+Nome do pagador
+
+cpfcnpjPagador
+
+numérico
+
+CPF ou CNPJ do pagador
+
+enderecoPagador
+
+alfanumérico 40
+
+Endereço do pagador
+
+bairroPagador
+
+alfanumérico 20
+
+Bairro do pagador
+
+municipioPagador
+
+alfanumérico 40
+
+Município do pagador
+
+ufPagador
+
+alfanumérico 2
+
+UF do pagador
+
+cepPagador
+
+numérico
+
+5
+
+CEP do pagador
+
+cepComplementoPagador
+
+numérico
+
+3
+
+Complemento do CEP do pagador
+
+cepb10
+
+alfanumérico 0
+
+CEP adicional
+
+debitoAuto10
+
+alfanumérico 1
+
+Indicação de débito automático
+
+aceite10
+
+alfanumérico 1
+
+Indicação de aceite
+
+endEletronicoPagador
+
+alfanumérico 40
+
+Endereço eletrônico do pagador
+
+nomeSacadorAvalista
+
+alfanumérico 40
+
+Nome do sacador/avalista
+
+cnpjCpfSacadorAvalista
+
+numérico
+
+CNPJ ou CPF do sacador/avalista
+
+enderecoSacadorAvalista
+
+alfanumérico 0
+
+Endereço do sacador/avalista
+
+municipioSacadorAvalista
+
+alfanumérico 0
+
+Município do sacador/avalista
+
+ufSacadorAvalista
+
+alfanumérico 0
+
+UF do sacador/avalista
+
+cepSacadorAvalista
+
+numérico
+
+1
+
+CEP do sacador/avalista
+
+cepComplementoSacadorAvalista
+
+numérico
+
+1
+
+Complemento do CEP do sacador/avalista
+
+tp08Reg2
+
+numérico
+
+1
+
+Tipo de registro 2
+
+cense10
+
+numérico
+
+1
+
+Código de censo
+
+agenOper10
+
+numérico
+
+1
+
+Agência da operação
+
+bcoDepos10
+
+numérico
+
+1
+
+Banco de depósito
+
+agenDepos10
+
+numérico
+
+1
+
+Agência de depósito
+
+seuNumeroTitulo
+
+alfanumérico 1
+
+Número do título do cliente
+
+dtRegistro
+
+numérico
+
+Data de registro
+
+especieDocumentoTitulo
+
+alfanumérico 2
+
+Espécie do documento do título
+
+descEspecie
+
+alfanumérico 0
+
+Descrição da espécie do documento
+
+vlIOF
+
+numérico
+
+1
+
+Valor do IOF
+
+dtEmissao
+
+numérico
+
+8
+
+Data de emissão
+
+codigoMoedaTitulo
+
+alfanumérico 2
+
+15
+
+1
+
+8
+
+Tamanho
+Máximo
+
+Obrigatório
+
+Código da moeda do título
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+9 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+quantidadeMoeda
+
+numérico
+
+1
+
+Quantidade de moeda
+
+quantidadeCasas
+
+numérico
+
+1
+
+Quantidade de casas decimais
+
+dtVencimento
+
+alfanumérico 10
+
+Data de vencimento
+
+descricacaoMoeda
+
+alfanumérico 2
+
+Descrição da moeda
+
+vlTitulo
+
+numérico
+
+6
+
+Valor do título
+
+vlAbatimento
+
+numérico
+
+1
+
+Valor de abatimento
+
+Exemplo de json - layout – Resposta
+{
+"idProduto": 9,
+"negociacao": 285600000000222652,
+"cpssoaJuridContr": 2269651,
+"ctpoContrNegoc": 48,
+"nseqContrNegoc": 236334,
+"cprodtServcOper": 1730,
+"nuTituloGerado": 52280000492,
+"tp08Reg1": 1,
+"agencCred10": 0,
+"ctaCred10": 0,
+"digCred10": "00",
+"cip10": 0,
+"codStatus10": 1,
+"status10": "A VENCER/VENCIDO",
+"nomeBeneficiario": "LOXJYMI LUJOYMUO",
+"logradouroBeneficiario": "OC YFLAPFI OLOXOM 686",
+"nuLogradouroBeneficiario": "",
+"complementoLogradouroBeneficiario": "",
+"bairroBeneficiario": "PIRATININGA",
+"cepBeneficiario": 6230,
+"cepComplementoBeneficiario": 150,
+"municipioBeneficiario": "IRORJI",
+"ufBeneficiario": "SP",
+"razCredt10": 0,
+"nomePagador": "JOÃO JOSÉ DA SILVA",
+"cpfcnpjPagador": 414383908000008,
+"enderecoPagador": "AVENIDA COPACABANA",
+"bairroPagador": "ALPHAVILLE",
+"municipioPagador": "BARUERI",
+"ufPagador": "SP",
+"cepPagador": 6050,
+"cepComplementoPagador": "040",
+"cebp10": "",
+"debitoAuto10": "",
+"aceite10": "N",
+"endEletronicoPagador": "",
+"nomeSacadorAvalista": "",
+"cnpjCpfSacadorAvalista": 0,
+"enderecoSacadorAvalista": "",
+"municipioSacadorAvalista": "",
+"ufSacadorAvalista": "",
+"cepSacadorAvalista": 0,
+"cepComplementoSacadorAvalista": 0,
+"tp08Reg2": 2,
+"cense10": 0,
+"agenOper10": 0,
+"bcoDepos10": 0,
+"agenDepos10": 0,
+"seuNumeroTitulo": ".",
+"dtRegistro": "18082025",
+"especieDocumentoTitulo": "DM",
+"descEspecie": "",
+"vlIOF": 0,
+"dtEmissao": "18082025",
+"codigoMoedaTitulo": "R$",
+"quantidadeMoeda": 0,
+"quantidadeCasas": 2,
+"dtVencimento": "21.09.2025",
+"descricacaoMoeda": "R$",
+"vlTitulo": 125599,
+"vlAbatimento": 0,
+"dtInstrucaoProtestoNegativação": "",
+"diasInstrucaoProtestoNegativação": 5,
+"dataEnvioCartorio": "",
+"numeroCartorio": "",
+"numeroProtocoloCartorio": "",
+"dataPedidoSustacao": "",
+"dataSustacao": "",
+"dtMulta": "0",
+"vlMulta": 0,
+"qtdeCasasDecimaisMulta": 0,
+"cdValorMulta": 0,
+"descCdMulta": "",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+10 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"dtJuros": "21092025",
+"vlJurosAoDia": 10,
+"dtDesconto1Bonificacao": "19092025",
+"vlDesconto1Bonificacao": 9900,
+"qtdeCasasDecimaisDesconto1Bonificacao": 5,
+"cdValorDesconto1Bonificacao": 2,
+"descCdDesconto1Bonificacao": "",
+"dtDesconto2": "",
+"vlDesconto2": 0,
+"qtdeCasasDecimaisDesconto2": 0,
+"cdValorDesconto2": 0,
+"descCdDesconto2": "",
+"dtDesconto3": "",
+"vlDesconto3": 0,
+"qtdeCasasDecimaisDesconto3": 0,
+"cdValorDesconto3": 0,
+"descCdDesconto3": "",
+"diasDispensaMulta": 0,
+"diasDispensaJuros": 1,
+"cdBarras":
+"<NWnnwnNnWwNwnnWNwnnWwnNNwnnWWnNnwwNNwNnwwNwNnnWnwNWnNwnnwWNnNwNwnnWnnWwnNWnnnWWnnnWwNnWnwNnNwwNnWnnWNwWnnnwNNw>",
+"linhaDigitavel": "23792.85600 95228.000048 92022.265208 2 12110000125599",
+"despCart10": 0,
+"bcoCentr10": 0,
+"ageCentr10": 0,
+"acessEsc10": 0,
+"tipoEndosso": "",
+
+Descrição das mensagens de retorno
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+11 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Status-Header Descrição
+-99
+
+Serviço indisponível no momento. Tente novamente mais tarde.
+
+-4
+
+Tamanho do campo inválido
+
+-3
+
+Tipo do campo inválido
+
+-2
+
+Contrato não encontrado
+
+-1
+
+Contrato não aprovado
+
+0
+
+Solicitação atendida
+
+1
+
+Solicitação não encontrada
+
+2
+
+Erro Genérico – sistema indisponível
+
+5
+
+Inclusão efetuada
+
+6
+
+Dados inconsistentes
+
+10
+
+Erro Acesso Subrotina
+
+12
+
+Cliente/Negociação Bloqueado
+
+13
+
+Usuário não Autorizado
+
+14
+
+Espécie Título Inválida
+
+15
+
+Tipo/Número Inscrição Inválido
+
+16
+
+Informe todos os campos para decurso de Prazo
+
+17
+
+Nome do Pagador Especial Não Informado
+
+18
+
+Endereço Inválido
+
+19
+
+CEP Inválido
+
+20
+
+Agência Depositária Inválida
+
+21
+
+Informe todos os campos para Instrução de Protesto
+
+22
+
+Banco Inválido
+
+23
+
+Seu Número Inválido
+
+24
+
+Informe todos os campos para Abatimento
+
+25
+
+Valor dos Juros maior que o Valor do Título
+
+26
+
+Data de Emissão maior que a Data de Vencimento
+
+27
+
+Documento do Sacador Avalista Inválido
+
+28
+
+Informe todos os campos para Desconto
+
+29
+
+Informe todos os campos para Sacador Avalista
+
+30
+
+Data Vencimento Menor ou igual Data Emissão
+
+31
+
+Data Desconto menor ou igual Data Emissão
+
+32
+
+Data Desconto maior que Data Vencimento
+
+33
+
+Valor Desconto/Bonificação maior ou igual Valor Título
+
+34
+
+Tipo informado deve ser 1, 2 ou 3
+
+35
+
+Valor Abatimento maior que o Valor do Título
+
+36
+
+CEP Inválido
+
+37
+
+Data Emissão Inválida
+
+38
+
+Data Vencimento Inválida
+
+39
+
+Percentual informado maior ou igual 100,00
+
+40
+
+Número CGC/CPF inválido
+
+41
+
+Protesto Automático x Decurso de Prazo Incompatível
+
+42
+
+Banco/Agência Depositária Inválido
+
+43
+
+Espécie de Documento inválido
+
+44
+
+Informe 1-contra apresentação ou 2-a vista
+
+45
+
+Código da instrução de protesto inválido
+
+46
+
+Dias para instrução de protesto inválido
+
+47
+
+Código para desconto inválido
+
+48
+
+Código para multa inválido
+
+49
+
+Código para comissão permanência dia inválido
+
+50
+
+Espécie Documento exige CGC para Sacador Avalista
+
+51
+
+CEP e/ou Banco/Agência Depositária Inválido
+
+52
+
+Data Emissão maior ou igual Data Vencimento
+
+53
+
+Data Desconto Inválida
+
+54
+
+Data emissão maior Data Registro
+
+55
+
+Percentual multa informado maior que o permitido
+
+56
+
+Percentual comissão permanência informado maior que o permitido
+
+57
+
+Percentual Bonificação informado maior que o permitido
+
+58
+
+Prazo para Protesto inválido
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+12 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+58
+
+Prazo para Protesto inválido
+
+59
+
+Informe a data ou tipo do vencimento
+
+60
+
+Valor do IOF não permitido para produtos 05,15,43 ou 44
+
+61
+
+Abatimento já cadastrado para o título
+
+62
+
+Abatimento não cadastrado para o título
+
+63
+
+Não é permitida mais de uma bonificação para o título
+
+64
+
+Não é permitido datas de desconto/bonificação iguais
+
+65
+
+Negociação inexistente
+
+66
+
+Cliente inexistente
+
+67
+
+CNPJ/CPF inválido
+
+68
+
+N.Número não pode ser informado quando status 4
+
+69
+
+Título já cadastrado
+
+70
+
+Data e tipo de vencimento incompatíveis
+
+71
+
+Data de vencimento não pode ser posterior a 10 anos
+
+72
+
+Dias para instrução inferior ao padrão
+
+73
+
+Dias para instrução antecipa data de protesto
+
+74
+
+Valor IOF obrigatório
+
+75
+
+Valor IOF incompatível com id produto
+
+76
+
+Tipo de abatimento inválido
+
+77
+
+Status Inválido
+
+78
+
+Registro online não permite banco diferente de 237
+
+79
+
+Carta para protesto não recebida
+
+80
+
+Tipo de vencimento inválido
+
+81
+
+Valor acumulado desconto/bonificação maior ou igual valor título
+
+82
+
+Datas desconto/bonificação fora de sequência
+
+83
+
+Informe todos os campos para multa
+
+84
+
+Código comissão permanência inválido
+
+85
+
+Informe todos os campos para comissão permanência
+
+86
+
+Registro duplicado na tabela de ocorrências
+
+87
+
+Solicitação de protesto já existente
+
+88
+
+Registro duplicado na base de atualização sequencial
+
+89
+
+Sacador avalista já cadastrado
+
+90
+
+Indicador CIP inexistente
+
+91
+
+Moeda negociada inexistente
+
+92
+
+Banco/agência operadora inexistente
+
+93
+
+Acessório escritural negociado inexistente
+
+94
+
+Pólo de serviço inexistente para banco/agência
+
+95
+
+Banco/agência centralizadora não cadastrada para banco/agência depositária
+
+96
+
+Título não encontrado pelo módulo CBON8230
+
+97
+
+Valor IOF maior ou igual valor título
+
+98
+
+Data Inválida
+
+99
+
+Id Prod/Cta não cadastrados
+
+Tabela de código de espécie de títulos
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+13 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+CÓDIGO SIGLA DESCRIÇÃO
+1
+
+CH
+
+CHEQUE
+
+2
+
+DM
+
+DUPLICATA DE VENDA MERCANTIL
+
+3
+
+DMI
+
+DUPLICATA MERCANTIL POR INDICAÇÃO
+
+4
+
+DS
+
+DUPLICATA DE PRESTAÇÃO DE SERVIÇOS
+
+5
+
+DSI
+
+DUPLICATA PREST. SERVIÇOS POR INDICAÇÃO
+
+6
+
+DR
+
+DUPLICATA RURAL
+
+7
+
+LC
+
+LETRA DE CÂMBIO
+
+8
+
+NCC
+
+NOTA DE CRÉDITO COMERCIAL
+
+9
+
+NCE
+
+NOTA DE CRÉDITO EXPORTAÇÃO
+
+10
+
+NCI
+
+NOTA DE CRÉDITO INDUSTRIAL
+
+11
+
+NCR
+
+NOTA DE CRÉDITO RURAL
+
+12
+
+NP
+
+NOTA PROMISSÓRIA
+
+13
+
+NPR
+
+NOTA PROMISSÓRIA RURAL
+
+14
+
+TM
+
+TRIPLICATA DE VENDA MERCANTIL
+
+15
+
+TS
+
+TRIPLICATA DE PRESTAÇÃO DE SERVIÇOS
+
+16
+
+NS
+
+NOTA DE SERVIÇO
+
+17
+
+RC
+
+RECIBO
+
+18
+
+FAT
+
+FATURA
+
+19
+
+ND
+
+NOTA DE DÉBITO
+
+20
+
+AP
+
+APÓLICE DE SEGURO
+
+21
+
+ME
+
+MENSALIDADE ESCOLAR
+
+22
+
+PC
+
+PARCELA DE CONSÓRCIO
+
+23
+
+DD
+
+DOCUMENTO DE DÍVIDA
+
+24
+
+CCB
+
+CÉDULA DE CRÉDITO BANCÁRIO
+
+25
+
+FI
+
+FINANCIAMENTO
+
+26
+
+RD
+
+RATEIO DE DESPESAS
+
+27
+
+DRI
+
+DUPLICATA RURAL INDICAÇÃO
+
+28
+
+EC
+
+ENCARGOS CONDOMINIAIS
+
+29
+
+ECI
+
+ENCARGOS CONDOMINIAIS POR INDICAÇÃO
+
+31
+
+CC
+
+CARTÃO DE CRÉDITO
+
+32
+
+BDP
+
+BOLETO DE PROPOSTA
+
+99
+
+OUT
+
+OUTROS
+
+Montagem do código de barras e linha digitável do boleto de cobrança
+Código de Barras
+Contém 44 posições, composto por:
+
+Posição Tamanho Conteúdo
+01 a 03 3
+
+Identificação do Banco
+
+04 a 04 1
+
+Código da Moeda (Real = 9, Outras = 0)
+
+05 a 05 1
+
+Dígito Verificador do Código de Barras
+
+06 a 09 4
+
+Fator de Vencimento
+
+10 a 19
+
+Valor
+
+10
+
+20 a 44 25
+
+Campo Livre
+
+As posições do campo livre ficam a critério de cada Banco emissor. Para o Bradesco, o padrão é:
+
+Posição Tamanho Conteúdo
+20 a 23 4
+
+Agência beneficiária (sem o dígito verificador, completar com zeros à esquerda, quando necessário)
+
+24 a 25 2
+
+Carteira
+
+26 a 36 11
+
+Número do Nosso Número (sem o dígito verificador)
+
+37 a 43 7
+
+Conta do beneficiário (sem o dígito verificador, completar com zeros à esquerda, quando necessário)
+
+44 a 44 1
+
+Zero
+
+Linha digitável:
+É composta por cinco campos:
+1º Campo: composto pelo código do Banco, código da moeda, as cinco primeiras posições do campo livre e o dígito verificador desse campo.
+2º Campo: composto pelas posições 6ª a 15ª do campo livre e o dígito verificador desse campo.
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+3º Campo: composto pelas posições 16ª a 25ª do campo livre e o dígito verificador desse campo.
+4º Campo: composto pelo dígito verificador do código de barras, ou seja, a 5ª posição do código de barras.
+5º Campo: composto pelo fator de vencimento com 4 (quatro) caracteres e o valor do documento com 10 (dez) caracteres, sem separadores e sem edição.
+Entre cada campo deverá haver espaço equivalente a 2 (duas) posições, sendo a 1ª interpretada por um ponto (.) e a 2ª por um espaço em branco.
+Modelo para boleto de cobrança
+Os boletos deverão obedecer aos seguintes parâmetros definidos pelo BACEN:
+• (Número de vias ou partes - 2 (duas))
+Recibo do Pagador;
+Ficha de Compensação.
+Obs.: o recibo do pagador deverá conter o Valor do Documento, Nosso Número, Carteira, Agência/Código do Beneficiário e Data do Vencimento.
+• Gramatura do papel - mínima de 50g/m2.
+Dimensões:
+Ficha de Compensação: 95 a 104 mm X 170 a 216 mm.
+• Cor da via/impressão:
+Fundo branco / impressão azul.
+Fundo branco / impressão preta.
+• Inserção dos dados do Banco/Linha Digitável na borda superior da Ficha de Compensação.
+
+14 of 61
+
+Lado esquerdo - deverá constar o nome do Banco e o número do Banco, acrescido do dígito verificador.
+(O código do Banco deverá ser constituído com caractere de 5mm e traços ou fios de fe1,2mm.).
+Lado direito - deverá constar a Linha Digitável. As dimensões serão 3,5 a 4mm e traços ou fios de 0,3mm.
+Instrução para preenchimento dos campos do boleto
+Local de pagamento: campo destinado à inserção de mensagem para indicar ao pagador onde o pagamento poderá ser efetuado.
+Campo vencimento: o vencimento que constar nesse campo deverá, obrigatoriamente, ser o mesmo constante no Fator de Vencimento da linha digitável e do código de barras.
+Ocorrendo divergência entre essas informações, prevalecerá a data indicada no Fator de Vencimento no Código de Barras/Linha Digitável.
+
+Beneficiário: Razão Social ou Nome Fantasia e CNPJ da empresa emissora do boleto bancário, devendo ser os mesmos do cadastro do Banco.
+
+Agência / Código do beneficiário: deverá ser preenchido com o número da Agência com 4 (quatro caracteres) - dígito da Agência / Conta de Cobrança com 7 (sete) caracteres - Dígito da
+Conta.
+Ex. 9999-D/9999999-D.
+Obs.: preencher com zeros à esquerda, quando necessário.
+Data de emissão: preencher com a data de emissão do documento, ou a data do faturamento.
+Número do documento: poderá ser informada a identificação do número da fatura, duplicata etc.
+Espécie do documento: de acordo com o ramo de atividade, poderá ser utilizada uma das siglas: DM-Duplicata Mercantil, NP-Nota Promissória, NS-Nota de Seguro, CS-Cobrança Seriada,
+REC-Recibo, LC-Letras de Câmbio, ND-Nota de Débito, DS-Duplicata de Serviços, Outros.
+
+Obs.: para a Espécie 31 - CC (Cartão de Crédito), não deverá haver a incidência de juros, multas, descontos ou abatimentos.
+Aceite: N - Não Aceite.
+Data processamento: poderá ser a mesma data de emissão.
+Carteira / Nosso número: Carteira com 2 (dois) caracteres / N.Número com 11 (onze) caracteres + dígito. Ex.: 99 / 99999999999-D.
+
+Obs.: o Nosso Número é um identificador do boleto, devendo ser atribuído um número diferenciado para cada documento.
+Uso do banco: não preencher.
+CIP: trata-se de código utilizado para identificar mensagens específicas ao beneficiário, sendo que o mesmo consta no cadastro do Banco, quando não houver código cadastrado, preencher com
+zeros "000".
+Carteira: Carteira de Cobrança que a empresa opera no Banco.
+Moeda: campo destinado à informação do tipo de moeda que o documento foi emitido (R$, US$, IGPM etc.).
+Quantidade: quando o documento for emitido em moeda indexada (US$, IGPM etc.), preencher esse campo com a quantidade correspondente.
+Valor do documento: campo destinado à informação do valor do documento, devendo ser preenchido com o mesmo valor informado no código de barras e na linha digitável. Caso o valor do
+documento esteja zerado no código de barras e na linha digitável, deixar esse campo em branco.
+Instruções: campo reservado para mensagens de responsabilidade do beneficiário.
+
+Tabela EBCDIC
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+15 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Número EBCDIC
+00
+
+nnWWn
+
+01
+
+NnwwN
+
+02
+
+nNwwN
+
+03
+
+NNwwn
+
+04
+
+nnWwN
+
+05
+
+NnWwn
+
+06
+
+nNWwn
+
+07
+
+nnwWN
+
+08
+
+NnwWn
+
+09
+
+nNwWn
+
+10
+
+wnNNw
+
+11
+
+WnnnW
+
+12
+
+wNnnW
+
+13
+
+WNnnw
+
+14
+
+wnNnW
+
+15
+
+WnNnw
+
+16
+
+wNNnw
+
+17
+
+wnnNW
+
+18
+
+WnnNw
+
+19
+
+wNnNw
+
+20
+
+nwNNw
+
+21
+
+NwnnW
+
+22
+
+nWnnW
+
+23
+
+NWnnw
+
+24
+
+nwNnW
+
+25
+
+NwNnw
+
+26
+
+nWNnw
+
+27
+
+nwnNW
+
+28
+
+NwnNw
+
+29
+
+nWnNw
+
+30
+
+wwNNn
+
+31
+
+WwnnN
+
+32
+
+wWnnN
+
+33
+
+WWnnn
+
+34
+
+wwNnN
+
+35
+
+WwNnn
+
+36
+
+wWNnn
+
+37
+
+wwnNN
+
+38
+
+WwnNn
+
+39
+
+wWnNn
+
+40
+
+nnWNw
+
+41
+
+NnwnW
+
+42
+
+nNwnW
+
+43
+
+NNwnw
+
+44
+
+nnWnW
+
+45
+
+NnWnw
+
+46
+
+nNWnw
+
+47
+
+nnwNW
+
+48
+
+NnwNw
+
+49
+
+nNwNw
+
+50
+
+wnWNn
+
+51
+
+WnwnN
+
+52
+
+wNwnN
+
+53
+
+WNwnn
+
+54
+
+wnWnN
+
+55
+
+WnWnn
+
+56
+
+wNWnn
+
+57
+
+wnwNN
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+16 of 61
+
+57
+
+wnwNN
+
+58
+
+WnwNn
+
+59
+
+wNwNn
+
+60
+
+nwWNn
+
+61
+
+NwwnN
+
+62
+
+nWwnN
+
+63
+
+NWwnn
+
+64
+
+nwWnN
+
+65
+
+NwWnn
+
+66
+
+nWWnn
+
+67
+
+nwwNN
+
+68
+
+NwwNn
+
+69
+
+nWwNn
+
+70
+
+nnNWw
+
+71
+
+NnnwW
+
+72
+
+nNnwW
+
+73
+
+NNnww
+
+74
+
+nnNwW
+
+75
+
+NnNww
+
+76
+
+nNNww
+
+77
+
+nnnWW
+
+78
+
+NnnWw
+
+79
+
+nNnWw
+
+80
+
+wnNWn
+
+81
+
+WnnwN
+
+82
+
+wNnwN
+
+83
+
+WNnwn
+
+84
+
+wnNwN
+
+85
+
+WnNwn
+
+86
+
+wNNwn
+
+87
+
+wnnWN
+
+88
+
+WnnWn
+
+89
+
+wNnWn
+
+90
+
+nwNWn
+
+91
+
+NwnwN
+
+92
+
+nWnwN
+
+93
+
+NWnwn
+
+94
+
+nwNwN
+
+95
+
+NwNwn
+
+96
+
+nWNwn
+
+97
+
+nwnWN
+
+98
+
+NwnWn
+
+99
+
+nWnWn
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+API de Baixa de Título
+
+A API de baixa de títulos permite realizar o comando de solicitação de baixa de um título específico, desde que esteja na base da cobrança.
+Realizar requisição conforme abaixo:
+
+URL
+
+Método Endpoint
+
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-baixa/v1/baixar
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-baixa/v1/baixar
+
+A baixa é processada de forma on-line, impedindo o pagamento no Bradesco e em outros Bancos.
+Obs.: No período da 00h00 às 03h00 pode haver indisponibilidade de acesso à API face às atualizações de tabelas e processamento batch.
+Layout de comunicação - Entrada
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+17 of 61
+
+Nome do
+Campo
+
+Tipo
+
+cpfCnpj
+Filial
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Qtde.
+CHAR
+
+Campo
+Obrigatório
+
+Numérico Raiz CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+Numérico Filial CPF/CNPJ do Beneficiário. Se CPF, filial = 0
+
+4
+
+Sim
+
+Controle
+
+Numérico Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+produto
+
+Código da carteira/modalidade de cobrança. Ex.: 09 (Cobrança escritural), 05
+Numérico
+(Cobrança de Seguros)
+
+2
+
+Sim
+
+Negociação
+
+Numérico
+
+Número da Negociação a ser utilizada. Formato: Agência: 4 posições (Sem dígito);
+Conta: 7 posições (Sem dígito)
+
+11
+
+Sim
+
+nossoNumero
+
+Identificação do título para o banco, pode ser informado pelo cliente ou gerado pelo
+Numérico banco, número único de acordo com a carteira e negociação utilizadas. Formato:
+(Nosso Número sem o dígito)
+
+11
+
+Sim
+
+sequencia
+
+Numérico Número de sequência. Fixo “0”
+
+1
+
+Sim
+
+codigoBaixa
+
+Numérico Código da baixa - Veja a seção Tabela 1 - Baixa
+
+02
+
+Sim
+
+Descrição
+
+Exemplo json - Entrada
+{
+"cpfCnpj": {
+"cpfCnpj": 31759488,
+"filial": 0,
+"controle": 55
+},
+"produto": 9,
+"negociacao": 28560222652,
+"nossoNumero": 42360000024,
+"sequencia": 0,
+"codigoBaixa": 57
+}
+
+Layout de comunicação - Retorno
+
+Nome do Campo Tipo
+
+Qtde. Campo de Saída – Descrição
+
+status
+
+Numérico
+
+3
+
+Código do Status HTTP Veja a seção Tabela 2 - Status
+
+transacao
+
+Alfanumérico 8
+
+Código da Transação executada. Padrão: “CBTTIAGQ”
+
+mensagem
+
+Alfanumérico 100
+
+dados
+
+Objeto
+
+-
+
+Mensagem de retorno: Quando status for 400, 412 ou 500, exibe erro técnico gerado no mainframe/
+API. Quando status for 200, exibe mensagem de sucesso. Veja a seção Tabela 3 - Mensagem
+Trata-se de um array
+
+dataHoraSolicitacao Alfanumérico 26
+
+Data e Hora da solicitação no formato AAAA-MM-DD-HH.MM.SS.MMMMMM
+
+Status
+
+Numérico
+
+02
+
+Status do Título
+
+statusAnterior
+
+Numérico
+
+02
+
+Status Anterior do Título
+
+Exemplo de resposta (JSON)
+{
+"status": 200,
+"transacao": "CBTTIAGQ",
+"mensagem": "CBTT0532 - SOLICITACAO DE BAIXA EFETUADA",
+"dados": {
+"dataHoraSolicitacao": "2024-08-23-14.58.13.290548",
+"status": 57,
+"statusAnterior": 1
+}
+}
+
+Código da Baixa
+Tabela 1 - Baixa
+
+Cód Baixa Tipo
+57
+
+Descrição
+
+CONFORME SEU PEDIDO Para cenário que o beneficiário deseja cancelar o boleto
+
+Status e mensagens de retorno
+Descrição do retorno HTTP
+Tabela 2 - Status
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Cód Status Descrição (Mensagem)
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e mensagens de retorno técnica
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado no mainframe/API.
+Quando status for 200 serão formatados código e mensagem de Sucesso gerado no mainframe/API
+Tabela 3 – Mensagem
+Erro
+
+Código
+
+Descrição (Mensagem)
+
+CBTT0107 CPF/CNPJ INVÁLIDO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVÁLIDO
+CBTT0412 CONTA PRODUTO INVÁLIDA
+CBTT0108 NOSSO NÚMERO INVÁLIDO
+CBTT0928 TIPO DE CARTEIRA DE COBRANÇA NÃO PERMITIDA PARA ESSE PRODUTO
+CBTT0930 TIMESTAMP DA SOLICITAÇÃO INVÁLIDO
+CBTT0931 STATUS DO TÍTULO INVÁLIDO
+CBTT0932 STATUS ANTERIOR DO TÍTULO INVÁLIDO
+CBTT0403 USUÁRIO NÃO AUTORIZADO
+CBTT0575 ESTORNO DE SOLICITAÇÃO NÃO IDENTIFICADA NA BASE DE SOLICITAÇÕES
+CBTT0573 ESTORNO DE SOLICITAÇÃO DIFERENTE DE BAIXA OU REATIVAÇÃO
+CBTT0552 TÍTULO INEXISTENTE PARA O CONTRATO INFORMADO
+CBTT0710 SOLICITAÇÃO DE ESTORNO EFETUADA COM SUCESSO
+CBTT9100 ERRO DE ACESSO AO DB2
+Sucesso
+
+Código
+
+Descrição (Mensagem)
+
+CBTT0532 SOLICITAÇÃO DE BAIXA EFETUADA
+
+Alteração de título via API
+Para melhorar a experiência no produto Cobrança, disponibilizamos a API de alteração de títulos, que possibilita realizar manutenção em título registrado, na base da cobrança, com
+agilidade, praticidade e segurança.
+
+Ambiente Método URL
+Sandbox PUT
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-altera/v1/alterar
+
+Produção PUT
+
+https://openapi.bradesco.com.br/boleto/cobranca-altera/v1/alterar
+
+Para efetuar a alteração, o usuário deve enviar a requisição com todos dados do boleto e preencher os dados que deseja alterar (ex.: desconto, juros etc.) e a Plataforma Bradesco consistirá as
+informações recepcionadas, e se estas estiverem válidas, retornará os dados do boleto bancário alterado na Plataforma Bradesco e CIP, conforme layout abaixo.
+Obs.: No período da 00h00 às 03h00 pode haver indisponibilidade de acesso à API face às atualizações de tabelas e processamento batch.
+Observações sobre o preenchimento dos campos:
+1. Todos os campos deverão ser informados conforme layout, entretanto para os tipos não obrigatórios deverão ser preenchidos com zero para campo numérico ou “” para campo
+alfanumérico.
+2. Deve ser preenchido apenas o(s) campo(s) do título que deseja alterar.
+3. Os campos chaves do título (carteira, negociação, nosso número, CPF/CNPJ do pagador (sacado), data da emissão do título e valor do título) não poderão ser alterados.
+
+18 of 61
+
+Exemplo de entrada (JSON)
+O exemplo abaixo é apenas como referência para formatação dos campos (JSON):
+{
+"cpfCnpj": {
+"cpfCnpj": 114383908,
+"filial": 0,
+"controle": 7
+},
+"produto": 9,
+"negociacao": 28560230114,
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+19 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"nossoNumero": 39913860,
+"dadosPagador": {
+"sacado": "Nome do Sacado",
+"cpfCnpjSacado": {
+"cpfCnpj": 364265228,
+"filial": 0,
+"controle": 5
+},
+"endereco": "endereco do sacado",
+"cep": 0,
+"sufixo": 0,
+"nomeSacador": "teste",
+"aceite": "S",
+"cpfCnpjSacador": {
+"cpfCnpj": 59057992,
+"filial": 1,
+"controle": 36
+},
+"emailSacado": "teste"
+},
+"dadosTitulo": {
+"seuNumero": "seu numero 0001",
+"dataEmissao": 16112022,
+"especie": "DM",
+"vencimento": {
+"dataVencimento": 27072023,
+"tipoVencimento": 0
+},
+"protesto": {
+"codInstrucaoProtesto": 0,
+"qtdeDiasProtesto": 0
+},
+"decurso": {
+"codDecursoPrazo": 0,
+"diasDecursoPrazo": 0
+},
+"abatimento": {
+"tipoAbatimento": 0,
+"valorAbatimento": 0
+},
+"dataDesc1": 0,
+"valDesc1": 0,
+"codValDe1": 0,
+"tipoDesc1": 0,
+"dataDesc2": 0,
+"valDesc2": 0,
+"codValDe2": 0,
+"tipoDesc2": 0,
+"dataDesc3": 0,
+"valDesc3": 0,
+"codValDe3": 0,
+"tipoDesc3": 0,
+"codigoControleParticipante": "",
+"indicadorAvisoSacado": "",
+"comissaoPermanencia": {
+"diasComissaoPermanencia": 0,
+"valorComissaoPermanencia": 0,
+"codigoComissaoPermanencia": 0
+},
+"codigoMulta": 0,
+"diasMulta": 0,
+"valorMulta": 0,
+"codigoNegativacao": 0,
+"diasNegativacao": 0,
+"pagamentoParcial": "",
+"qtdePagamentoParcial": 0
+}
+}
+
+Layout de comunicação - Entrada
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+20 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Qtde.
+CHAR
+
+Campo
+Obrigatório
+
+Raiz CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+Numérico
+
+Filial CPF/CNPJ do Beneficiário. Se CPF, filial = 0
+
+4
+
+Sim
+
+Numérico
+
+Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+produto
+
+Numérico
+
+ID Produto (código da carteira/modalidade de cobrança)
+
+2
+
+Sim
+
+negociacao
+
+Numérico
+
+Número da Negociação (Agência: 4 + Conta: 7)
+
+11
+
+Sim
+
+nossoNumero
+
+Numérico
+
+Número do Título (Nosso Número sem o dígito)
+
+11
+
+Sim
+
+dadosPagador
+
+objeto
+
+array
+
+└ sacado
+
+Alfanumérico Nome do Sacado
+
+40
+
+Não
+
+└ cpfCnpjSacado
+
+objeto
+
+array
+
+└ cpfcnpj
+
+Numérico
+
+Número documento do Sacado
+
+9
+
+Não
+
+└ filial
+
+Numérico
+
+Filial do CNPJ ou zeros se CPF
+
+4
+
+Não
+
+└ controle
+
+Numérico
+
+Controle do CNPJ ou CPF do Sacado
+
+2
+
+Não
+
+└ endereco
+
+Alfanumérico Endereço do Pagador
+
+40
+
+Não
+
+└ cep
+
+Numérico
+
+CEP do Sacado
+
+5
+
+Não
+
+└ sufixo
+
+Numérico
+
+Complemento do CEP do Sacado
+
+3
+
+Não
+
+└ nomeSacador
+
+Alfanumérico Nome do Sacador Avalista
+
+40
+
+Não
+
+└ Aceite
+
+Alfanumérico Fixo “N”
+
+1
+
+Não
+
+└ cpfCnpjSacador
+
+objeto
+
+array
+
+└ cpfCnpj
+
+Numérico
+
+Número documento do Sacador Avalista
+
+9
+
+Não
+
+└ filial
+
+Numérico
+
+Filial do CNPJ ou zeros se CPF
+
+4
+
+Não
+
+└ controle
+
+Numérico
+
+Controle do CNPJ ou CPF do Sacador Avalista
+
+2
+
+Não
+
+└ emailSacado
+
+Alfanumérico E-mail do Sacado
+
+50
+
+Não
+
+dadosTítulo
+
+objeto
+
+└ seuNumero
+
+Alfanumérico Seu Número do Título
+
+15
+
+Não
+
+└ dataEmissao
+
+Numérico
+
+8
+
+Não
+
+└ especie
+
+Alfanumérico Espécie do Documento do Título
+
+3
+
+Não
+
+vencimento
+
+objeto
+
+array
+
+└ dataVencimento
+
+Numérico
+
+Data Vencimento Retorna (DDMMAAAA)
+
+8
+
+Não
+
+└ tipoVencimento
+
+Numérico
+
+Tipo de Vencimento – Fixo “0”
+
+1
+
+Não
+
+protesto
+
+objeto
+
+array
+
+└ codInstrucaoProtesto
+
+Numérico
+
+Código de Instrução Protesto (1 = Dias corridos / 2 = Dias
+1
+úteis)
+
+Sim
+
+└ qtdeDiasProtesto
+
+Numérico
+
+Quantidade Dias de Protesto
+
+3
+
+Não
+
+decurso
+
+objeto
+
+array
+
+└ codDecursoPrazo
+
+Numérico
+
+Código Decurso de Prazo
+
+1
+
+Sim
+
+└ diasDecursoPrazo
+
+Numérico
+
+Quantidade Dias Decurso de Prazo
+
+3
+
+Não
+
+abatimento
+
+objeto
+
+array
+
+└ tipoAbatimento
+
+Numérico
+
+Tipo do Abatimento
+
+1
+
+Sim
+
+└ valorAbatimento
+
+Numérico
+
+Valor do Abatimento
+
+15
+
+Não
+
+└ dataDesc1
+
+Numérico
+
+Data Limite do Desconto 1 (DDMMAAAA)
+
+8
+
+Não
+
+└ valDesc1
+
+Numérico
+
+Valor do Desconto 1
+
+15
+
+Não
+
+└ codValDe1
+
+Numérico
+
+Código Valor Desconto 1: 1-Valor / 2-Percentual
+
+1
+
+Sim
+
+└ tipoDesc1
+
+Numérico
+
+Tipo do Desconto 1
+
+1
+
+Sim
+
+└ dataDesc2
+
+Numérico
+
+Data do Desconto 2 (DDMMAAAA)
+
+8
+
+Não
+
+└ valDesc2
+
+Numérico
+
+Valor do Desconto 2
+
+15
+
+Não
+
+└ codValDe2
+
+Numérico
+
+Código Valor Desconto 2: 1-Valor / 2-Percentual
+
+1
+
+Não
+
+└ tipoDesc2
+
+Numérico
+
+Tipo do Desconto 2
+
+1
+
+Sim
+
+└ dataDesc3
+
+Numérico
+
+Data do Desconto 3 (DDMMAAAA)
+
+8
+
+Não
+
+└ valDesc3
+
+Numérico
+
+Valor do Desconto 3
+
+15
+
+Não
+
+└ codValDe3
+
+Numérico
+
+Código Valor Desconto 3: 1-Valor / 2-Percentual
+
+1
+
+Não
+
+└ tipoDesc3
+
+Numérico
+
+Tipo do Desconto 3
+
+1
+
+Sim
+
+codigoControleParticipante
+
+Alfanumérico Código do Controle do Participante
+
+25
+
+Não
+
+indicadorAvisoSacado
+
+Alfanumérico Indicador Aviso Sacado. Fixo “0”
+
+1
+
+Não
+
+comissaoPermanencia
+
+objeto
+
+array
+
+└ diasComissaoPermanencia
+
+Numérico
+
+Dias de Comissão de Permanência
+
+3
+
+Não
+
+└ valorComissaoPermanencia Numérico
+
+Valor da Comissão de Permanência
+
+15
+
+Não
+
+Nome do Campo
+
+Tipo
+
+Descrição
+
+cpfCnpj
+
+objeto
+
+array
+
+└ cpfCnpj
+
+Numérico
+
+└ filial
+└ controle
+
+array
+Data de Emissão do Título (DDMMAAAA)
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+21 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+└
+codigoComissaoPermanencia
+
+Numérico
+
+Código da Comissão de Permanência: 1-Valor / 2Percentual
+
+1
+
+Não
+
+codigoMulta
+
+Numérico
+
+Código da Multa: 1-Valor / 2-Percentual
+
+1
+
+Sim
+
+diasMulta
+
+Numérico
+
+Quantidade de dias para cálculo da Multa
+
+3
+
+Não
+
+valorMulta
+
+Numérico
+
+Valor da Multa
+
+15
+
+Não
+
+codigoNegativacao
+
+Numérico
+
+Código da Negativação
+
+1
+
+Sim
+
+diasNegativacao
+
+Numérico
+
+Quantidade de Dias para Negativação
+
+3
+
+Não
+
+pagamentoParcial
+
+Alfanumérico Indicador de Pagamentos Parciais (‘S’ ou ‘N’)
+
+1
+
+Não
+
+qtdePagamentoParcial
+
+Numérico
+
+Quantidade de Pagamentos Parciais
+
+3
+
+Não
+
+Layout de comunicação - Retorno
+
+Nome do
+Campo
+
+Tipo
+
+Qtde.
+CHAR
+
+Campo de Saída - Descrição
+
+status
+
+Numérico
+
+3
+
+Código do Status HTTP - veja a seção Tabela 2 - Status
+
+transação
+
+Alfanumérico 8
+
+Código da Transação executada CBTTIAGP
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno: Sucesso ou Insucesso
+
+causa
+
+Alfanumérico 3
+
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado
+no mainframe/API
+
+Exemplo de Resposta
+Com sucesso (JSON)
+{
+"status": 200,
+"transacao": "CBTTIAGP",
+"mensagem": "CBTT0445 - ALTERACAO EFETUADA"
+}
+
+Com erro (JSON)
+{
+"status": 412,
+"transacao": "CBTTIAGP",
+"mensagem": "Parâmetros informados inválidos.",
+"causa": "CBTT0942 - CPF/CNPJ DO SACADOR AVALISTA INVALIDO"
+}
+
+Status e mensagens de retorno
+Descrição do retorno HTTP
+Tabela 1 - Status
+
+Cód. Status Descrição (Mensagem)
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e mensagens de retorno técnica
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado no mainframe/API.
+Quando status for 200 serão formatados código e mensagem de Sucesso gerado no mainframe/API
+Tabela 2 – Mensagem
+Erros
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+22 of 61
+
+Código
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Descrição (Mensagem)
+
+CBTT0139 TIPO DE VENCIMENTO INVALIDO
+CBTT0144 DIAS DE PROTESTO INVALIDO
+CBTT0147 A SOMATORIA DOS CAMPOS ABATIMENTO, DESCONTO E BONIFICACAO, EXCEDEU O VALOR DO TITULO
+CBTT0150 VALOR DO JUROS/MORA INFORMADO EXCEDEU O PARAMETRO
+CBTT0162 DATA DE VENCIMENTO INVALIDA
+CBTT0189 CAMPO NOSSO NUMERO INVALIDO
+CBTT0197 DIAS PARA COBRANCA DE MULTA INVALIDO
+CBTT0246 UTILIZAR 3 DESCONTOS OU 2 DESCONTOS E BONIFICACAO
+CBTT0251 CEP SACADO INVALIDO
+CBTT0401 SITUACAO TITULO INVALIDO PARA ALTERACAO
+CBTT0403 USUARIO NAO AUTORIZADO
+CBTT0406 DATA VENCIMENTO MENOR OU IGUAL DATA EMISSAO
+CBTT0407 DATA DESCONTO MENOR OU IGUAL DATA EMISSAO
+CBTT0408 DATA DESCONTO MAIOR QUE DATA VENCIMENTO
+CBTT0409 VALOR DESCONTO/BONIFICACAO MAIOR OU IGUAL VALOR TITULO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0413 VALOR ABATIMENTO MAIOR OU IGUAL VALOR TITULO
+CBTT0428 ESPECIE DE DOCUMENTO INVALIDO
+CBTT0430 CODIGO DA INSTRUCAO DE PROTESTO INVALIDO
+CBTT0431 DIAS PARA INSTRUCAO DE PROTESTO INVALIDO
+CBTT0432 CODIGO PARA DECURSO DE PRAZO INVALIDO
+CBTT0433 DIAS PARA DECURSO DE PRAZO INVALIDO
+CBTT0434 CODIGO PARA DESCONTO INVALIDO
+CBTT0435 CODIGO PARA MULTA INVALIDO
+CBTT0436 CODIGO PARA COMISSAO PERMANENCIA DIA INVALIDO
+CBTT0437 DIAS DE PROTESTO AUTOMATICO ULTRAPASSA DECURSO DE PRAZO
+CBTT0438 ESPECIE DOCUMENTO EXIGE CGC PARA SACADOR AVALISTA
+CBTT0443 DATA DESCONTO INVALIDA
+CBTT0449 VALOR DA BONIFICACAO INFORMADO MAIOR QUE O PERMITIDO
+CBTT0455 DATA DE VENCIMENTO INCOMPATIVEL COM O TIPO DE VENCIMENTO
+CBTT0458 VALOR INCOMPATIVEL COM O TIPO DE ABATIMENTO 1
+CBTT0466 DATAS DE DESCONTOS IGUAIS
+CBTT0478 ALTERACAO DE CONTROLE PARTICIPANTE NAO AUTORIZADA
+CBTT0492 DATA VENCIMENTO POSTERIOR A 10 ANOS
+CBTT0495 INFORME TODOS OS CAMPOS P/ ABATIMENTO
+CBTT0498 INFORME TODOS OS DADOS DO SACADOR AVALISTA
+CBTT0502 INFORME TODOS OS DADOS PARA DESCONTO/BONIFICACAO
+CBTT0505 INFORME TODOS OS CAMPOS PARA MULTA
+CBTT0506 INFORME TODOS OS CAMPOS PARA COMISSAO DE PERMANENCIA
+CBTT0530 TITULO PENDENTE EM MORA - BAIXA BLOQUEADA
+CBTT0552 TITULO INEXISTENTE PARA O CONTRATO INFORMADO
+CBTT0738 PERCENTUAL DE JUROS EXCEDE O PERCENTUAL PARAMETRIZADO
+CBTT0741 VALOR DA MULTA INFORMADO EXCEDEU O PARAMETRO
+CBTT0797 INFORME TODOS OS CAMPOS PARA INTRUCAO DE PROTESTO/NEGATIVACAO
+CBTT0813 NEGOCIACAO NAO PERMITE ESPECIE CARTAO DE CREDITO
+CBTT0814 ESPECIE DE TITULO CC EXIGE CONTRACAO DE PAGAMENTO PARCIAL
+CBTT0815 NEGOCIACAO NAO PERMITE PAGAMENTO PARCIAL 0819
+CBTT0822 INFORME APENAS PROTESTO AUTOMATICO OU NEGATIVACAO AUTOMATICA
+CBTT0823 ABATIMENTO MAIOR QUE ZEROS PARA ESPECIE CARTAO DE CREDITO
+CBTT0824 DESCONTO NAO PERMITIDO PARA TITULO CARTAO DE CREDITO
+CBTT0825 MULTA NAO PERMITIDA PARA TITULO CARTAO DE CREDITO
+CBTT0827 JUROS NAO PERMITIDA PARA TITULO CARTAO DE CREDITO
+CBTT0835 CODIGO DA INSTRUCAO DE PROTESTO / NEGATIVACAO INVALIDO
+CBTT0851 TÍTULO DE PROPOSTA NAO PERMITE PROTESTO
+CBTT0884 TÍTULO DE DEPOSITO E APORTE NAO PERMITE NEGATIVACAO
+CBTT0885 PAGAMENTO PARCIAL NAO PERMITIDO TITULO TÍTULO DE DEPOSITO E APORTE
+CBTT0888 ABATIMENTO NAO PERMITIDO PARA TITULO TÍTULO DE DEPOSITO E APORTE
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+23 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+CBTT0888 ABATIMENTO NAO PERMITIDO PARA TITULO TÍTULO DE DEPOSITO E APORTE
+CBTT0889 DESCONTO NAO PERMITIDO PARA TITULO TÍTULO DE DEPOSITO E APORTE
+CBTT0891 BENEFICIARIO FINAL OBRIGATORIO PARA TÍTULO DE DEPOSITO E APORTE
+CBTT0904 TÍTULO DE PROPOSTA NÃO PERMITE ALTERACAO PARA VENCIDO
+CBTT0905 TÍTULO DE PROPOSTA NÃO PERMITE ALTERACAO DE DECURSO DE PRAZO
+CBTT0907 TIPO DE ABATIMENTO INVALIDO
+CBTT0909 AVISO SACADO INVALIDO
+CBTT0910 PAGAMENTO PARCIAL INVALIDO
+CBTT0912 NÃO É PERMITIDO REMOVER PAGAMENTO PARCIAL
+CBTT0913 NÃO É PERMITIDO REDUZIR QUANTIDADE DE PAGAMENTO PARCIAL
+CBTT0914 DESCONTO INSENTO NÃO PODE SER ALTERADO PARA CONCEDIDO
+CBTT0916 TIPO DE DESCONTO INVALIDO
+CBTT0918 ALTERACAO REPRESADA
+CBTT0922 NÃO INFORMAR O VALOR OU PERCENTUAL DO JUROS
+CBTT0936 TÍTULO DE PROPOSTA NÃO PERMITE NEGATIVACAO
+CBTT0937 DIAS DE NEGATIVACAO MENOR QUE O PARAMETRIZADO
+CBTT0938 CLIENTE NÃO POSSUI NEGATIVACAO NEGOCIADA
+CBTT0939 CPF/CNPJ DO PAGADOR NÃO PODE SER ALTERADO
+CBTT0940 PRODUTO DE DESCONTO E TRANSFERENCIA DE RECEBIVEIS NÃO PERMITEM ALTERACAO
+CBTT0941 ACEITE INVALIDO
+CBTT0943 DATA DE EMISSAO NÃO PODE SER ALTERADA
+CBTT0944 CARTAO DE CREDITO PRECISA ACEITAR QUALQUER VALOR DE PAGAMENTO
+CBTT0945 PAGAMENTO PARCIAL MAIOR QUE 1 PARA TÍTULO DE PROPOSTA
+CBTT0946 ESPECIE NÃO PODE SER ALTERADA
+CBTT9100 ERRO DE ACESSO AO DB2
+Sucesso
+
+Código
+
+Descrição (Mensagem)
+
+CBTT0445 ALTERACAO EFETUADA
+
+Consulta de título via API
+Para melhorar a experiência no produto Cobrança, disponibilizamos a API de consulta de títulos específico, que permite visualizar de forma detalhada os dados de um registro. As
+informações são atualizadas e com o resultado dessa consulta é possível gerar a 2ª. via de um boleto.
+Realizar requisição conforme abaixo:
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-consulta/v1/consultar
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-consulta/v1/consultar
+
+Obs.: No período da 00h00 às 03h00 pode haver indisponibilidade de acesso à API face às atualizações de tabelas e processamento batch.
+Para realizar a consulta do boleto, o usuário deve enviar a requisição com campos-chave associados ao boleto de cobrança gerado, conforme layout abaixo:
+Observações sobre o preenchimento dos campos:
+1. Todos os campos devem ser informados conforme layout, entretanto para os tipos não obrigatórios devem ser preenchidos com zeros para campo numérico, ou espaços para campo
+alfanumérico;
+Layout de comunicação - Entrada
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+24 of 61
+
+Nome do
+Campo
+
+Tipo
+
+cpfCnpj
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Qtde.
+CHAR
+
+Campo
+Obrigatório
+
+Numérico Raiz CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+filial
+
+Filial CPF/CNPJ do Beneficiário
+Numérico
+Se CPF, filial = 0
+
+4
+
+Sim
+
+controle
+
+Numérico Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+produto
+
+ID Produto (código da carteira/modalidade de cobrança. Ex.: 09 Cobrança escritural,
+Numérico
+2
+05 Cobrança de Seguros)
+
+Sim
+
+negociacao
+
+Numérico
+
+11
+
+Sim
+
+nossoNumero
+
+Número do Título (Nosso Número sem o dígito). Identificação do título para o banco,
+Numérico pode ser informado pelo cliente ou gerado pelo banco, esse número deve ser único de 11
+acordo com a carteira e negociação utilizadas
+
+Sim
+
+sequencia
+
+Numérico Número de sequência. Fixo “0”
+
+1
+
+Sim
+
+status
+
+Numérico Status do Título. Veja a seção Tabela 1 - Status do título
+
+2
+
+Não
+
+Descrição
+
+Número da Negociação. Formato: Agencia: 4 posições (Sem dígito) Conta: 7 posições
+(Sem dígito)
+
+Exemplo entrada (JSON)
+O exemplo abaixo é apenas como referência para formatação dos campos (Json):
+{
+"cpfCnpj": {
+"cpfCnpj": 31759488,
+"filial": 0,
+"controle": 55
+},
+"produto": 9,
+"negociacao": 28560222652,
+"nossoNumero": 42360000024,
+"sequencia": 0,
+"status": 1
+}
+
+Layout de comunicação - Retorno
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+25 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Nome do Campo Tipo
+
+Qtde.
+CHAR
+
+Campo de Saída - Descrição
+
+status
+
+Numérico
+
+3
+
+Código do Status HTTP. Veja a seção Tabela 4 - Status da chamada
+
+transação
+
+Alfanumérico 8
+
+Código da Transação executada. Fixo: CBTTIAGS
+
+mensagem
+
+Alfanumérico 100
+
+Quando o campo status for 400, 412 ou 500 serão demonstrados código e mensagem de erro
+técnica gerado no mainframe/API. Quando o campo status for 200 serão demonstrados código e
+mensagem de sucesso. TABELA 5 - Mensagem Pág. 13
+
+causa
+
+Alfanumérico 200
+
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado
+no mainframe/API
+
+Titulo
+
+Objeto
+
+Array
+
+agencCred
+
+Numérico
+
+5
+
+Agência de Crédito do Beneficiário
+
+ctaCred
+
+Numérico
+
+13
+
+Conta Crédito do Beneficiário
+
+digCred
+
+Alfanumérico 2
+
+Dígito da Conta Crédito
+
+razCred
+
+Numérico
+
+6
+
+Código da Razão da conta, exemplo: 000705, 001011 / 001105
+
+cip
+
+Numérico
+
+3
+
+Código da Cartela de Instrução Permanente do Título. Trata-se de código utilizado para
+identificar mensagens específicas ao beneficiário, sendo que o mesmo consta no cadastro do
+Banco. Quando não houver código cadastrado, será demonstrado zeros "000"
+
+codStatus
+
+Numérico
+
+2
+
+Código do Status do Título. Veja a seção Tabela 1 - Status do título
+
+status
+
+Alfanumérico 40
+
+Cedente
+
+objeto
+
+array
+
+cnpj
+
+Numérico
+
+15
+
+CNPJ do Cedente/Beneficiário
+
+nome
+
+Alfanumérico 40
+
+Nome do Cedente/Beneficiário
+
+endereço
+
+Alfanumérico 40
+
+Endereço do Cedente/Beneficiário
+
+numero
+
+Alfanumérico 7
+
+Número do Endereço do Cedente/Beneficiário
+
+complemento
+
+Alfanumérico 20
+
+Complemento do Endereço do Cedente/Beneficiário
+
+bairro
+
+Alfanumérico 20
+
+Bairro do Endereço do Cedente/Beneficiário
+
+cep
+
+Numérico
+
+5
+
+Cep do Endereço do Cedente/Beneficiário
+
+Cepc
+
+Numérico
+
+3
+
+Complemento do Cep do Endereço do Cedente/Beneficiário
+
+Cidade
+
+Alfanumérico 50
+
+Cidade do Endereço do Cedente/Beneficiário
+
+uf
+
+Alfanumérico 2
+
+UF do Endereço do Cedente/Beneficiário
+
+Sacado
+
+Objeto
+
+array
+
+cnpj
+
+Numérico
+
+15
+
+nome
+
+Alfanumérico 40
+
+Nome do Sacado
+
+endereço
+
+Alfanumérico 40
+
+Endereço do Sacado
+
+bairro
+
+Alfanumérico 20
+
+Bairro do Endereço do Sacado
+
+cep
+
+Numérico
+
+5
+
+Cep do Endereço do Sacado
+
+Cepc
+
+Numérico
+
+3
+
+Complemento do Cep do Endereço do Sacado
+
+Cidade
+
+Alfanumérico 40
+
+Cidade do Endereço do Sacado
+
+uf
+
+Alfanumérico 2
+
+UF do Endereço do Sacado
+
+enderecoEma
+
+Alfanumérico 50
+
+Endereço de e-mail do sacado do título
+
+cebp
+
+Alfanumérico 1
+
+Identificador de rateio de crédito. S = Sim, N = Não
+
+debitoAuto
+
+Alfanumérico 1
+
+Indicador Débito automático. “S” = com débito / “N” = sem débito
+
+aceite
+
+Alfanumérico 1
+
+Indica se o título é com ou sem aceite do devedor (Sacado). “S” = com aceite / “N” = sem aceite
+
+Sacador
+
+Objeto
+
+Array
+
+cnpj
+
+Numérico
+
+15
+
+CNPJ do Sacador Avalista
+
+nome
+
+Alfanumérico 40
+
+Nome do Sacador Avalista
+
+endereço
+
+Alfanumérico 40
+
+Endereço do Sacador Avalista
+
+cep
+
+Numérico
+
+5
+
+Cep do Endereço do Sacador Avalista
+
+Cepc
+
+Numérico
+
+3
+
+Complemento do Cep do Endereço do Sacador Avalista
+
+Cidade
+
+Alfanumérico 40
+
+Cidade do Endereço do Sacador Avalista
+
+uf
+
+Alfanumérico 2
+
+UF do Endereço do Sacador Avalista
+
+cense
+
+Numérico
+
+5
+
+Código da Agência intermediadora da operação do cliente (Identificador do subcentro). Se
+houver agencia intermediadora será demonstrada, senão será apresentado o código da agência
+Operadora
+
+agenOper
+
+Numérico
+
+5
+
+Código da Agencia Operadora
+
+bcoDepos
+
+Numérico
+
+3
+
+Código do Banco Depositório
+
+agenDepos
+
+Numérico
+
+5
+
+Código da Agencia Depositório
+
+snumero
+
+Alfanumérico 15
+
+Seu Número do Título
+
+especDocto
+
+Alfanumérico 3
+
+Espécie do Documento do Título. Tabela 2 – Espécie Pág. 12
+
+Descrição do Status do Título. Veja a seção Tabela 1 - Status do título
+
+CNPJ do Sacado. Obs.: Caso seja um CPF as posições que tratam da filial virá com zeros. Ex.:
+340266998000062
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+26 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+especDocto
+
+Alfanumérico 3
+
+Espécie do Documento do Título. Tabela 2 – Espécie Pág. 12
+
+descrEspec
+
+Alfanumérico 40
+
+Descrição Espécie. Tabela 2 – Espécie Pág. 12
+
+dataReg
+
+Alfanumérico 8
+
+Data de Registro. AAAAMMDD
+
+dataEmis
+
+Alfanumérico 8
+
+Data de Emissão. AAAAMMDD
+
+dataVencto
+
+Alfanumérico 10
+
+Data Vencimento. DD/MM/AAAA
+
+especMoeda
+
+Alfanumérico 5
+
+Especificação da Moeda. Exemplo: R$
+
+qtdeMoeda
+
+Numérico
+
+15
+
+Quantidade de moeda do valor do título. Se moeda for Real ficará com zeros
+
+qtdeCas
+
+Numérico
+
+1
+
+Quantidade de Casas decimais. Exemplo: 2
+
+descrMoeda
+
+Alfanumérico 5
+
+Descrição Moeda. Exemplo: R$
+
+valMoeda
+
+Numérico
+
+15
+
+Valor do título. Se moeda for real conterá o valor do título, senão conterá zeros
+
+valorIof
+
+Numérico
+
+15
+
+Valor do IOF
+
+valAbat
+
+Numérico
+
+15
+
+Valor do Abatimento
+
+dataMulta
+
+Alfanumérico 8
+
+Data da Multa. Formato DDMMAAAA
+
+diasMulta
+
+Numérico
+
+3
+
+Quantidade de dias, após vencimento, para início da incidência de multa
+
+valMulta
+
+Numérico
+
+15
+
+Valor da Multa
+
+qtdeCasMul
+
+Numérico
+
+1
+
+Qtde. Casas Decimais do valor da Multa. Exemplo: 2
+
+codValMul
+
+Numérico
+
+1
+
+Código do Valor da Multa: 1-Valor / 2-Percentual
+
+descrMulta
+
+Alfanumérico 40
+
+Descrição da multa. Ex. VALOR FIXO ou TAXA MENSAL ou ISENTO
+
+dataPerm
+
+Alfanumérico 8
+
+Data para cobrança de juros. DDMMAAAA
+
+diasJuros
+
+Numérico
+
+3
+
+Quantidade de dias, após o vencimento, para incidência de juros
+
+valPerm
+
+Numérico
+
+15
+
+Valor de Juros
+
+codComisPerm
+
+Numérico
+
+1
+
+Código de juros. Código da comissão de permanência
+
+dataDesc1
+
+Alfanumérico 8
+
+Data do Desconto 1. Formato: DDMMAAAA
+
+valDesc1
+
+Numérico
+
+15
+
+Valor do Desconto 1
+
+qtdeCasDe1
+
+Numérico
+
+1
+
+Qtde. Casas Decimais 1. Exemplo: 2
+
+codValDe1
+
+Numérico
+
+1
+
+Código Valor Desconto 1: 1-Valor / 2-Percentual
+
+descrDesc1
+
+Alfanumérico 40
+
+Descrição do Código do Valor do Desconto 1
+
+dataDesc2
+
+Alfanumérico 8
+
+Data do Desconto 2. Formato: DDMMAAAA
+
+valDesc2
+
+Numérico
+
+15
+
+Valor do Desconto 2
+
+qtdeCasDe2
+
+Numérico
+
+1
+
+Qtde. Casas Decimais 2. Exemplo: 2
+
+codValDe2
+
+Numérico
+
+1
+
+Código Valor Desconto 2: 1-Valor / 2-Percentual
+
+descrDesc2
+
+Alfanumérico 40
+
+Descrição do Código do Valor do Desconto 2
+
+dataDesc3
+
+Alfanumérico 8
+
+Data do Desconto 3. Formato: DDMMAAAA
+
+valDesc3
+
+Numérico
+
+15
+
+Valor do Desconto 3
+
+qtdeCasDe3
+
+Numérico
+
+1
+
+Qtde. Casas Decimais 3. Exemplo: 2
+
+codValDe3
+
+Numérico
+
+1
+
+Código Valor Desconto 3: 1-Valor / 2-Percentual
+
+descrDesc3
+
+Alfanumérico 40
+
+Descrição do Código do Valor do Desconto 3
+
+dataInstr
+
+Alfanumérico 8
+
+Data da Instrução de Protesto
+
+diasProt
+
+Numérico
+
+Quantidade de dias para protesto automático
+
+dataCartor
+
+Alfanumérico 8
+
+Data Cartório
+
+numCartor
+
+Alfanumérico 5
+
+Número do Cartório
+
+numProtoc
+
+Alfanumérico 15
+
+Número do Protocolo
+
+dataPedSus
+
+Alfanumérico 8
+
+Data da solicitação de sustação do protesto
+
+dataSust
+
+Alfanumérico 8
+
+Data da efetivação da sustação de protesto
+
+despCart
+
+Numérico
+
+15
+
+Valor de despesas cartorárias
+
+bcoCentr
+
+Numérico
+
+3
+
+Código do banco centralizador de protesto
+
+ageCentr
+
+Numérico
+
+5
+
+Código da Agencia centralizadora de protesto
+
+acessEsc
+
+Numérico
+
+18
+
+Acessório escritural
+
+tipEndo
+
+Alfanumérico 1
+
+Identifica tipo de endosso referente ao título de cobrança. T=TRANSLATIVO,
+M=MANDATORIO
+
+oriProt
+
+Numérico
+
+Código Origem de instrução do Protesto
+
+corige35
+
+Alfanumérico 1
+
+Título transferido do desconto. S=Sim / N=Não
+
+ctpoVencto
+
+Numérico
+
+1
+
+Tipo do Vencimento. 0 = Data fixa, 1 = Contra apresentação, 2 = A vista
+
+codInscrProt
+
+Numérico
+
+1
+
+Código Inscrição Protesto
+
+qtdDiasDecurPrz
+
+Numérico
+
+3
+
+Quantidade Dias Decurso de Prazo
+
+ctrlPartic
+
+Alfanumérico 25
+
+Código Controle Particionado
+
+diasComisPerm
+
+Numérico
+
+3
+
+Dias de Comissão Permanente
+
+qmoedaComisPerm Numérico
+
+15
+
+Valor Comissão Permanente
+
+3
+
+2
+
+indTitParceld
+
+Alfanumérico 1
+
+Indicador título Parcelado. S=Sim / N=Não
+
+indParcelaPrin
+
+Alfanumérico 1
+
+Indicador Parcela Principal. S=Sim / N=Não
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+27 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+indParcelaPrin
+
+Alfanumérico 1
+
+Indicador Parcela Principal. S=Sim / N=Não
+
+indBoletoDda
+
+Alfanumérico 1
+
+Indicador Boleto DDA. S=Sim / N=Não
+
+codBarras
+
+Alfanumérico 112
+
+Código de Barra
+
+linhaDig
+
+Alfanumérico 54
+
+Linha Digitável
+
+valorMoedaBol
+
+Numérico
+
+Valor original Boleto
+
+dataVenctoBol
+
+Alfanumérico 10
+
+Data Vencimento Boleto. DD/MM/AAAA
+
+dataLimitePgt
+
+Alfanumérico 10
+
+Data Limite do Pagamento. DD/MM/AAAA
+
+dataImpressao
+
+Numérico
+
+8
+
+Data da Impressão. DDMMAAAA Data que foi realizada a consulta
+
+horaImpressao
+
+Numérico
+
+6
+
+Hora da Impressão. HHMMSS Hora que foi realizada a consulta
+
+identTitDda
+
+Numérico
+
+17
+
+Identificador Título DDA
+
+exibeLinDig
+
+Alfanumérico 1
+
+15
+
+Indicador Exibição linha digitável
+
+permitePgtoParcial Alfanumérico 1
+
+Permite Pagamento
+
+qtdePgtoParcial
+
+Numérico
+
+03
+
+Quantidade de Pagamento Parcial
+
+dtPagto
+
+Numérico
+
+08
+
+Data do Pagamento (DDMMAAAA) Obs.: Caso não tenha sido pago retornará zerado
+
+vlrPagto
+
+Numérico
+
+15
+
+Valor do Pagamento
+
+qtdPagto
+
+Numérico
+
+01
+
+Quantidade Pagamento
+
+bcoProc
+
+Numérico
+
+03
+
+Banco Processado Pagamento
+
+ageProc
+
+Numérico
+
+05
+
+Agência Processado Pagamento
+
+Baixa
+
+Objeto
+
+array
+
+codigo
+
+Numérico
+
+02
+
+descrição
+
+Alfanumérico 20
+
+Obs.: Caso não tenha sido pago retornará zerado
+
+Código da Baixa
+Tabela 3 – Baixa (Pág. 12)
+Descrição da Baixa
+Tabela 3 – Status Baixa (Pág. 12)
+
+data
+
+Numérico
+
+08
+
+Data da Baixa (DDMMAAAA)
+
+Exemplo de resposta (Json)
+{
+"STATUS": 200,
+"TRANSACAO": "CBTTIAGS",
+"MENSAGEM": "OPERAÇÃO REALIZADA COM SUCESSO",
+"CAUSA": "",
+"TITULO": {
+"AGENCCRED": 2856,
+"CTACRED": 222652,
+"DIGCRED": "9",
+"RAZCREDT": 7005,
+"CIP": 263,
+"CODSTATUS": 1,
+"STATUS": "A VENCER / VENCIDO",
+"CEDENTE": {
+"CNPJ": 31759488000055,
+"NOME": "LOXJYMI LUJOYMUO",
+"ENDERECO": "X VYSYXXO FY LYPYSYR",
+"NUMERO": "178",
+"COMPLEMENTO": "",
+"BAIRRO": "ALAOXOLO",
+"CEP": 6028,
+"CEPC": "220",
+"CIDADE": "IRORJI",
+"UF": "SP"
+},
+"SACADO": {
+"CNPJ": 364265228000005,
+"NOME": "TESTE REGISTRO",
+"ENDERECO": "AVENIDA COPACABANA",
+"BAIRRO": "DEZOITO DO FORTE EMP",
+"CEP": 6472,
+"CEPC": "001",
+"CIDADE": "BARUERI",
+"UF": "SP"
+},
+"ENDERECOEMA": "010",
+"CEBP": "N",
+"DEBITOAUTO": "N",
+"ACEITE": "N",
+"SACADOR": {
+"CNPJ": 0,
+"NOME": "",
+"ENDERECO": "",
+"CEP": 0,
+"CEPC": "0",
+"CIDADE": "",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+28 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"UF": ""
+},
+"CENSE": 2856,
+"AGENOPER": 2856,
+"BCODEPOS": 237,
+"AGENDEPOS": 4152,
+"SNUMERO": "WEBSERVICE",
+"ESPECDOCTO": "CH",
+"DESCRESPEC": "CHEQUE",
+"DATAREG": "23082024",
+"DATAEMIS": "20112022",
+"DATAVENCTO": "17/12/2024",
+"ESPECMOEDA": "R$",
+"QTDEMOEDA": 0,
+"QTDECAS": 2,
+"DESCRMOEDA": "R$",
+"VALMOEDA": 500,
+"VALORIOF": 0,
+"VALABAT": 0,
+"DATAMULTA": "",
+"DIASMULTA": 0,
+"VALMULTA": 0,
+"QTDECASMUL": 2,
+"CODVALMUL": 0,
+"DESCRMULTA": "",
+"DATAPERM": "",
+"DIASJUROS": 0,
+"VALPERM": 0,
+"CODCOMISPERM": 0,
+"DATADESC1": "",
+"VALDESC1": 0,
+"QTDECASDE1": 2,
+"CODVALDE1": 0,
+"DESCRDESC1": "",
+"DATADESC2": "",
+"VALDESC2": 0,
+"QTDECASDE2": 2,
+"CODVALDE2": 0,
+"DESCRDESC2": "",
+"DATADESC3": "",
+"VALDESC3": 0,
+"QTDECASDE3": 2,
+"CODVALDE3": 0,
+"DESCRDESC3": "",
+"DATAINSTR": "",
+"DIASPROT": 0,
+"DATACARTOR": "",
+"NUMCARTOR": "",
+"NUMPROTOC": "",
+"DATAPEDSUS": "",
+"DATASUST": "",
+"DESPCART": 0,
+"BCOCENTR": 0,
+"AGECENTR": 0,
+
+Tabelas
+Tabela 1 - Status do título
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+29 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Cód Status Descrição
+01
+
+A VENCER / VENCIDO
+
+02
+
+COM PAGAMENTO VINCULADO
+
+03
+
+COM PAGTO VINCULADO E INSTRUCAO AGENDADA
+
+04
+
+COM INSTRUCAO DE PROTESTO
+
+05
+
+COM INSTR. DE PROTESTO E PAGTO VINCULADO
+
+06
+
+EM PODER DO CARTORIO
+
+07
+
+COM INSTR. E PEDIDO SUSTACAO - SEM BAIXA
+
+08
+
+COM INSTR. E PEDIDO SUSTACAO - COM BAIXA
+
+09
+
+EM CARTORIO E PEDIDO SUSTACAO - S/ BAIXA
+
+10
+
+EM CARTORIO E PEDIDO SUSTACAO - C/ BAIXA
+
+11
+
+COM BAIXA SOLICITADA
+
+12
+
+COM EXECUCAO SOLICITADA
+
+13
+
+PAGO NO DIA
+
+14
+
+EM CARTORIO COM PAGAMENTO VINCULADO
+
+15
+
+INSTR. PED. SUST. - S/ BAIXA - PGTO VINC
+
+16
+
+INSTR. PED. SUST. - C/ BAIXA - PGTO VINC
+
+17
+
+CARTORIO PED. SUST.-S/ BAIXA - PGTO VINC
+
+18
+
+CARTORIO PED. SUST.-C/ BAIXA - PGTO VINC
+
+19
+
+SUSTADO SEM REMESSA AO CARTORIO
+
+20
+
+SUSTADO RETIRADO DE CARTORIO
+
+21
+
+SUSTADO JUDICIALMENTE
+
+22
+
+PENDENTE NO DISTRIBUIDOR
+
+23
+
+TITULO COM IRREGULARIDADE
+
+24
+
+AGUARDANDO APONTAMENTO DE IRREGULARIDADE
+
+25
+
+AGUARDANDO SOLICIT. DE SUSTACAO C/ BAIXA
+
+26
+
+AGUARDANDO SOLICIT. DE SUSTACAO S/BAIXA
+
+27
+
+SOLIC. SUSTACAO C/ENVIO CARTOR. C/BAIXA
+
+28
+
+SOLIC. SUSTACAO C/ENVIO CARTOR. S/BAIXA
+
+29
+
+EM CARTORIO COM EDITAL
+
+30
+
+COM PAGAMENTO RETIDO
+
+31
+
+COM INSTR NEGATIVACAO
+
+32
+
+EM PROC NEGATIVACAO
+
+33
+
+NEGATIVADO
+
+34
+
+EXCL NEG S/BAIXA
+
+35
+
+EXCL NEG C/BAIXA
+
+51
+
+POR ACERTO
+
+52
+
+BAIXA POR RESGISTRO DUPLICADO
+
+53
+
+POR DECURSO DE PRAZO
+
+54
+
+POR MEDIDA JUDICIAL
+
+55
+
+POR REMESSA ( CEB )
+
+56
+
+COBRADO - POR RASTREAMENTO
+
+57
+
+CONFORME SEU PEDIDO
+
+58
+
+PROTESTADO
+
+59
+
+DEVOLVIDO
+
+60
+
+ENTREGUE FRANCO DE PAGAMENTO
+
+61
+
+PAGO
+
+62
+
+PAGO EM CARTORIO
+
+63
+
+SUSTADO RETIRADO DE CARTORIO
+
+64
+
+SUSTADO SEM REMESSA A CARTORIO
+
+65
+
+TRANSFERIDO PARA DESCONTO
+
+66
+
+CREDITO EXDD
+
+67
+
+CREDITO EXDD - PAGO EM CARTORIO
+
+68
+
+COBRADO - POR BAIXA MANUAL
+
+69
+
+COBRADO-POR BAIXA MANUAL-PAGO EM CATORIO
+
+70
+
+TRANSFERENCIA RECEBIVEIS
+
+71
+
+DEVOLUCAO TRANSF RECEBIVEIS
+
+72
+
+TRANSF. FUNDOS RECEB./COBRANCA
+
+73
+
+DEV. FUNDOS RECEB./COBRANCA
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+30 of 61
+
+73
+
+DEV. FUNDOS RECEB./COBRANCA
+
+98
+
+POR REGISTRO DUPLICADO
+
+99
+
+COM REATIVACAO SOLICITADA
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Tabela 2 – Espécie
+
+ESP DOC DESCRIÇÃO
+CH
+
+CHEQUE
+
+DM
+
+DUPLICATA DE VENDA MERCANTIL
+
+DMI
+
+DUPLICATA MERCANTIL POR INDICAÇÃO
+
+DS
+
+DUPLICATA DE PRESTAÇÃO DE SERVIÇOS
+
+DSI
+
+DUPLICATA PREST. SERVIÇOS POR INDICAÇÃO
+
+DR
+
+DUPLICATA RURAL
+
+LC
+
+LETRA DE CÂMBIO
+
+NCC
+
+NOTA DE CRÉDITO COMERCIAL
+
+NCE
+
+NOTA DE CRÉDITO EXPORTACAO
+
+NCI
+
+NOTA DE CRÉDITO INDUSTRIAL
+
+NCR
+
+NOTA DE CRÉDITO RURAL
+
+NP
+
+NOTA PROMISSÓRIA
+
+NPR
+
+NOTA PROMISSÓRIA RURAL
+
+TM
+
+TRIPLICATA DE VENDA MERCANTIL
+
+TS
+
+TRIPLICATA DE PRESTAÇÃO DE SERVIÇOS
+
+NS
+
+NOTA DE SERVIÇO
+
+RC
+
+RECIBO
+
+FAT
+
+FATURA
+
+ND
+
+NOTA DE DÉBITO
+
+AP
+
+APÓLICE DE SEGURO
+
+ME
+
+MENSALIDADE ESCOLAR
+
+PC
+
+PARCELA DE CONSÓRCIO
+
+DD
+
+DOCUMENTO DE DÍVIDA
+
+CCB
+
+CÉDULA DE CRÉDITO BANCÁRIO
+
+FI
+
+FINANCIAMENTO
+
+RD
+
+RATEIO DE DESPESAS
+
+DRI
+
+DUPLICATA RURAL INDICAÇÃO
+
+EC
+
+ENCARGOS CONDOMINIAIS
+
+ECI
+
+ENCARGOS CONDOMINIAIS POR INDICAÇÃO
+
+CC
+
+CARTÃO DE CRÉDITO
+
+BDP
+
+BOLETO DE PROPOSTA
+
+OUT
+
+OUTROS
+
+Tabela 3 – Baixa
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Código da Baixa Descrição da Baixa
+51
+
+POR ACERTO
+
+52
+
+BAIXA POR RESGISTRO DUPLICADO
+
+53
+
+POR DECURSO DE PRAZO
+
+54
+
+POR MEDIDA JUDICIAL
+
+55
+
+POR REMESSA ( CEB )
+
+56
+
+COBRADO - POR RASTREAMENTO
+
+57
+
+CONFORME SEU PEDIDO
+
+58
+
+PROTESTADO
+
+59
+
+DEVOLVIDO
+
+60
+
+ENTREGUE FRANCO DE PAGAMENTO
+
+61
+
+PAGO
+
+62
+
+PAGO EM CARTORIO
+
+63
+
+SUSTADO RETIRADO DE CARTORIO
+
+64
+
+SUSTADO SEM REMESSA A CARTORIO
+
+66
+
+CREDITO EXDD
+
+67
+
+CREDITO EXDD - PAGO EM CARTORIO
+
+68
+
+COBRADO - POR BAIXA MANUAL
+
+69
+
+COBRADO-POR BAIXA MANUAL-PAGO EM CATORIO
+
+Status e mensagens de retorno
+Descrição do retorno HTTPS
+Tabela 4- Status da chamada
+
+Cód Status Descrição (Mensagem)
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e mensagens de retorno técnica (Campo Causa)
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado no mainframe/API
+Quando status for 200 serão formatados código e mensagem de Sucesso gerado no mainframe/API
+Tabela 5 – Mensagem/Causa
+Erros
+
+Código
+
+Descrição da mensagem
+
+CBTT0107 CPF/CNPJ INVALIDO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0108 NOSSO NUMERO INVALIDO
+CBTT0928 TIPO DE CARTEIRA DE COBRANÇA NÃO PERMITIDA PARA ESSE PRODUTO
+CBTT0931 STATUS DO TITULO INVALIDO
+CBTT0552 TITULO INEXISTENTE PARA O CONTRATO INFORMADO
+CBTT9100 ERRO DE ACESSO AO DB2
+Sucesso
+
+Código
+
+Descrição da mensagem
+
+CBTT0000 OPERAÇÃO REALIZADA COM SUCESSO
+
+Consulta lista de títulos liquidados via API
+A funcionalidade permite consultar via API os títulos de cobrança liquidados, possibilitando melhor gestão da carteira de Cobrança.
+Para realizar a consulta é necessário informar os campos obrigatórios, sendo <CPF/CNPJ do Beneficiário>, <Produto (carteira) >, <Negociação> e os parâmetros desejados, conforme abaixo:
+Os parâmetros disponíveis para pesquisa são:
+• Data de Movimento - De/Até - (opcional)
+• Data de Pagamento - De/Até - (opcional)
+• Tipo de Registro (Origem)* - (opcional)
+
+31 of 61
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+• Valor de Pagamento - De/até - (opcional)
+*Tipo de Registro (Origem):
+
+Cód. Origem DESCRIÇÃO
+0
+
+TODOS
+
+1
+
+COM REGISTRO
+
+2
+
+SEM REGISTRO
+
+3
+
+POR CONTABILIDADE
+
+É possível realizar combinação de critérios da consulta, por exemplo, consultar os títulos de um CPF/CNPJ com uma determinada faixa de vencimento e dentro de uma faixa de valor. Quanto
+mais critérios estabelecidos, mais refinada será o resultado da consulta. O período de consulta é de 60 dias da data de pagamento. A informação é em D-1.
+Realizar requisição conforme abaixo:
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-lista/v1/listar
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-lista/v1/listar
+
+Obs.: No período da 00h00 às 03h00 pode haver indisponibilidade de acesso à API face às atualizações de tabelas e processamento batch.
+Observações sobre o preenchimento dos campos:
+1. Todos os campos devem ser informados conforme layout, entretanto para os tipos não obrigatórios devem ser preenchidos com zero.
+2. A semântica para os nomes de cada campo é “Case Sensitive”, portanto deve ser utilizada a nomenclatura exatamente igual ao Nome do Campo descrito no Layout de Comunicação - Entrada,
+pág. 3 e utilizada no Exemplo de Entrada(JSON), abaixo.
+
+32 of 61
+
+Layout de comunicação - Entrada
+
+Nome do Campo Tipo
+
+Descrição
+
+Qtde.
+
+Campo Obrigatório
+
+cpfCnpj
+
+Numérico Raiz CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+filial
+
+Numérico Filial CPF/CNPJ do Beneficiário (Se CPF, filial = 0)
+
+4
+
+Sim
+
+controle
+
+Numérico Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+produto
+
+Identificação do Código da carteira/Modalidade de cobrança
+Numérico
+2
+(Ex.: 9 Cobrança Escritural, 5 Cobrança de Seguros)
+
+Sim
+
+negociacao
+
+Numérico
+
+Número da Negociação (Formato: Agência: 4 posições (Sem
+11
+digito), Conta: 7 posições (Sem digito))
+
+Sim
+
+dataMovimentoDe Numérico
+
+Data de Movimento inicial da pesquisa (Formato:
+DDMMAAAA)
+
+08
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+dataMovimentoAte Numérico
+
+Data de Movimento final da pesquisa (Formato:
+DDMMAAAA)
+
+08
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+dataPagamentoDe Numérico
+
+Data de Pagamento inicial da pesquisa (Formato:
+DDMMAAAA)
+
+08
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+dataPagamentoAte Numérico
+
+Data de Pagamento final da pesquisa (Formato:
+DDMMAAAA)
+
+08
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+origemPagamento Numérico Tipo de Registro (Origem) (TABELA 1 (Cód. Origem) Pág.4) 02
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+Valor do pagamento a partir do qual deve ser feita a pesquisa
+17
+(Formato: 9(15)V99)
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+valorTituloDe
+
+Numérico
+
+valorTituloAte
+
+Numérico Valor do pagamento final da pesquisa (Formato: 9(15)V99)
+
+paginaAnterior
+
+Na primeira chamada enviar “0” (zero), nas seguintes enviar
+Não. Caso opte por não
+o valor do campo ‘’pagina’’, retornado da última chamada.
+Numérico
+informar, preencher
+Ver exemplo do Passo a Passo para Listar mais de 50
+com ‘’0’’ (zero)
+registros abaixo
+
+17
+
+Não. Caso opte por não
+informar, preencher com
+‘’0’’ (zero)
+
+Tabela 1 – Tipo de registro (Origem)
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+33 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Cód Origem DESCRIÇÃO
+0
+
+TODOS
+
+1
+
+COM REGISTRO
+
+2
+
+SEM REGISTRO
+
+3
+
+POR CONTABILIDADE
+
+Exemplo de entrada (JSON):
+{
+"cpfCnpj": {
+"cpfCnpj": 114383908,
+"filial": 0,
+"controle": 7
+},
+"produto": 9,
+"negociacao": 28560230114,
+"dataMovimentoDe": 21062017,
+"dataMovimentoAte": 21062017,
+"dataPagamentoDe": 14062017,
+"dataPagamentoAte": 14062017,
+"origemPagamento": 0,
+"valorTituloDe": 0,
+"valorTituloAte": 0,
+"paginaAnterior": 0
+}
+
+Layout de comunicação - Retorno
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+34 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Nome do Campo
+
+Tipo
+
+Qtde. Campo de Saída – Descrição
+
+status
+
+Numérico
+
+3
+
+transacao
+
+Alfanumérico 8
+
+Código da Transação executada (Padrão: “CBTTIAGW”)
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno: Sucesso: “Operação realizada com sucesso” Insucesso: “Erro
+Inesperado na solicitação” ou “Falha ao Atender a Requisição”
+
+Causa
+
+Alfanumérico 200
+
+Quando o campo status for 400, 412 ou 500 serão demonstrados código e mensagem de
+erro técnica gerado no mainframe/API. Quando o campo status for 200 serão
+demonstrados código e mensagem de sucesso (TABELA 4 - Causa (Cód Causa) Pág. 10)
+
+vtotTitulos
+
+Numérico
+
+15
+
+Total de valores dos títulos pesquisados (Formato 9(13)v99)
+
+vtotPag
+
+Numérico
+
+15
+
+Total de valores pagos pesquisados (Formato 9(13)v99)
+
+vtotOscila
+
+Numérico
+
+14
+
+Total de valores de oscilação (Valor calculado - valor pago) (Formato 9(13)v99)
+
+vtotOscilaS
+
+Alfanumérico 1
+
+Sinal do valor total de oscilação (- ou +)
+
+vtotCheque
+
+Numérico
+
+15
+
+Total de valores em cheque (Formato 9(13)v99)
+
+vtotDinheiro
+
+Numérico
+
+15
+
+Total de valores em dinheiro (Formato 9(13)v99)
+
+difMaior
+
+Numérico
+
+15
+
+Valor total da diferença pagamentos maior que zero (Formato 9(13)v99)
+
+difMenor
+
+Numérico
+
+14
+
+Valor total da diferença pagamentos menor que zero (Formato 9(13)v99)
+
+difMenorS
+
+Alfanumérico 1
+
+Sinal do valor total de diferença (- ou +)
+
+Pagina
+
+Numérico
+
+Número da página (Ver Passo a Passo para Listar mais de 50 registros Pág. 9)
+
+IndicadorMaisPaginas
+
+Alfanumérico 1
+
+Indica se existem mais páginas (“S” ou “N”) (Ver Passo a Passo para Listar mais de 50
+registros Pág. 9)
+
+qtdeTitulos
+
+Numérico
+
+9
+
+Quantidade total de títulos na pesquisa
+
+qtdeOcorr
+
+Numérico
+
+2
+
+Quantidade de ocorrências da lista
+
+Títulos
+
+Objeto
+
+bancoRecebedor
+
+Numérico
+
+3
+
+Banco Recebedor
+
+agenciaRecebedora
+
+Numérico
+
+5
+
+Agencia recebedora
+
+nossoNumero
+
+Numérico
+
+11
+
+Nosso número
+
+digitoNossoNumero
+
+Alfanumérico 1
+
+Dígito do nosso número
+
+tipoRegistro
+
+Alfanumérico 1
+
+Tipo de registro (“1” - Com registro, “2” - Sem registro, “7” - Por Contabilidade)
+
+seuNumero
+
+Alfanumérico 15
+
+Seu número
+
+dataVencimento
+
+Numérico
+
+8
+
+Data de vencimento (Formato DDMMAAAA)
+
+dataPagamento
+
+Numérico
+
+8
+
+Data de pagamento (Formato DDMMAAAA)
+
+dataMovimento
+
+Numérico
+
+8
+
+Data de movimento (Formato DDMMAAAA)
+
+nomePagador
+
+Alfanumérico 40
+
+6
+
+Código do Status HTTP (TABELA 3 - Status (Cód Status) Pág. 10)
+
+Trata-se de um array
+
+Nome do sacado
+
+descricaoOrigemPagamento Alfanumérico 20
+
+Descrição do canal que foi realizado o pagamento
+
+valorTitulo
+
+Numérico
+
+15
+
+Valor do título (Formato 9(15)v99)
+
+valorPagamento
+
+Numérico
+
+15
+
+Valor do pagamento (Formato 9(15)v99)
+
+valorOscilacao
+
+Numérico
+
+14
+
+Valor da oscilação (Formato 9(15)v99)
+
+sinalValorOscilacao
+
+Alfanumérico 1
+
+Sinal do valor da oscilação (- ou +)
+
+numeroSequenciaTitulo
+
+Numérico
+
+3
+
+Número de sequência do título
+
+numeroSequenciaPagamento Numérico
+
+3
+
+Número de sequência do pagamento
+
+codigoFormaCredito
+
+Numérico
+
+2
+
+Código Forma de crédito do pagamento (TABELA 2 Forma de Crédito (Cód Cred) Pág.6)
+
+descricaoFormaCredito
+
+Alfanumérico 40
+
+Descrição da forma de crédito (TABELA 2 Forma de Crédito (Descrição) Pág. 6)
+
+indicadorPagoCartorio
+
+Alfanumérico 1
+
+Indicador de pago em cartório ('S' ou 'N')
+
+Observações sobre os campos de retorno:
+Tabela 2 - Forma de crédito
+
+Cód Cred Descrição
+1
+
+DISP VARIOS CHEQUES E DINHEIRO
+
+2
+
+DISP CHEQUE BRADESCO E DINHEIRO
+
+3
+
+DISP MEIO ELETRONICO
+
+4
+
+DISP VARIOS CHEQUES BRADESCO/ORGANIZACAO
+
+5
+
+DISP CHEQUE OUTRO BANCO
+
+6
+
+DISP OUTRO BANCO
+
+7
+
+INDISP MEIO ELETRONICO
+
+8
+
+INDISP VRS CHEQUES BRADESCO/ORGANIZACAO
+
+9
+
+INDISP CHEQUE OUTRO BANCO
+
+10
+
+INDISP OUTRO BANCO
+
+Exemplo de resposta (JSON)
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+35 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+{
+"status": 200,
+"transacao": "CBTTIAGW",
+"mensagem": "Operação realizada com sucesso.",
+"causa": "CBTT0005 - FIM DE CONSULTA",
+"vtotTitulos": 1250946,
+"vtotPag": 1265967,
+"vtotOscila": 15021,
+"vtotOscilaS": "+",
+"vtotCheque": 0,
+"vtotDinheiro": 1265967,
+"difMaior": 15021,
+"difMenor": 0,
+"difMenorS": "+",
+"pagina": 1,
+"indMaisPagina": "N",
+"qtdeTitulos": 4,
+"qtdeOcorr": 4,
+"titulos": [
+{
+"bancoRecebedor": 1,
+"agenciaRecebedora": 18,
+"nossoNumero": 17080004198,
+"digitoNossoNumero": "3",
+"tipoRegistro": "1",
+"seuNumero": "17080004198",
+"dataVencimento": "01062017",
+"dataPagamento": "14062017",
+"dataMovimento": "21062017",
+"nomePagador": "",
+"descricaoOrigemPagamento": "COMPENSACAO ELETRONI",
+"valorTitulo": 211398,
+"valorPagamento": 214387,
+"valorOscilacao": 2989,
+"sinalValorOscilacao": "+",
+"numeroSequenciaTitulo": 172,
+"numeroSequenciaPagamento": 200,
+"codigoFormaCredito": 6,
+"descricaoFormaCredito": "DISP OUTRO BANCO",
+"indicadorPagoCartorio": "N"
+},
+{
+"bancoRecebedor": 1,
+"agenciaRecebedora": 18,
+"nossoNumero": 17124005842,
+"digitoNossoNumero": "3",
+"tipoRegistro": "1",
+"seuNumero": "17124005842",
+"dataVencimento": "11062017",
+"dataPagamento": "14062017",
+"dataMovimento": "21062017",
+"nomePagador": "",
+"descricaoOrigemPagamento": "COMPENSACAO ELETRONI",
+"valorTitulo": 353153,
+"valorPagamento": 365185,
+"valorOscilacao": 12032,
+"sinalValorOscilacao": "+",
+"numeroSequenciaTitulo": 172,
+"numeroSequenciaPagamento": 200,
+"codigoFormaCredito": 6,
+"descricaoFormaCredito": "DISP OUTRO BANCO",
+"indicadorPagoCartorio": "N"
+},
+{
+"bancoRecebedor": 1,
+"agenciaRecebedora": 18,
+"nossoNumero": 17124005843,
+"digitoNossoNumero": "1",
+"tipoRegistro": "1",
+"seuNumero": "17124005843",
+"dataVencimento": "11062017",
+"dataPagamento": "14062017",
+"dataMovimento": "21062017",
+"nomePagador": "",
+"descricaoOrigemPagamento": "COMPENSACAO ELETRONI",
+"valorTitulo": 353154,
+"valorPagamento": 353154,
+"valorOscilacao": 0,
+"sinalValorOscilacao": "+",
+"numeroSequenciaTitulo": 172,
+"numeroSequenciaPagamento": 200,
+"codigoFormaCredito": 6,
+"descricaoFormaCredito": "DISP OUTRO BANCO",
+"indicadorPagoCartorio": "N"
+},
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+{
+"bancoRecebedor": 1,
+"agenciaRecebedora": 551,
+"nossoNumero": 17075004058,
+"digitoNossoNumero": "1",
+"tipoRegistro": "1",
+"seuNumero": "17075004058",
+"dataVencimento": "20062017",
+"dataPagamento": "14062017",
+"dataMovimento": "21062017",
+"nomePagador": "",
+"descricaoOrigemPagamento": "COMPENSACAO ELETRONI",
+"valorTitulo": 333241,
+"valorPagamento": 333241,
+"valorOscilacao": 0,
+
+Nota: A consulta demonstra até 50 registros por chamada. Porém, se a consulta possuir mais registros, é necessário programar chamadas recorrentes para demonstrar
+todo o resultado, conforme detalhado abaixo:
+Passo a passo para listar mais de 50 registros
+O campo de controle para consulta é o , que é demonstrado no retorno da consulta. Para retorno com mais de 50 registros o campo retorna “S” e quando existe menos de 50 registro retorna “N”,
+conforme Layout de Comunicação – Retorno.
+Quando o campo apresentar resultado “N” é porque não existem mais informações a serem retornadas e que a consulta está completa.
+Caso retorne “S”, significa que existem mais registros a serem demonstrados. Para listar as demais informações, basta programar para que seja repetida a chamada realizada anteriormente,
+adicionando no campo Layout de Comunicação Entrada o valor retornado no campo Layout de Comunicação retorno.
+Obs.: Essa ação deverá ser repetida sucessivamente, até que o campo ” seja igual a “N", o que significa que todos os registros que atendem ao critério foram demonstrados e a consulta está
+completa.
+Exemplo:
+Existem 140 registros que atendem à consulta.
+• Na primeira chamada o campo deve ser igual a 0
+• O retorno irá demonstrar os 50 primeiros registros, o campo igual a "1" e o campo igual a “S”
+• Como o campo é igual a “S”, deverá ser efetuada novamente a mesma chamada, porém incluindo no campo a informação retornada no campo , que neste caso será igual a "1”.
+• Então, serão retornados os próximos 50 registros, o campo será igual a “2” e o campo igual a “S”
+• Como o campo é igual a “S”, deverá ser efetuada novamente a mesma chamada, porém informando o campo com a nova informação retornada no campo , que neste caso será "2”.
+• Então serão retornados mais 40 registros, o campo será igual a "3" e campo igual a “N”
+• Como foi retornado “N” no campo , significa que todos os registros da consulta foram demonstrados, neste exemplo os 140 registros, portanto a consulta está completa.
+
+36 of 61
+
+Status e mensagens de retorno
+Descrição do retorno HTTP
+Tabela 3 - Status
+
+Cód Status Descrição (Mensagem)
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e mensagens de retorno técnica (campo causa)
+Quando status for **400, 412 ou 500 **serão formatados código e mensagem de erro técnica gerado no mainframe/API
+Quando status for 200 serão formatados código e mensagem de Sucesso gerado no mainframe/API
+Tabela 4 - Causa
+Erros
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+37 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Cód Causa Descrição (Mensagem)
+CBTT0107 CPF/CNPJ INVÁLIDO
+CBTT0157 SOLICITACAO INEXISTENTE
+CBTT0403 USUARIO NÃO AUTORIZADO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0558 DATA INICIAL MAIOR QUE DATA FINAL
+CBTT0563 DATA INICIO INVALIDA
+CBTT0564 DATA FINAL INVALIDA
+CBTT0593 VALOR DE INVALIDO
+CBTT0594 VALOR ATE INVALIDO
+CBTT0595 VALOR DE MAIOR QUE VALOR ATE
+CBTT1007 NUMERO DA PAGINA ANTERIOR INVALIDA
+CBTT1008 ORIGEM DE PAGAMENTO INVALIDA
+CBTT9002 ERRO DE ACESSO AO MODULO
+CBTT9100 ERRO DE ACESSO AO DB2
+Tabela de Sucesso
+
+Cód Causa Descrição (Mensagem)
+CBTT0005 FIM DE CONSULTA
+CBTT0018 CONSULTA EFETUADA. EXISTEM MAIS INFORMAÇÕES A SEREM DEMONSTRADAS
+
+Manutenção SPLIT Payment
+A API de Manutenção de Split Payment (Rateio de Crédito) centraliza todas as operações relacionadas ao rateio com agilidade, praticidade e segurança, eliminando a necessidade de realizar essas
+ações por outros canais.
+Para efetuar a manutenção, o usuário deve enviar uma requisição contendo os dados do beneficiário do título, o número do título específico para Split e as informações dos beneficiários
+envolvidos no Split. A Plataforma Bradesco validará os dados recebidos e, caso estejam corretos, realizará a manutenção conforme a ação informada, seguindo o layout descrito abaixo:
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-manutencao-split/v1/manutencao-rateiocredito
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-manutencao-split/v1/manutencao-rateio-creditor
+
+Layout de comunicação - entrada
+
+Nome do Campo Tipo
+
+Descrição
+
+Qtde.
+CHAR
+
+Campo
+Obrigatório
+
+VersaoLayout
+
+Numérico
+
+Número da versão do layout (fixo = “1”)
+
+3
+
+Sim
+
+cpfCnpj
+
+Numérico
+
+Valor principal do CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+filial
+
+Numérico
+
+Filial CPF/CNPJ do Beneficiário. Se CPF, filial = 0
+
+4
+
+Sim
+
+controle
+
+Numérico
+
+Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+produto
+
+Numérico
+
+ID Produto (código da carteira/modalidade de cobrança)
+
+2
+
+Sim
+
+negociacao
+
+Numérico
+
+Número da Negociação (Agência: 4 posições, Conta: 7 posições)
+
+11
+
+Sim
+
+nossoNumero
+
+Numérico
+
+Número do Título (sem o dígito)
+
+11
+
+Sim
+
+sequenciaTitulo
+
+Numérico
+
+Valor gerado no registro do título de cobrança (default = 0)
+
+3
+
+Não
+
+calculoRateio
+
+Numérico
+
+Indicador do valor para rateio (1=valor cobrado, 2=registrado,
+3=menor)
+
+1
+
+Sim
+
+tipoValorRateio
+
+Numérico
+
+Tipo de valor usado para rateio (1=Percentual, 2=Valor)
+
+1
+
+Sim
+
+1
+
+Sim
+
+cancelamentoRateio Alfanumérico Indicador de cancelamento do rateio (S=Sim, N=Não)
+Lista de Beneficiários para Split (até dez ocorrências)
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+38 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Descrição
+
+Qtde.
+CHAR
+
+Nome do Campo
+
+Tipo
+
+acaoRateio
+
+Alfanumérico Ação no processamento (I=Inclusão, A=Alteração, E=Exclusão) 1
+
+Campo
+Obrigatório
+Sim
+
+agenciaBeneficiarioRateio Numérico
+
+Agência para crédito do rateio ao beneficiário
+
+5
+
+Sim
+
+contaBeneficiarioRateio
+
+Numérico
+
+Conta para crédito do rateio ao beneficiário
+
+7
+
+Sim
+
+valorPercentualRateio
+
+Alfanumérico Valor ou percentual do rateio para o beneficiário
+
+15
+
+Sim
+
+nomeBeneficiarioRateio
+
+Alfanumérico Nome do beneficiário do rateio
+
+40
+
+Sim
+
+parcelaRateioCredito
+
+Alfanumérico Diferencia rateios do mesmo título para o mesmo beneficiário
+
+6
+
+Não
+
+Dias para rateio após crédito na conta do beneficiário (máx 30
+dias)
+
+3
+
+Não
+
+floatingRateioBeneficiario Numérico
+
+Observação: somente os dados da lista de beneficiários do Split estão aptos para alteração, sendo os seguintes campos passíveis de alteração: valorPercentualRateio, parcelaRateioCredito e
+floatingRateioBeneficiario (o floating será alterado de acordo com o indicador de negociação).
+Exemplo de json - layout - Entrada
+{
+"nvrsaoLyout": 1,
+"cnpjCpf": 249049448,
+"cflialCnpj": 0,
+"cctrlCnpjCpf": 10,
+"idProduto": 9,
+"contaProduto": 20001458,
+"nossoNumero": 30200000002,
+"nseqTitulo": 0,
+"ccalcRteio": 1,
+"ctpoVlrRteio": 1,
+"canclRteio": "N",
+"listaRteio": [
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 4150,
+"cctaBnefcRteio": 604,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "BANCO RENDIMENTO S/A",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3071,
+"cctaBnefcRteio": 12364,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "JH SANT'ANNA EMPREEND PARTICIP LTDA",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3071,
+"cctaBnefcRteio": 12296,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "CONTESI CONSTRUCOES LTDA",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 426,
+"cctaBnefcRteio": 83810,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "BOTICARIO FRANCHISING S A ",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 8628,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "RELOGIOS ROLEX LTDA",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 56127,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "M CASSAB COM. E IND. LTDA",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+39 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 166453,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "JOSCHEM LTDA",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3231,
+"cctaBnefcRteio": 41710,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "GOLDEN PARK HOTEL",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3231,
+"cctaBnefcRteio": 43405,
+"vlrPercRteio": 100,
+"ibnefcRteioCredt": "MULTIFRIO MANUTENCAO E MONTAGENS LTDA",
+"pcelaRteioCredt": null,
+"floatRteioBnefc": 0
+}
+]
+}
+
+Layout de comunicação - retorno
+
+Nome do Campo
+
+Tipo
+
+Qtde. CHAR Descrição
+
+status
+
+Numérico
+
+3
+
+transação
+
+Alfanumérico 8
+
+Código da Transação executada
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno
+
+causa
+
+Alfanumérico 200
+
+Quando status for 400, 412 ou 500, serão formatados código e mensagem de erro técnica
+
+quantidadeListaRateio Numérico
+
+Código do Status HTTP
+
+3
+
+Total de ocorrências na lista de rateio
+
+Lista de Beneficiários para Split (até dez ocorrências)
+
+Qtde.
+CHAR
+
+Nome do Campo
+
+Tipo
+
+acaoRateio
+
+Alfanumérico 1
+
+Descrição
+Determina a ação a ser efetuada no processamento (I = Inclusão, A = Alteração, E =
+Exclusão)
+
+agenciaBeneficiarioRateio Numérico
+
+5
+
+Agência para crédito do rateio ao beneficiário
+
+contaBeneficiarioRateio
+
+Numérico
+
+7
+
+Conta para crédito do rateio ao beneficiário
+
+valorPercentualRateio
+
+Alfanumérico 15
+
+Valor ou percentual do rateio para o beneficiário
+
+nomeBeneficiarioRateio
+
+Alfanumérico 40
+
+Nome do beneficiário do rateio
+
+parcelaRateioCredito
+
+Alfanumérico 6
+
+Para diferenciar rateios de um mesmo título para o mesmo beneficiário várias vezes
+
+floatingRateioBeneficiario Numérico
+
+3
+
+Quantidade de dias para rateio após crédito na conta do beneficiário (máx 30 dias)
+
+statusAcaoRateio
+
+Alfanumérico 1
+
+Indicador do resultado da execução para a ação informada
+
+motivoStatusAcao
+
+Alfanumérico 70
+
+Descrição da causa do resultado da execução
+
+Exemplo de json - layout - retorno (COM SUCESSO)
+{
+"status": 412,
+"transacao": "CBCAIAAZ",
+"mensagem": "Falha ao atender a requisição",
+"causa": "CBTT1017 - SOLICITACAO DE RATEIO POSSUI OCORRENCIAS DE ERRO. VERIFIQUE O(S) MOTIVO(S) DA RECUSA",
+"qlistaRteio": 10,
+"listaRteio": [
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 4150,
+"cctaBnefcRteio": 604,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "BANCO RENDIMENTO S/A",
+"pcelaRteioCredt": "",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+40 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3071,
+"cctaBnefcRteio": 12364,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "JH SANT'ANNA EMPREEND PARTICIP LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3071,
+"cctaBnefcRteio": 12296,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "CONTESI CONSTRUCOES LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 426,
+"cctaBnefcRteio": 83810,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "BOTICARIO FRANCHISING S A",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 8628,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "RELOGIOS ROLEX LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 56127,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "M CASSAB COM. E IND. LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 166453,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "JOSCHEM LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3231,
+"cctaBnefcRteio": 41710,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "GOLDEN PARK HOTEL",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "O",
+"rmotvoStatusAcao": "OPERACAO EFETUADA COM SUCESSO"
+},
+{
+"acaoRteio": "I",
+"cagBnefcRteio": 3231,
+"cctaBnefcRteio": 43405,
+"vlrPercRteio": "100",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+41 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Exemplo de json - layout - retorno (COM ERRO)
+Caso os dados recepcionados pela Plataforma Bradesco estejam incorretos ou com má formatação, o processo será interrompido com retorno de mensagem de erro, conforme layout abaixo:
+
+{
+"status": 412,
+"transacao": "CBCAIAAZ",
+"mensagem": "Falha ao atender a requisição",
+"causa": "CBTT1017 - SOLICITACAO DE RATEIO POSSUI OCORRENCIAS DE ERRO. VERIFIQUE O(S) MOTIVO(S) DA RECUSA",
+"qlistaRteio": 10,
+"listaRteio": [
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 4150,
+"cctaBnefcRteio": 604,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "BANCO RENDIMENTO S/A",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3071,
+"cctaBnefcRteio": 12364,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "JH SANT'ANNA EMPREEND PARTICIP LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3071,
+"cctaBnefcRteio": 12296,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "CONTESI CONSTRUCOES LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 426,
+"cctaBnefcRteio": 83810,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "BOTICARIO FRANCHISING S A",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 8628,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "RELOGIOS ROLEX LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 56127,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "M CASSAB COM. E IND. LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3114,
+"cctaBnefcRteio": 166453,
+"vlrPercRteio": "100",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+42 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"ibnefcRteioCredt": "JOSCHEM LTDA",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST RADO NO RATEIO"
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3231,
+"cctaBnefcRteio": 41710,
+"vlrPercRteio": "100",
+"ibnefcRteioCredt": "GOLDEN PARK HOTEL",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 0,
+"statusAcaoRteio": "E",
+"rmotvoStatusAcao": "EXCLUSAO DE RATEIO REJEITADA, TITULO NAO REGIST
+
+RADO NO RATEIO"
+
+},
+{
+"acaoRteio": "E",
+"cagBnefcRteio": 3231,
+"cctaBnefcRteio": 43405,
+"vlrPercRteio": "100",
+
+Mensagem de Retorno
+Descrição do retorno HTTP
+
+Status-Code Descrição
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e Mensagem da Causa
+Quando status for 400, 412 ou 500, serão formatados código e mensagem de erro:
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+43 of 61
+
+Código
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Descrição
+
+CBTT0028 TIPO DE PESQUISA INVALIDO
+CBTT0108 NOSSO NÚMERO INVÁLIDO
+CBTT0156 CODIGO DO CONTRATO INVALIDO
+CBTT0403 USUARIO NAO AUTORIZADO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0419 DIGITO NOSSO NÚMERO INVALIDO
+CBTT0485 DIGITO INVALIDO
+CBTT0552 TÍTULO INEXISTENTE PARA O CONTRATO INFORMADO
+CBTT0929 NÚMERO DE SEQUÊNCIA DO TITULO INVALIDO
+CBTT0964 CPF/CNPJ DO BENEFICIARIO INVALIDO
+CBTT1010 CAMPO CODIGO DA VERSAO INVALIDO
+CBTT1011 CODIGO DE CÁLCULO DO RATEIO INVALIDO
+CBTT1012 TIPO DE VALOR DO RATEIO INVALIDO
+CBTT1013 INDICADOR DE CANCELAMENTO DO RATEIO INVALIDO
+CBTT1014 SISTEMA TEMPORARIAMENTE INDISPONIVEL. TENTE NOVAMENTE MAIS TARDE
+CBTT1015 TITULOS REGISTRADOS COM VALOR ZERO SOMENTE SERAO RATEADOS PELO VALOR COBRADO, EM PERCENTUAL
+CBTT1016 RATEIO POR VALOR COBRADO SOMENTE PODE SER EFETUADO EM PERCENTUAL
+CBTT1017 SOLICITACAO DE RATEIO POSSUI OCORRENCIAS DE ERRO. VERIFIQUE O(S) MOTIVO(S) DA RECUSA
+CBTT1018 TÍTULO NAO ESTÁ APTO PARA RATEIO
+CBTT1019 BENEFICIARIO BLOQUEADO PARA RATEIO
+CBTT1020 CANCELAMENTO REJEITADO, TÍTULO NAO REGISTRADO NO RATEIO
+CBTT1021 VALOR/PERCENTUAL TOTAL DE RATEIO MAIOR DO QUE O TOTAL DISPONIVEL PARA RATEIO
+CBTT1022 EMPRESA SEM CADASTRO PARA COBRANCA
+CBTT1023 EMPRESA BLOQUEADA PARA RATEIO
+CBTT1024 CONTA DO BENEFICIARIO INVALIDA
+CBTT1025 CANCELAMENTO REJEITADO, TÍTULO JA RATEADO
+CBTT1026 CANCELAMENTO REJEITADO, RATEIO JA ESTÁ CANCELADO
+CBTT1027 RATEIO NAO APTO PARA A ACAO DESEJADA
+CBTT1028 CODIGO DE CÁLCULO DO RATEIO DIVERGENTE DO REGISTRO
+CBTT1029 TIPO DO VALOR/PERCENTUAL DIVERGENTE DO REGISTRO
+CBTT1030 OPERACAO REJEITADA, TÍTULO JA ESTÁ RATEADO
+CBTT1031 EMPRESA INATIVA PARA RATEIO
+CBTT1034 INDICADOR DE RATEIO DA EMPRESA INVALIDO
+CBTT1035 INDICADOR DE RATEIO DO BENEFICIARIO INVALIDO
+CBTT1032 TOTAL DE BENEFICIARIOS PARA RATEIO EXCEDIDO
+CBTT1036 INDICADOR DE TITULO REGISTRADO NO RATEIO INVALIDO
+CBTT9000 ERRO DE ACESSO AO CICS
+CBTT9002 ERRO DE ACESSO AO MODULO
+CBTT9100 ERRO DE ACESSO AO DB2
+
+CONSULTA SPLIT PAYMENT
+
+A API Consulta Split Payment (Rateio de Cédito) oferece uma forma prática e segura de acessar os detalhes do rateio de crédito aplicado a um título, proporcionando mais transparência e controle
+sobre os valores distribuídos entre os beneficiários.
+Com essa API, você pode consultar:
+• O número do título vinculado ao Split;
+• Os dados dos beneficiários envolvidos;
+• Os valores rateados para cada participante;
+• O status atual da operação de Split.
+A consulta é realizada por meio do envio de uma requisição com os dados do título, e a API retorna as informações consolidadas, garantindo confiabilidade e agilidade no acesso aos dados.
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+44 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-consulta-split/v1/executar
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-consulta-split/v1/executar
+
+Layout de comunicação - entrada
+
+Nome do Campo Tipo
+
+Descrição
+
+Qtde. CHAR Campo Obrigatório
+
+nvrsaoLyout
+
+Numérico
+
+VERSAO DO LAYOUT DO CANAL = 1
+
+03 Sim
+
+cnpjCpf
+
+Numérico
+
+CORPO DO CPF/CNPJ DO BENEFICIARIO DO TITULO
+
+09 Sim
+
+cflialCnpj
+
+Numérico
+
+FILIAL DO CNPJ DO BENEFICIARIO DO TITULO
+
+04 Sim
+
+cctrlCnpjCpf
+
+Numérico
+
+CONTROLE DO CPF/CNPJ DO BENEFICIARIO DO TITULO
+
+02 Sim
+
+idProduto
+
+Numérico
+
+IDENTIFICADOR DO PRODUTO (CARTEIRA) DE COBRANCA
+
+02 Sim
+
+contaProduto
+
+Numérico
+
+NUMERO DA NEGOCIACAO DE COBRANCA
+
+11 Sim
+
+nossoNumero
+
+Numérico
+
+NUMERO DO TITULO DE COBRANCA
+
+11 Sim
+
+nseqTitulo
+
+Numérico
+
+SEQUENCIA DO TITULO
+
+03 Sim
+
+restartEntrada
+
+Alfanumérico AREA PARA RECEBER OS DADOS DE PAGINACAO
+
+31 Não
+
+Exemplo de json - layout - Entrada
+{
+"cflialCnpj": 0,
+"nseqTitulo": 0,
+"cctrlCnpjCpf": 79,
+"idProduto": 9,
+"nvrsaoLyout": 1,
+"nossoNumero": 30050000002,
+"restartEntrada": "009039950273972300500000020003",
+"cnpjCpf": 32118544,
+"contaProduto": 39950273972
+}
+
+A Plataforma Bradesco consistirá as informações recepcionadas, e estando com os dados preenchidos de acordo com as regras estabelecidas no produto, irá retornar os dados da consulta, de
+forma on-line, com retorno de resposta ao usuário, conforme layout abaixo:
+
+Layout de comunicação - retorno
+
+Nome do
+Campo
+
+Tipo
+
+Qtde.
+CHAR
+
+Descrição
+
+status
+
+Numérico
+
+03
+
+Código do Status HTTP
+
+transação
+
+Alfanumérico 08
+
+Código da transação executada
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno
+
+causa
+
+Alfanumérico 200
+
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica
+
+qlistaRteio
+
+Numérico
+
+Quantidade de Ocorrências retornada na consulta
+
+indMaisPagina
+
+Alfanumérico 01
+
+Indica que há mais dados para listar
+
+restartSaida
+
+Alfanumérico 31
+
+Área para preservar os dados de paginação. Se indMaisPagina retornar com “S”, esse campo deve
+ser enviado na próxima chamada no restartEntrada.
+
+03
+
+Bloco de Dados de Beneficiários (até 30 ocorrências)
+
+Nome do Campo Tipo
+
+Qtde. CHAR Descrição
+
+cagBnefcRteio
+
+Numérico
+
+05
+
+Agência do beneficiário para crédito
+
+cctaBnefcRteio
+
+Numérico
+
+07
+
+Conta do beneficiário para crédito
+
+vlrPercRteio
+
+Alfanumérico 15
+
+Valor ou percentual do rateio
+MOEDA CORRENTE (DUAS DECIMAIS)
+MOEDA INDEXADA (CINCO DECIMAIS)
+PERCENTUAL (TRES DECIMAIS)
+
+ibnefcRteioCredt
+
+Alfanumérico 40
+
+Nome do beneficiário do crédito do rateio
+
+pcelaRteioCredt
+
+Alfanumérico 06
+
+Parcela do rateio do título
+
+floatRteioBnefc
+
+Numérico
+
+Dias de floating para crédito ao beneficiário
+
+03
+
+Exemplo de json - layout - retorno (SUCESSO)
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+45 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+{
+"listaRteio": [
+{
+"cagBnefcRteio": 4150,
+"cctaBnefcRteio": 561,
+"vlrPercRteio": "000000000001000",
+"ibnefcRteioCredt": "BANCO DA AMAZONIA S/A.",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 5
+},
+{
+"cagBnefcRteio": 4150,
+"cctaBnefcRteio": 703,
+"vlrPercRteio": "000000000001000",
+"ibnefcRteioCredt": "BANCO GE CAPITAL S/A",
+"pcelaRteioCredt": "",
+"floatRteioBnefc": 5
+}
+],
+"transacao": "CBTTIAG3",
+"indMaisPagina": "S",
+"causa": "CBTT0018 - CONSULTA EFETUADA. EXISTEM MAIS INFORMAÇÕES A SEREM DEMONSTRADAS",
+"mensagem": "Operação realizada com sucesso.",
+"restartSaida": "0090399502739723005000000200059",
+"qlistaRteio": 30,
+"status": 200
+}
+
+Exemplo de json - layout - retorno (ERRO)
+{
+"status": 412,
+"transacao": "CBTTIAG3",
+"mensagem": "Parâmetros informados inválidos.",
+"causa": "CBTT0964 - CPF/CNPJ DO BENEFICIARIO INVALIDO.",
+"qlistaRteio": 0,
+"indMaisPagina": "",
+"listaRteio": []
+}
+
+Mensagem de Retorno
+Descrição do retorno HTTP
+
+Status-Code Descrição
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e Mensagem da Causa
+Quando status for 400, 412 ou 500, serão formatados código e mensagem de erro:
+
+Código
+
+Descrição
+
+CBTT0000 OPERAÇÃO REALIZADA COM SUCESSO
+CBTT0005 FIM DE CONSULTA
+CBTT0018 CONSULTA EFETUADA. EXISTEM MAIS INFORMAÇÕES A SEREM DEMONSTRADAS
+CBTT0021 NÃO HÁ DADOS PARA ESTA PESQUISA
+CBTT1010 CAMPO CODIGO DA VERSÃO INVALIDO
+CBTT0964 CPF/CNPJ INVALIDO
+CBTT0108 NOSSO NÚMERO INVALIDO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0929 NÚMERO DE SEQUENCIA DE TITULO INVALIDO
+CBTT0403 USUARIO NÃO AUTORIZADO
+CBTT9002 ERRO DE ACESSO AO MODULO
+CBTT9100 ERRO DE ACESSO AO DB2
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+46 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+PROTESTO E NEGATIVAÇÃO
+Disponibilizamos as funcionalidades de Protesto e Sustação de Protesto via API, permitindo gerar comandos nos títulos registrados, sem a necessidade de utilizar outros canais.
+Para isso, basta fazer a chamada à funcionalidade, enviando o CPF/CNPJ, carteira, conta, nosso número e informar o comando que deseja efetuar utilizando o campo Código da Função, e o
+respectivo parâmetro do comando selecionado, conforme abaixo:
+
+Após enviar a requisição com os dados do título a plataforma irá consistir as informações recepcionadas, e estando com os dados preenchidos, de acordo com a formatação válida, o título receberá
+o comando selecionado. O comando de Protesto é processado em dia útil, no período noturno.
+Obs.: O Comando de protesto será aceito após 3 dias uteis do vencimento.
+
+Layout de comunicação - entrada
+
+Nome do
+Campo
+
+Tipo
+
+Descrição
+
+Qtde.
+CHAR
+
+Campo
+Obrigatório
+
+cpfCnpj
+
+Objeto
+
+array
+
+cpfCnpj
+
+Numérico
+
+filial
+
+Numérico
+
+Raiz CPF/CNPJ Beneficiário
+
+09
+
+Sim
+
+Filial CPF/CNPJ do Beneficiário (Se CPF, filial = 0)
+
+04
+
+Sim
+
+controle
+
+Numérico
+
+Dígito de Controle do CPF/CNPJ Beneficiário
+
+02
+
+Sim
+
+codigoProduto Numérico
+
+ID Produto (código da carteira/modalidade de cobrança. Ex.: 09 Cobrança
+escritural, 05 Cobrança de Seguros)
+
+02
+
+Sim
+
+contaProduto
+
+Numérico
+
+Número da Negociação. Formato: Agência: 4 posições (Sem dígito), Conta: 7
+posições (Sem dígito). Ex: Agência: 2856 e conta: 230114 → “28560230114”
+
+11
+
+Sim
+
+nossoNumero
+
+Numérico
+
+Número do Título (sem o dígito)
+
+11
+
+Sim
+
+codigoFuncao
+
+Numérico
+
+Código da função: 1 – solicitar instrução de protesto; 2 – solicitar sustação de
+protesto
+
+01
+
+Sim
+
+parmFuncao
+
+Parâmetro da função. Quando for codigoFuncao = 1, informar: P – protesto
+Alfanumérico comum; F – protesto falimentar. Quando for codigoFuncao = 2, informar: B –
+sustação com baixa; S – sustação sem baixa.
+
+01
+
+Sim
+
+Observações sobre o preenchimento dos campos:
+1. Todos os campos devem ser informados conforme layout, entretanto para os tipos não obrigatórios devem ser preenchidos com zeros para campo numérico, ou “”vazio para campo
+alfanumérico
+Exemplo de json de Solicitação de Protesto - layout - entrada
+{
+"cpfCnpj": {
+"cpfCnpj": 114383908,
+"filial": 0,
+"controle": 7
+},
+"codigoProduto": 9,
+"contaProduto": 28560230114,
+"nossoNumero": 399912658,
+"codigoFuncao": 1,
+"parmFuncao" : "F"
+}
+
+Exemplo de json de Solicitação de Sustação - layout - entrada
+{
+"cpfCnpj": {
+"cpfCnpj": 114383908,
+"filial": 0,
+"controle": 7
+},
+"codigoProduto": 9,
+"contaProduto": 28560230114,
+"nossoNumero": 399912658,
+"codigoFuncao": 2,
+"parmFuncao" : "S"
+}
+
+Layout de comunicação - retorno
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+47 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Nome do Campo Tipo
+
+Qtde.
+CHAR
+
+Descrição
+
+status
+
+Numérico
+
+3
+
+Código do Status ver tabela Mensagem de Retorno
+
+transacao
+
+Alfanumérico 8
+
+Código da Transação executada
+Padrão: “CBTTIAGU”
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno
+Sucesso ou Insucesso
+
+causa
+
+Alfanumérico 200
+
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica
+gerado no mainframe ver tabela Código e Mensagem da Causa
+
+dataHoraSolicitacao Alfanumérico 26
+
+Data e Hora da solicitação no formato ‘AAAA-MM-DD-HH.MM.SS.MMMMMM’
+
+situacaoAtual
+
+Numérico
+
+2
+
+Status do Título
+
+situacaoAnterior
+
+Numérico
+
+2
+
+Status Anterior do Título
+
+Exemplo de json de Solicitação de Protesto(SUCESSO) - layout - retorno
+{
+"status": 200,
+"transacao": "CBTTIAGU",
+"mensagem": "Operação realizada com sucesso.",
+"causa": "CBTT1000 - SOLICITAÇÃO DE PROTESTO EFETUADA COM SUCESSO.",
+"dataHoraSolicitacao": "2023-09-28-22.07.12.390668",
+"situacaoAtual": 4,
+"situacaoAnterior": 1
+}
+
+Exemplo de json de Solicitação de Protesto(ERRO) - layout - retorno
+{
+"status": 412,
+"transacao": "CBTTIAGU",
+"mensagem": "Parâmetros informados inválidos.",
+"causa": "CBTT0987 - SITUAÇÃO DO TITULO INVALIDA PARA INSTRUÇÃO DE PROTESTO.",
+"dataHoraSolicitacao": "",
+"situacaoAtual": 0,
+"situacaoAnterior": 0
+}
+
+Exemplo de json de Solicitação de Sustação(SUCESSO) - layout - retorno
+{
+"status": 200,
+"transacao": "CBTTIAGU",
+"mensagem": "Operação realizada com sucesso.",
+"causa": "CBTT1001 - SUSTAÇÃO DE PROTESTO EFETUADA COM SUCESSO.",
+"dataHoraSolicitacao": "",
+"situacaoAtual": 0,
+"situacaoAnterior": 0
+}
+
+Exemplo de json de Solicitação de Sustação(ERRO) - layout - retorno
+{
+"status": 412,
+"transacao": "CBTTIAGU",
+"mensagem": "Parâmetros informados inválidos.",
+"causa": "CBTT0984 - STATUS DO TITULO INVALIDO PARA SUSTAÇÃO.",
+"dataHoraSolicitacao": "",
+"situacaoAtual": 0,
+"situacaoAnterior": 0
+}
+
+Mensagem de Retorno
+Descrição do retorno HTTP
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+48 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Status-Code Descrição
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e Mensagem da Causa
+Quando status for 400, 412 ou 500, serão formatados código e mensagem de erro:
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+49 of 61
+
+Código
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Descrição da mensagem
+
+CBTT0107 CPF/CNPJ INVÁLIDO
+CBTT0108 NOSSO NÚMERO INVÁLIDO
+CBTT0142 ESPECIE DO TITULO INVALIDA
+CBTT0152 PRACA DE PROTESTO BLOQUEADA
+CBTT0403 USUARIO NAO AUTORIZADO
+CBTT0406 DATA VENCIMENTO MENOR OU IGUAL DATA EMISSAO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0426 NEGOCIACAO/CLIENTE BLOQUEADO OU PENDENTE
+CBTT0427 BANCO/AGENCIA DEPOSITARIA INVALIDO
+CBTT0500 CARTA PARA PROTESTO NAO RECEBIDA
+CBTT0552 TITULO INEXISTENTE PARA O CONTRATO INFORMADO
+CBTT0804 SEU NUMERO NAO PREENCHIDO
+CBTT0938 CLIENTE NÃO POSSUI NEGATIVACAO NEGOCIADA
+CBTT0958 SITUAÇÃO DO TITULO INVALIDA PARA INSTRUÇÃO DE NEGATIVAÇÃO
+CBTT0959 INSTRUÇÃO DE NEGATIVAÇÃO NÃO PERMITIDA PARA BOLETO DE PROPOSTA
+CBTT0960 TITULO NÃO ESTÁ VENCIDO
+CBTT0963 TIPO DE PESSOA DO BENEFICIARIO INVALIDO
+CBTT0964 CPF/CNPJ DO BENEFICIARIO INVALIDO
+CBTT0965 RAZAO SOCIAL DO BENEFICIARIO INVALIDO
+CBTT0966 NOME FANTASIA DO BENEFICIARIO INVALIDO
+CBTT0967 CEP DO BENEFICIARIO INVALIDO
+CBTT0968 LOGRADOURO DO BENEFICIARIO INVALIDO
+CBTT0969 BAIRRO DO BENEFICIARIO INVALIDO
+CBTT0970 MUNICIPIO DO BENEFICIARIO INVALIDO
+CBTT0971 UF DO BENEFICIARIO INVALIDO
+CBTT0972 DDD DO BENEFICIARIO INVALIDO
+CBTT0973 TELEFONE DO BENEFICIARIO INVALIDO
+CBTT0974 TIPO DE PESSOA DO PAGADOR INVALIDO
+CBTT0975 CPF/CNPJ DO PAGADOR INVALIDO
+CBTT0976 CEP DO PAGADOR INVALIDO
+CBTT0977 LOGRADOURO DO PAGADOR INVALIDO
+CBTT0978 BAIRRO DO PAGADOR INVALIDO
+CBTT0979 MUNICIPIO DO PAGADOR INVALIDO
+CBTT0980 UF DO PAGADOR INVALIDO
+CBTT0981 ESPECIE DO TITULO NÃO PERMITE NEGATIVACAO
+CBTT0982 INDICADOR DE SUSTAÇÃO COM BAIXA INVALIDO
+CBTT0983 TITULO PENDENTE EM MORA - SUSTAÇÃO DE PROTESTO NÃO PERMITIDA
+CBTT0984 STATUS DO TITULO INVALIDO PARA SUSTAÇÃO
+CBTT0985 INSTRUÇÃO DE PROTESTO SOLICITADA NA MESMA DATA, FAVOR ESTORNA-LA
+CBTT0986 IDENTIFICADOR DE PROTESTO INVALIDO
+CBTT0987 SITUAÇÃO DO TITULO INVALIDA PARA INSTRUÇÃO DE PROTESTO
+CBTT0988 NOME DO SACADO ESPECIAL NÃO INFORMADO
+CBTT0989 VALOR DO JUROS MAIOR QUE O VALOR DO TITULO
+CBTT0990 CEP NÃO PERTENCE A DEPOSITARIA
+CBTT0991 PRODUTO INATIVO OU INCOMPATIVEL
+CBTT0993 DOCUMENTO DO BENEFICIARIO FINAL INVALIDO
+CBTT0994 PROTESTO NÃO PERMITIDO PARA SACADO ESPECIAL
+CBTT0995 AGENCIA DEPOSITARIA COM PROTESTO BLOQUEADO
+CBTT0996 AGENCIA DEPOSITARIA COM PROTESTO NÃO PERMITIDO
+CBTT0997 TITULO COM TIPO DE ENDOSSO INVALIDO
+CBTT0998 PRAÇA NÃO EFETUA PROTESTO
+CBTT0999 PROTESTO NÃO PERMITIDO PARA O PRODUTO
+CBTT1000 SOLICITAÇÃO DE PROTESTO EFETUADA COM SUCESSO
+CBTT1001 SUSTAÇÃO DE PROTESTO EFETUADA COM SUCESSO
+CBTT1004 FUNÇÃO INVALIDA PARA O SERVIÇO
+CBTT1005 CAMPO PARAMETRO DA FUNÇÃO COM CONTEUDO INVALIDO PARA A FUNÇÃO
+CBTT9002 ERRO DE ACESSO AO MODULO
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+50 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+CBTT9002 ERRO DE ACESSO AO MODULO
+CBTT9100 ERRO DE ACESSO AO DB2
+
+Consulta lista de título pendente
+A API de consulta de títulos Pendentes permite realizar a consulta dos títulos ativos, possibilitando maior gestão na carteira de cobrança.
+Para realizar a consulta basta informar os campos obrigatórios do título <CPF/CNPJ do beneficiário>,< Negociação> e <Produto(carteira)> e os parâmetros desejados, que serão demonstrados os
+títulos que atendam a esses critérios.
+Os parâmetros disponíveis para pesquisa são:
+• Nosso Número (opcional)
+• CPF/CNPJ pagador (opcional)
+• Data vencimento De/Até (opcional)
+• Data de registro De/Até (opcional)
+• Valor – A partir de um determinado valor (opcional)
+É possível realizar combinação de critérios da consulta, por exemplo, consultar os títulos de um CPF/CNPJ com uma determinada faixa de vencimento e a partir de um determinado valor.
+Quanto mais critérios estabelecidos, mais refinada será o resultado da consulta. A informação é em D-1.
+A consulta demonstra até 50 registros por chamada. Porém, se a consulta possuir mais registros, é possível efetivar chamadas recorrentes para demonstrar todo o resultado.
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-pendente/v1/listar
+
+Produção POST
+
+https://openapi.bradesco.com.br/boleto/cobranca-pendente/v1/listar
+
+Layout de comunicação - entrada
+
+Nome do Campo Tipo
+
+Descrição
+
+Qtde. Obrigatório
+
+cpfCnpj
+
+Numérico Raiz CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+filial
+
+Numérico Filial CPF/CNPJ do Beneficiário. Se CPF, filial = 0
+
+4
+
+Sim
+
+controle
+
+Numérico Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+Produto
+
+Numérico
+
+ID Produto (código da carteira/modalidade de cobrança. Ex.: 09 Cobrança escritural, 05
+2
+Cobrança de Seguros)
+
+Sim
+
+Negociacao
+
+Numérico
+
+Número da Negociação. Formato: Agência: 4 posições (sem dígito), Conta: 7 posições
+(sem dígito)
+
+11
+
+Sim
+
+nossoNumero
+
+Numérico
+
+Identificação do título para o banco. Pode ser informado pelo cliente ou gerado pelo
+banco. Informar sem o dígito.
+
+11
+
+Não
+
+Cpfcnpj
+
+Numérico Número documento (CNPJ ou CPF) do Pagador
+
+9
+
+Não
+
+Filial
+
+Numérico Filial do CNPJ, se for CPF informar zeros do Pagador
+
+4
+
+Não
+
+Controle
+
+Numérico Controle do CNPJ ou CPF do Pagador
+
+2
+
+Não
+
+dataVencimentoDe Numérico Data de vencimento inicial da pesquisa. Formato DDMMAAAA
+
+8
+
+Não
+
+dataVencimentoAte Numérico Data de vencimento final da pesquisa. Formato DDMMAAAA
+
+8
+
+Não
+
+dataRegistroDe
+
+Numérico Data de Registro inicial da pesquisa. Formato DDMMAAAA
+
+8
+
+Não
+
+dataRegistroAte
+
+Numérico Data de Registro final da pesquisa. Formato DDMMAAAA
+
+8
+
+Não
+
+valorTituloDe
+
+Numérico Valor do título a partir do qual deve ser feita a pesquisa
+
+15
+
+Não
+
+faixaVencto
+
+Numérico Faixa de vencimento na qual deve ser feita a pesquisa. Tabela 1 – Faixa
+
+2
+
+Sim
+
+paginaAnterior
+
+Numérico
+
+Última página retornada. Deve ser enviada para restart de paginação. No primeiro acesso
+6
+enviar 0 (zero) e nos seguintes enviar conforme campo [pagina] retornado
+
+Não
+
+Observações sobre o preenchimento dos campos:
+Todos os campos devem ser informados conforme layout, entretanto para os tipos não obrigatórios devem ser preenchidos com zero para campo numérico, ou vazio para campo alfanumérico;
+Exemplo de json - layout - Entrada
+No exemplo foi selecionado os critérios: data de Registro entre 01.01.2020 a 24.05.2020 e faixa de vencimento igual a 7, ou seja, todas as faixas.
+{
+"cpfCnpj": {
+"cpfCnpj": 114383908,
+"filial": 0,
+"controle": 7
+},
+"produto": 1,
+"negociacao": 28560230114,
+"nossoNumero": 0,
+"cpfCnpjPagador": {
+"cpfCnpj": 0,
+"filial": 0,
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+51 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"controle": 0
+},
+"dataVencimentoDe": 0,
+"dataVencimentoAte": 0,
+"dataRegistroDe": 1012020,
+"dataRegistroAte": 24052020,
+"valorTituloDe": 0,
+"faixaVencto": 7,
+"paginaAnterior": 0
+}
+
+Layout de comunicação - retorno
+
+Nome do
+Campo
+
+Tipo
+
+Qtde. Descrição
+
+status
+
+Numérico
+
+3
+
+Transação
+
+Alfanumérico 8
+
+Código da Transação executada. Padrão: “CBTTIAGV”
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno: Sucesso: “Operação realizada com sucesso”; Insucesso: “Erro Inesperado na
+solicitação” ou “Falha ao Atender a Requisição”
+
+Causa
+
+Alfanumérico 200
+
+Código e mensagem de erro técnico (status 400, 412, 500) ou de sucesso (status 200). Ver TABELA 3
+– Cód Causa e Descrição
+
+Pagina
+
+Numérico
+
+Número da página retornada. Deve ser enviada na próxima consulta para restart de paginação
+
+indMaisPagina
+
+Alfanumérico 1
+
+Indica se existem mais páginas: “S” – Sim, “N” – Não
+
+qtdeTitulos
+
+Numérico
+
+9
+
+Quantidade de títulos que atendem aos critérios de pesquisa
+
+vtotTitulos
+
+Numérico
+
+15
+
+Soma do valor de todos os títulos que atendem ao critério de pesquisa
+
+qtdeOcorr
+
+Numérico
+
+2
+
+Quantidade de ocorrências formatadas que contém essa área de retorno
+
+Código do Status HTTP (ver TABELA 2 – Cód Status Pág. 8)
+
+6
+
+Dados abaixo ocorrem até 50 vezes:
+
+Nome do Campo Tipo
+
+Qtde. Descrição
+
+dataVencto
+
+Alfanumérico 10
+
+Data de vencimento do título. Formato DD/MM/AAAA
+
+valTitulo
+
+Numérico
+
+15
+
+Valor do título
+
+qtdeDecima
+
+Numérico
+
+1
+
+Quantidade de casas decimais do valor do título
+
+nossoNumero
+
+Numérico
+
+11
+
+Nosso número que identifica o título na cobrança
+
+seuNumero
+
+Alfanumérico 15
+
+Seu número do título
+
+Nome Pagador
+
+Alfanumérico 40
+
+Nome do Pagador do título
+
+cnpjCpf (Pagador) Numérico
+
+9
+
+Raiz CPF/CNPJ do Pagador
+
+filial (Pagador)
+
+Numérico
+
+4
+
+Filial CPF/CNPJ do Pagador. Se CPF, filial = 0
+
+Controle (Pagador) Numérico
+
+2
+
+Dígito de Controle do CPF/CNPJ do Pagador
+
+dataReg
+
+Numérico
+
+8
+
+Data de registro do título. Formato DDMMAAAA
+
+dataEmis
+
+Numérico
+
+8
+
+Data de emissão do título. Formato DDMMAAAA
+
+bcoDepos
+
+Numérico
+
+3
+
+Banco depositário de protesto
+
+agenDepos
+
+Numérico
+
+5
+
+Agência depositária de protesto
+
+codStatus
+
+Numérico
+
+2
+
+Situação do título na cobrança
+
+descrStatus
+
+Alfanumérico 40
+
+Descrição da situação do título na cobrança
+
+especDocto
+
+Alfanumérico 3
+
+Espécie do Documento do Título
+
+ctrlPartic
+
+Alfanumérico 25
+
+Código Controle Participante
+
+Nome (sacador)
+
+Alfanumérico 40
+
+Nome do Sacador Avalista
+
+Cpfcnpj (sacador) Numérico
+
+9
+
+Raiz CPF/CNPJ do Sacador Avalista
+
+Filial (sacador)
+
+Numérico
+
+4
+
+Filial CPF/CNPJ do Sacador Avalista. Se CPF, filial = 0
+
+Controle (sacador) Numérico
+
+2
+
+Dígito de Controle do CPF/CNPJ do Sacador Avalista
+
+Aceite
+
+Alfanumérico 1
+
+Indica se o título é com ou sem aceite: “S” = com aceite / “N” = sem aceite
+
+Rateio
+
+Alfanumérico 1
+
+Indica se o título tem rateio de crédito: “S” = Com rateio / “N” = Sem rateio
+
+debitoAuto
+
+Alfanumérico 1
+
+Indicador se o título está em Débito automático
+
+indTitParceld
+
+Alfanumérico 1
+
+Indicador título Parcelado: “S” = Parcelado / “N” = Não é parcelado
+
+indParcelaPrin
+
+Alfanumérico 1
+
+Indicador Parcela Principal: “S” = Parcela principal / “N” = Não é parcela principal
+
+indBoletoDda
+
+Alfanumérico 1
+
+Indicador Boleto DDA: “S” = Sim / “N” = Não
+
+Exemplo de json - layout - retorno
+Resposta do exemplo foi selecionado os critérios: data de Registro entre 1.01.2020 à 24.05.2020 e faixa de vencimento igual a 7, ou seja, todas as faixas.
+{
+"status": 200,
+"transacao": "CBTTIAGV",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+52 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"mensagem": "Operação realizada com sucesso.",
+"causa": "CBTT0005 - FIM DE CONSULTA",
+"pagina": 1,
+"indMaisPagina": "N",
+"qtdeTitulos": 3,
+"vtotTitulos": 5200,
+"qtdeOcorr": 3,
+"titulos": [
+{
+"codStatus": 13,
+"descrStatus": "PAGO NO DIA",
+"pagador": {
+"cnpjCpf": 395427558,
+"filial": 0,
+"controle": 99,
+"nome": "TESTE CBPG2170"
+},
+"debitoAuto": "N",
+"aceite": "S",
+"rateio": "N",
+"sacador": {
+"cnpjCpf": 0,
+"filial": 0,
+"controle": 0,
+"nome": ""
+},
+"bcoDepos": 33,
+"agenDepos": 13711,
+"nossoNumero": 103102025,
+"seuNumero": "CTITLO CLI CDEN",
+"especDocto": "DM",
+"dataReg": "03012020",
+"dataEmis": "03012020",
+"dataVencto": "0312020",
+"qtdeDecima": 2,
+"valTitulo": 5000,
+"ctrlPartic": "CCTRL PARTC TITLO--------",
+"indTitParceld": "N",
+"indParcelaPrin": "N",
+"indBoletoDda": "N"
+},
+{
+"codStatus": 1,
+"descrStatus": "A VENCER / VENCIDO",
+"pagador": {
+"cnpjCpf": 215877108,
+"filial": 0,
+"controle": 97,
+"nome": "TESTE CBPG2170"
+},
+"debitoAuto": "N",
+"aceite": "S",
+"rateio": "N",
+"sacador": {
+"cnpjCpf": 0,
+"filial": 0,
+"controle": 0,
+"nome": ""
+},
+"bcoDepos": 33,
+"agenDepos": 13711,
+"nossoNumero": 522163535,
+"seuNumero": "CTITLO CLI CDEN",
+"especDocto": "DM",
+"dataReg": "22052020",
+"dataEmis": "22052020",
+"dataVencto": "0312020",
+"qtdeDecima": 2,
+"valTitulo": 100,
+"ctrlPartic": "CCTRL PARTC TITLO--------",
+"indTitParceld": "N",
+"indParcelaPrin": "N",
+"indBoletoDda": "S"
+},
+{
+"codStatus": 1,
+"descrStatus": "A VENCER / VENCIDO",
+"pagador": {
+"cnpjCpf": 393574849,
+"filial": 0,
+"controle": 30,
+"nome": "TESTE"
+},
+"debitoAuto": "N",
+"aceite": "S",
+"rateio": "N",
+"sacador": {
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+53 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"cnpjCpf": 0,
+"filial": 0,
+"controle": 0,
+"nome": ""
+},
+"bcoDepos": 33,
+"agenDepos": 13711,
+"nossoNumero": 522154822,
+"seuNumero": "CTITLO CLI CDEN",
+"dataReg": "22052020",
+"dataEmis": "22052020",
+
+"especDocto": "DM",
+
+Obs.: A consulta demonstra até 50 registros por chamada. Porém, se a consulta possuir mais registros, é necessário programar chamadas recorrentes para demonstrar todo o
+resultado, conforme detalhado abaixo:
+PASSO A PASSO PARA LISTAR MAIS DE 50 REGISTROS
+O campo de controle para consulta é o , que é demonstrado no retorno da consulta. Para retorno com mais de 50 registros o campo retorna “S” e quando existe menos de 50 registro retorna “N”,
+conforme Layout de Comunicação – Retorno - pág 4.
+Se o campo apresentar resultado “N” é porque não existem mais informações a serem retornadas e que a consulta está completa.
+Caso retorne “S”, significa que existem mais registros a serem demonstrados.
+Para acessar as demais informações, basta programar para que seja repetida a chamada realizada anteriormente, adicionando no campo o conteúdo demonstrado no retorno da consulta no
+campo .
+Obs.: Essa ação deverá ser repetida sucessivamente, até que o campo ” seja igual a "N", o que significa que todos os registros que atendem ao critério foram demonstrados e a consulta está
+completa.
+Exemplo:
+Existem 130 registros que atendem à consulta.
+Na primeira chamada o campo “paginaAnterior” deve ser igual a 0
+..... .....
+"paginaAnterior": 0,
+.....
+......
+O retorno irá demonstrar os 50 primeiros registros, “pagina” 1 e “indMaisPagina = “S”
+..... .....
+"pagina": 1,
+"indMaisPagina": "S",
+.....
+.....
+Deverá ser efetuada novamente a mesma chamada, porém informando o campo da “paginaAnterior ” com a informação da retorno vigente, que neste caso será 1.
+..... .....
+"paginaAnterior": 1,
+.....
+......
+Então será retornado mais 50 registros, “pagina” 2 e “indMaisPagina” = “S”
+..... .....
+"pagina": 2,
+"indMaisPagina": "S",
+.....
+.....
+Deverá ser efetuada novamente a mesma chamada, porém informando o campo da “paginaAnterior”, com a informação do retorno vigente, que neste caso será 2.
+......
+.....
+"paginaAnterior": 2,
+.....
+......
+Então será retornado mais 30 registros, “pagina” 3 e “indMaisPagina” = “N”
+..... .....
+"pagina": 3,
+"indMaisPagina": "N",
+.....
+.....
+• A consulta está finalizada, demonstrando os 130 registros.
+Exemplo de Resposta com Erro (JSON)
+{
+"status": 412,
+"transacao": "CBTTIAGV",
+"mensagem": "Falha ao atender a requisição.",
+"causa": "CBTT0597 - DATA DE REGISTRO DE INVALIDA",
+"pagina": 0,
+"indMaisPagina": "",
+"qtdeTitulos": 0,
+"vtotTitulos": 0,
+"qtdeOcorr": 0,
+"titulos": []
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+54 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+}
+
+DOMÍNIO DO CAMPO FAIXA DE VENCIMENTO
+
+Faixa-code Descrição
+1
+
+VENCIDOS
+
+2
+
+VENCIDOS E A VENCER ATÉ 60 DIAS
+
+3
+
+A VENCER ATÉ 60 DIAS
+
+4
+
+A VENCER ENTRE 61 E 180 DIAS
+
+5
+
+A VENCER ENTRE 181 E 360 DIAS
+
+6
+
+A VENCER ACIMA DE 360 DIAS
+
+7
+
+TODAS AS FAIXAS
+
+STATUS E MENSAGENS DE RETORNO
+
+Status-code Descrição (Mensagem)
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+CÓDIGO E MENSAGENS DE RETORNO TÉCNICA (CAMPO CAUSA)
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado no mainframe/API.
+Quando status for 200 serão formatados código e mensagem de Sucesso gerado no mainframe/API.
+
+Código
+
+Descrição da mensagem
+
+CBTT0005 FIM DE CONSULTA
+CBTT0011 VALOR NAO NUMERICO
+CBTT0018 CONSULTA EFETUADA. EXISTEM MAIS INFORMACOES A SEREM DEMONSTRADAS
+CBTT0021 NAO HA DADOS PARA ESTA PESQUISA
+CBTT0107 CPF/CNPJ INVALIDO
+CBTT0108 NOSSO NUMERO INVALIDO
+CBTT0403 USUARIO NAO AUTORIZADO
+CBTT0411 IDENTIFICADOR DO PRODUTO INVALIDO
+CBTT0412 CONTA PRODUTO INVALIDA
+CBTT0552 TITULO INEXISTENTE PARA O CONTRATO INFORMADO
+CBTT0590 DATA DE VENCIMENTO DE - INVALIDA
+CBTT0591 DATA DE VENCIMENTO ATE - INVALIDA
+CBTT0592 DATA DE VENCIMENTO DE MAIOR QUE DATA DE VENCIMENTO ATE
+CBTT0596 DATA DE REGISTRO DE MAIOR QUE DATA DE REGISTRO ATE
+CBTT0597 DATA DE REGISTRO DE INVALIDA
+CBTT0598 DATA DE REGISTRO ATE INVALIDA
+CBTT0975 CPF/CNPJ DO PAGADOR INVALIDO
+CBTT1006 FAIXA DE VENCIMENTO INVALIDA
+CBTT1007 NUMERO DA PAGINA ANTERIOR INVALIDA
+CBTT9002 ERRO DE ACESSO AO MODULO
+CBTT9100 ERRO DE ACESSO AO DB2
+
+Consulta lista de títulos baixados
+A funcionalidade permite consultar via API os títulos de cobrança baixados, possibilitando melhor gestão da carteira de Cobrança.
+Para realizar a consulta basta informar os campos obrigatórios do título <CPF/CNPJ do beneficiário>,< Negociação> e <Produto(carteira)> e os parâmetros desejados, que serão demonstrados os
+títulos que atendam a esses critérios.
+É possível realizar combinação de critérios da consulta, por exemplo, consultar os títulos de um CPF/CNPJ com uma determinada carteira especifica através de faixa de data de vencimento.
+Quanto mais critérios estabelecidos, mais refinada será o resultado da consulta. A informação é em D-1.
+A consulta demonstra até 50 registros por chamada. Porém, se a consulta possuir mais registros, é possível efetivar chamadas recorrentes para demonstrar todo o resultado.
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+55 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Ambiente Método URL
+Sandbox POST
+
+https://openapisandbox.prebanco.com.br/boleto/cobranca-baixado-consulta/v1/listar
+
+Produção POST
+
+**https://openapi.bradesco.com.br/boleto/cobranca-baixado-consulta/v1/listar
+
+Layout de comunicação - entrada
+
+Nome do Campo Tipo
+
+Descrição
+
+Qtde.
+CHAR
+
+Campo Obrigatório
+
+versao
+
+Numérico Fixo 001
+
+3
+
+Sim
+
+cpfCnpj
+
+Numérico Raiz CPF/CNPJ Beneficiário
+
+9
+
+Sim
+
+filial
+
+Filial CPF/CNPJ do Beneficiário
+Numérico
+Se CPF, filial = 0
+
+4
+
+Sim
+
+controle
+
+Numérico Dígito de Controle do CPF/CNPJ Beneficiário
+
+2
+
+Sim
+
+produto
+
+ID Produto (código da carteira/modalidade de
+Numérico cobrança. Ex.: 09 Cobrança escritural, 05 Cobrança 2
+de Seguros)
+
+Sim
+
+negociacao
+
+Número da Negociação
+Numérico Formato: Agência: 4 posições (Sem dígito)
+Conta: 7 posições (Sem dígito)
+
+11
+
+Sim
+
+dataVencimentoDe Numérico
+
+Data de vencimento inicial da pesquisa
+Formato AAAAMMDD
+
+8
+
+Não
+
+dataVencimentoAte Numérico
+
+Data de vencimento final da pesquisa
+Formato AAAAMMDD
+
+8
+
+Não
+
+valorTituloInicio
+
+Valor do título a partir do qual deve ser feita a
+Numérico pesquisa
+Formato 9(13)V99
+
+15
+
+Não
+
+codigoBaixa
+
+Numérico Código do tipo de baixa. .
+
+2
+
+Não. Caso nenhum código seja inserido, a API
+retornará todos os boletos baixados. Status e
+Descrições em tabela abaixo.
+
+paginaAnterior
+
+Última página retornada. Deve ser enviada para
+Numérico restart de paginação. No primeiro acesso enviar
+zeros e nos seguintes conforme última saída
+
+6
+
+Não
+
+Observações sobre o preenchimento dos campos:
+Todos os campos devem ser informados conforme layout, entretanto para os tipos não obrigatórios devem ser preenchidos com zero para campo numérico, ou vazio para campo alfanumérico;
+Exemplo de json para código de baixa por solicitação do Beneficiario - código 57- layout - Entrada
+{
+"versao": 1,
+"cpfCnpj": {
+"cpfCnpj": 114383908,
+"filial": 0,
+"controle": 7
+},
+"produto": 9,
+"negociacao": 28560222652,
+"dataVencimentoDe": 20040902,
+"dataVencimentoAte": 20251201,
+"valorTituloInicio": 1,
+"codigoBaixa": 57,
+"paginaAnterior": 0
+}
+
+Layout de comunicação - retorno
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+56 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Nome do
+Campo
+
+Tipo
+
+Qtde.
+CHAR
+
+Campo de Saída – Descrição
+
+status
+
+Numérico
+
+3
+
+Código do Status HTTP
+
+transacao
+
+Alfanumérico 8
+
+Código da Transação executada
+
+mensagem
+
+Alfanumérico 100
+
+Mensagem de retorno
+
+causa
+
+Alfanumérico 200
+
+Quando status for 400, 412 ou 500: código e mensagem de erro técnico gerado no
+mainframe/API
+
+qtdeTotalTitulos
+
+Numérico
+
+9
+
+Quantidade total de títulos na pesquisa
+
+vtotTitulos
+
+Numérico
+
+2
+
+Valor total dos títulos que atendem ao critério de pesquisa
+
+indMaisPagina
+
+Alfanumérico 1
+
+Indica se existem mais páginas ('S' ou 'N')
+
+pagina
+
+Numérico
+
+6
+
+Número da página atual
+
+qtdeOcorr
+
+Numérico
+
+2
+
+Quantidade de ocorrências retornadas nessa chamada
+
+titulos
+
+Numérico
+
+2
+
+Quantidade de ocorrências da lista
+
+Dados abaixo ocorrem até 50 vezes
+
+Nome do Campo
+
+Tipo
+
+Qtde. CHAR Campo de Saída – Descrição
+
+dataVencimento
+
+Alfanumérico 10
+
+Data de Vencimento AAAAMMDD)
+
+valorTitulo
+
+Numérico
+
+15
+
+Valor do título (9(13)V9(02))
+
+quantidadeCasaDecimal Numérico
+
+1
+
+Quantidade de casas decimais
+
+nossoNumero
+
+Numérico
+
+11
+
+Nosso número
+
+seuNumero
+
+Alfanumérico 15
+
+Seu número
+
+cpfCnpjsacado
+
+Numérico
+
+9
+
+Raiz CPF/CNPJ do Sacado
+
+filial
+
+Numérico
+
+4
+
+Filial CPF/CNPJ do Sacado – Se CPF, filial = 0
+
+controle
+
+Numérico
+
+2
+
+Dígito de Controle do CPF/CNPJ Sacado
+
+nomeSacado
+
+Alfanumérico 40
+
+Nome do sacado
+
+dataRegistro
+
+Numérico
+
+8
+
+Data de registro (Formato AAAAMMDD)
+
+dataEmissao
+
+Numérico
+
+8
+
+Data de emissão do título (Formato AAAAMMDD)
+
+bancoDepositario
+
+Numérico
+
+3
+
+Banco depositário
+
+agenciaDepositaria
+
+Numérico
+
+5
+
+Agência depositária
+
+statusTitulo
+
+Numérico
+
+2
+
+Status do título. ver Tabela de códigos de Baixa
+
+descricaoStatusTitulo
+
+Alfanumérico 40
+
+Descrição do status do título
+
+especieDocumento
+
+Numérico
+
+Espécie do documento
+
+controleParticipante
+
+Alfanumérico 25
+
+Participante
+
+├── cpfCnpj
+
+Numérico
+
+2
+
+Raiz CPF/CNPJ Avalista
+
+├── filial
+
+Numérico
+
+40
+
+Filial CPF/CNPJ do Avalista – Se CPF, filial = 0
+
+└── controle
+
+Numérico
+
+1
+
+Dígito de controle do CPF/CNPJ Avalista
+
+nomeSacadorAvalista
+
+Alfanumérico 40
+
+Nome do sacador avalista
+
+aceite
+
+Alfanumérico 1
+
+Indicador de aceite
+
+rateio
+
+Alfanumérico 1
+
+Indicador de rateio
+
+debitoAutomatico
+
+Alfanumérico 1
+
+Indicador de Débito Automático
+
+boletoDDA
+
+Alfanumérico 1
+
+Indicador de boleto DDA
+
+dataPagamento
+
+Numérico
+
+8
+
+Data de pagamento (Formato AAAAMMDD)
+
+dataBaixa
+
+Numérico
+
+8
+
+Data de baixa (Formato AAAAMMDD)
+
+valorPago
+
+Numérico
+
+15
+
+Valor pago (9(13)V9(02))
+
+bancoProcedente
+
+Numérico
+
+3
+
+Banco Procedente
+
+agenciaProcedente
+
+Numérico
+
+5
+
+Agência procedente
+
+3
+
+cpfCnpjSacadorAvalista
+
+Exemplo de json para código de baixa por solicitação do Beneficiario - código 57- layout - retorno
+{
+"status": 200,
+"transacao": "CBTTIAGZ",
+"mensagem": "Operação realizada com sucesso.",
+"causa": "CBTT0005 - FIM DE CONSULTA",
+"qtdeTotalTitulos": 2,
+"vtotTitulos": 20.00,
+"indMaisPagina": "N",
+"pagina": 1,
+"qtdeOcorr": 2,
+"titulos": [
+{
+"dataVencimento": "20240815",
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+57 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+"valorTitulo": 1000,
+"quantidadeCasaDecimal": 2,
+"nossoNumero": "00000000006",
+"seuNumero": "123",
+"cpfCnpjSacado": {
+"cpfCnpj": 89619828,
+"filial": 0,
+"controle": 69
+},
+"nomeSacado": "TESTE BE",
+"dataRegistro": "20240812",
+"dataEmissao": "20240812",
+"bancoDepositario": 237,
+"agenciaDepositaria": 4151,
+"statusTitulo": 57,
+"descricaoStatusTitulo": "CONFORME SEU PEDIDO",
+"especieDocumento": 2,
+"controleParticipante": "",
+"cpfCnpjSacadorAvalista": {
+"cpfCnpj": 0,
+"filial": 0,
+"controle": 0
+},
+"nomeSacadorAvalista": "",
+"aceite": "N",
+"rateio": "N",
+"debitoAutomatico": "N",
+"boletoDDA": "S",
+"dataPagamento": "00000000",
+"dataBaixa": "20180818",
+"valorPago": 0,
+"bancoProcedente": 237,
+"agenciaProcedente": 0
+},
+{
+"dataVencimento": "20240815",
+"valorTitulo": 1000,
+"quantidadeCasaDecimal": 2,
+"nossoNumero": "00299950761",
+"seuNumero": "123",
+"cpfCnpjSacado": {
+"cpfCnpj": 89619828,
+"filial": 0,
+"controle": 69
+},
+"nomeSacado": "TESTE BE",
+"dataRegistro": "20240812",
+"dataEmissao": "20240812",
+"bancoDepositario": 237,
+"agenciaDepositaria": 4151,
+"statusTitulo": 57,
+"descricaoStatusTitulo": "CONFORME SEU PEDIDO",
+"especieDocumento": 2,
+"controleParticipante": "",
+"cpfCnpjSacadorAvalista": {
+"cpfCnpj": 0,
+"filial": 0,
+"controle": 0
+},
+"nomeSacadorAvalista": "",
+"aceite": "N",
+"rateio": "N",
+"debitoAutomatico": "N",
+"boletoDDA": "S",
+"dataPagamento": "00000000",
+"dataBaixa": "20240811",
+"valorPago": 0,
+"bancoProcedente": 237,
+"agenciaProcedente": 0
+}
+]
+}
+
+Tabela de códigos de Baixa
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+58 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+STATUS TÍTULO TIPOS DE BAIXAS
+51
+
+POR ACERTO
+
+52
+
+POR REGISTRO DUPLICADO
+
+53
+
+POR DECURSO DE PRAZO
+
+54
+
+POR MEDIDA JUDICIAL
+
+55
+
+POR REMESSA (CEB)
+
+56
+
+COBRADO - POR RASTREAMENTO
+
+57
+
+CONFORME SEU PEDIDO
+
+58
+
+PROTESTADO
+
+59
+
+DEVOLVIDO
+
+60
+
+ENTREGUE FRANCO DE PAGAMENTO
+
+61
+
+PAGO
+
+62
+
+PAGO EM CARTÓRIO
+
+63
+
+SUSTADO RETIRADO DE CARTÓRIO
+
+64
+
+SUSTADO SEM REMESSA A CARTÓRIO
+
+65
+
+TRANSFERIDO PARA DESCONTO
+
+66
+
+CRÉDITO EXDD
+
+67
+
+CRÉDITO EXDD - PAGO EM CARTÓRIO
+
+68
+
+COBRADO - POR BAIXA MANUAL
+
+69
+
+COBRADO - POR BAIXA MANUAL - PAGO EM CARTÓRIO
+
+70
+
+TRANSF. CESSÃO CRÉDITO
+
+71
+
+DEV. TRANSF. CESSÃO CRÉDITO
+
+72
+
+TRANSF. ENTRE CEDÊNCIA
+
+Obs.: A consulta demonstra até 50 registros por chamada. Porém, se a consulta possuir mais registros, é necessário programar chamadas recorrentes para demonstrar todo o
+resultado, conforme detalhado abaixo:
+PASSO A PASSO PARA LISTAR MAIS DE 50 REGISTROS
+O campo de controle para consulta é o , que é demonstrado no retorno da consulta. Para retorno com mais de 50 registros o campo retorna “S” e quando existe menos de 50 registro retorna “N”,
+conforme Layout de Comunicação – Retorno - pág 4.
+Se o campo apresentar resultado “N” é porque não existem mais informações a serem retornadas e que a consulta está completa.
+Caso retorne “S”, significa que existem mais registros a serem demonstrados.
+Para acessar as demais informações, basta programar para que seja repetida a chamada realizada anteriormente, adicionando no campo o conteúdo demonstrado no retorno da consulta no
+campo .
+Obs.: Essa ação deverá ser repetida sucessivamente, até que o campo ” seja igual a "N", o que significa que todos os registros que atendem ao critério foram demonstrados e a consulta está
+completa.
+Exemplo:
+Existem 130 registros que atendem à consulta.
+Na primeira chamada o campo “paginaAnterior” deve ser igual a 0
+..... .....
+"paginaAnterior": 0,
+.....
+......
+O retorno irá demonstrar os 50 primeiros registros, “pagina” 1 e “indMaisPagina = “S”
+..... .....
+"pagina": 1,
+"indMaisPagina": "S",
+.....
+.....
+Deverá ser efetuada novamente a mesma chamada, porém informando o campo da “paginaAnterior ” com a informação da retorno vigente, que neste caso será 1.
+..... .....
+"paginaAnterior": 1,
+.....
+......
+Então será retornado mais 50 registros, “pagina” 2 e “indMaisPagina” = “S”
+..... .....
+"pagina": 2,
+"indMaisPagina": "S",
+.....
+.....
+Deverá ser efetuada novamente a mesma chamada, porém informando o campo da “paginaAnterior”, com a informação do retorno vigente, que neste caso será 2.
+......
+.....
+"paginaAnterior": 2,
+.....
+......
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+59 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Então será retornado mais 30 registros, “pagina” 3 e “indMaisPagina” = “N”
+..... .....
+"pagina": 3,
+"indMaisPagina": "N",
+.....
+.....
+• A consulta está finalizada, demonstrando os 130 registros.
+Status e mensagens de retorno
+
+Status-code Descrição (Mensagem)
+200
+
+Operação realizada com sucesso
+
+400
+
+Parâmetros informados inválidos
+
+412
+
+Falha ao atender a requisição
+
+500
+
+Erro inesperado na solicitação
+
+Código e mensagens de retorno técnica (campo causa)
+Quando status for 400, 412 ou 500 serão formatados código e mensagem de erro técnica gerado no mainframe/API.
+
+Código
+
+Mensagem
+
+CPF/CNPJ INVÁLIDO
+CBTT0005
+
+FIM DE CONSULTA
+
+CBTT0013
+
+VALOR INVÁLIDO
+
+CBTT0021
+
+NÃO HÁ DADOS PARA PESQUISA
+
+CBTT0107
+
+CPF/CNPJ INVÁLIDO
+
+CBTT0403
+
+USUÁRIO NÃO AUTORIZADO
+
+CBTT0411
+
+IDENTIFICADOR DO PRODUTO INVÁLIDO
+
+CBTT0412
+
+CONTA PRODUTO INVÁLIDA
+
+CBTT0519
+
+SITUAÇÃO DO TÍTULO NÃO ENCONTRADA
+
+CBTT0523
+
+CÓDIGO DE BAIXA INVÁLIDO
+
+CBTT0563
+
+DATA INÍCIO INVÁLIDA
+
+CBTT0564
+
+DATA FINAL INVÁLIDA
+
+CBTT1007
+
+NÚMERO DA PÁGINA ANTERIOR INVÁLIDA
+
+CBTT9002
+
+ERRO DE ACESSO AO MÓDULO
+
+CBTT9100
+
+ERRO DE ACESSO AO DB2
+
+FAQ
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Qual o tempo médio entre a solicitação de registro do boleto e a efetivação do registro na CIP?
+O registro ocorre na CIP em 1 segundo.
+Se, por algum motivo, o serviço on-line fique indisponível por tempo indeterminado ou por elevado tempo impedindo o registro da cobrança, temos alguma
+contingência por parte do Bradesco?
+Sim, Através do NET EMPRESA.
+No campo “nuCliente” que informação devo passar?
+Essa informação é de responsabilidade do cliente, não é consistida pelo banco, é o equivalente a “Seu Número”, normalmente utilizada para informar o número da nota fiscal.
+É possível a emissão de segunda via do boleto on-line?
+A API disponibiliza a funcionalidade de consultar um título em específico de forma detalhada e atualizada para a consulta gerencial e/ou geração 2ª. via de boleto.
+No campo “nuTitulo” que informação devo passar?
+Essa informação é a Identificação do título para o banco (NOSSO NÚMERO), pode ser informado pelo cliente ou gerado pelo banco, esse número deve ser único de acordo com a carteira e
+negociação utilizada.
+É possível cadastrar informações de cobrança de juros e Multa no convênio de cobrança de forma fixa?
+Não, para os registros de títulos de forma online, só é acatado as informações de Juros e Multa informados no registro do boleto através da API, ele não carrega a informação do convênio.
+Como informar Juros e Multa no registro de boleto via API de Cobrança?
+“percentualJuros” –Para 10% informe “10000,”;
+“vlJuros” –Para R$1,00 informe “100,”;
+"qtdeDiasJuros“ –Para 1 dia informe “1,”;
+“percentualMulta” -Para 10% informe “10000”.
+Como incluir protesto automático e negativação no registro de um boleto via Apide Registro de Cobrança?
+É necessário informar a quantidade de dias no campo “prazoProtestoAutomáticoNegativação”
+Para Protesto na condição de dias úteis: 3 dias após o vencimento. Dias corridos 5 dias após vencimento.
+Para Negativação informar a quantidade de dias, considerar 5 dias corridos após o vencimento.
+O servico de cadastrar no Webhook utiliza SOAP ou REST?
+Utiliza REST.
+Qual o tempo, apos o boleto ser pago, serei notificado?
+Pagamentos realizados utilizando o codigo de barras: on-line*.
+Pagamentos realizados utilizando o Qr Code: ate 20 minutos.
+• As notificacoes de pagamentos realizados em outros bancos serao encaminhadas imediatamente apos o envio da informacao por parte do banco recebedor ao Bradesco.
+
+É possível o Split de um título registrado com valor zero?
+Sim, mas para execução dessa operação o rateio será sobre o valor cobrado, em percentual.
+O valor/percentual pode ser informado com zero ou em branco?
+Não, caso contrário será desconsiderado o registro do Split para o beneficiário informado. É importante se atentar ao preenchimento do campo, de acordo com o cálculo do Split e o tipo de valor:
+Moeda Corrente - Deverá ser informada com 2 (duas) decimais;
+• Exemplo: 2300,00 => 230000
+Moeda Indexada - Deverá ser informada com 5 (cinco) decimais;
+• Exemplo: 2300,00000 => 230000000
+Percentual - Deverá ser informado com 3 (três) decimais.
+• Exemplo: 50% => 50000
+Como devo preencher o campo de parcela de rateio de crédito?
+O campo é para uso do cliente, portanto, a definição do preenchimento cabe a este, limitado ao tamanho do campo. Exemplos:
+• 1/3;
+• 1 de 3.
+
+60 of 61
+
+Quantos beneficiários posso incluir em rateio para um título?
+Para cada título são permitidos até noventa (90) beneficiários, incluídos dez (10) beneficiários a cada execução da API. É importante ressaltar que caso o total do valor ou percentual informado
+ultrapasse o total disponível para rateio, a solicitação será recusada, sendo incluso/alterados os beneficiários que não ultrapassem o limite de valor ou percentual. Os demais serão recusados na
+execução.
+Posso efetuar mais de uma ação de rateio por execução?
+Não, cada execução deve ser orientada para uma única ação, sendo a primeira reconhecida na lista como a ação desejada. Qualquer outra ação encontrada na lista, divergente da primeira, será
+descartada na execução.
+
+Índice
+Cobrança
+Introdução
+Público alvo
+
+10/27/2025, 7:12 PM
+
+Plataforma Bradesco Developers
+
+61 of 61
+
+https://developers.bradesco.com.br/productDetails/8a2e869e9549334...
+
+Pré requisitos
+Registo de boleto via API
+API de Baixa de Título
+Alteração de título via API
+Consulta de título via API
+Consulta lista de títulos liquidados via API
+Manutenção SPLIT Payment
+CONSULTA SPLIT PAYMENT
+PROTESTO E NEGATIVAÇÃO
+Consulta lista de título pendente
+Consulta lista de títulos baixados
+Avaliações e Comentários
+3.0/5.0
+6 Avaliações
+Categorias
+Histórico do Produto
+2025-10-06
+
+10/27/2025, 7:12 PM
+
+

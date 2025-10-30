@@ -1,0 +1,96 @@
+# syntax=docker/dockerfile:1.7
+
+ARG PHP_VERSION=8.2
+ARG NODE_VERSION=20
+ARG APP_DIR=/var/www/html
+
+FROM composer:2.7 AS composer_deps
+
+WORKDIR ${APP_DIR}
+
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --no-progress \
+    --no-scripts
+
+COPY . .
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --no-progress \
+    --optimize-autoloader \
+    --no-scripts
+
+FROM node:${NODE_VERSION}-alpine AS frontend
+
+WORKDIR ${APP_DIR}
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY resources ./resources
+COPY vite.config.js tailwind.config.js postcss.config.js tsconfig.json ./
+RUN npm run build
+
+FROM php:${PHP_VERSION}-fpm-bookworm AS php
+
+ENV APP_DIR=${APP_DIR}
+
+WORKDIR ${APP_DIR}
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        unzip \
+        libbz2-dev \
+        libzip-dev \
+        libpq-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+        libonig-dev \
+        libxml2-dev \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libicu-dev \
+        libwebp-dev \
+        libavif-dev \
+        pkg-config \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp --with-avif \
+    && docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        exif \
+        intl \
+        mbstring \
+        pcntl \
+        pdo_mysql \
+        zip \
+        gd \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer_deps ${APP_DIR} ${APP_DIR}
+COPY --from=frontend ${APP_DIR}/public/build ${APP_DIR}/public/build
+
+COPY docs/docker-vps/fortress/php.ini /usr/local/etc/php/conf.d/zz-fortress.ini
+
+RUN find storage -type d -print0 | xargs -0 -r chmod 775 \
+    && find storage -type f -print0 | xargs -0 -r chmod 664 \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rw bootstrap/cache
+
+USER www-data
+
+CMD ["php-fpm"]
+
+FROM nginx:1.27-alpine AS nginx
+
+WORKDIR /var/www/html
+
+COPY --from=php /var/www/html/public ./public
+COPY docs/docker-vps/fortress/nginx.conf /etc/nginx/conf.d/default.conf
