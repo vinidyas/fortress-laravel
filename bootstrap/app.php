@@ -16,6 +16,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->trustProxies(at: '*');
+        $middleware->trustHosts([
+            '127.0.0.1',
+            'localhost',
+            'fortressempreendimentos.com.br',
+            'sistema.fortressempreendimentos.com.br',
+            'pangolin.vrios.com.br',
+        ]);
+        
         $middleware->statefulApi();
 
         $middleware->web(append: [

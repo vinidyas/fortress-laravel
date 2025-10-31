@@ -148,7 +148,7 @@ const exportUrl = (format: 'csv' | 'json') => {
   });
 
   const qs = params.toString();
-  return `${route('auditoria.export')}${qs ? `?${qs}` : ''}`;
+  return `${route('api.auditoria.export')}${qs ? `?${qs}` : ''}`;
 };
 
 const buildQueryParams = (format?: 'csv' | 'json') => {

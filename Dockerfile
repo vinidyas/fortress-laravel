@@ -5,7 +5,7 @@ ARG NODE_VERSION=20
 ARG APP_DIR=/var/www/html
 
 FROM composer:2.7 AS composer_deps
-ARG APP_DIR=/var/www/html
+
 WORKDIR ${APP_DIR}
 
 COPY composer.json composer.lock ./
@@ -14,8 +14,7 @@ RUN composer install \
     --no-interaction \
     --prefer-dist \
     --no-progress \
-    --no-scripts \
-    --ignore-platform-reqs
+    --no-scripts
 
 COPY . .
 RUN composer install \
@@ -23,24 +22,22 @@ RUN composer install \
     --no-interaction \
     --prefer-dist \
     --no-progress \
-    --no-scripts \
-    --ignore-platform-reqs
-    
-RUN rm -f bootstrap/cache/*.php    
+    --optimize-autoloader \
+    --no-scripts
 
 FROM node:${NODE_VERSION}-alpine AS frontend
 
-WORKDIR /build
+WORKDIR ${APP_DIR}
 
 COPY package.json package-lock.json ./
-RUN npm ci --prefer-offline
+RUN npm cache clean --force && npm ci --prefer-offline
 
 COPY resources ./resources
 COPY vite.config.js tailwind.config.js postcss.config.js tsconfig.json ./
 RUN npm run build
 
 FROM php:${PHP_VERSION}-fpm-bookworm AS php
-ARG APP_DIR=/var/www/html
+
 ENV APP_DIR=${APP_DIR}
 
 WORKDIR ${APP_DIR}
@@ -78,27 +75,22 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer_deps ${APP_DIR} ${APP_DIR}
-COPY --from=frontend /build/public/build ${APP_DIR}/public/build
+COPY --from=frontend ${APP_DIR}/public/build ${APP_DIR}/public/build
 
 COPY docs/docker-vps/fortress/php.ini /usr/local/etc/php/conf.d/zz-fortress.ini
 
-RUN if [ -d storage ]; then \
-        find storage -type d -print0 | xargs -0 -r chmod 775 && \
-        find storage -type f -print0 | xargs -0 -r chmod 664; \
-    fi && \
-    if [ -d bootstrap/cache ]; then \
-        chown -R www-data:www-data storage bootstrap/cache && \
-        chmod -R ug+rw bootstrap/cache; \
-    fi
+RUN find storage -type d -print0 | xargs -0 -r chmod 775 \
+    && find storage -type f -print0 | xargs -0 -r chmod 664 \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rw bootstrap/cache
 
 USER www-data
 
 CMD ["php-fpm"]
 
 FROM nginx:1.27-alpine AS nginx
-ARG APP_DIR=/var/www/html
+
 WORKDIR /var/www/html
 
-COPY --from=composer_deps ${APP_DIR}/public ./public
-COPY --from=frontend /build/public/build ./public/build
+COPY --from=php /var/www/html/public ./public
 COPY docs/docker-vps/fortress/nginx.conf /etc/nginx/conf.d/default.conf

@@ -1,10 +1,33 @@
 import axios from 'axios';
 
 const hasImportMeta = typeof import.meta !== 'undefined' && import.meta && import.meta.env;
-const backendUrl =
+const preferredBackendUrl =
   hasImportMeta && import.meta.env.VITE_BACKEND_URL
     ? import.meta.env.VITE_BACKEND_URL
-    : window.location.origin;
+    : null;
+
+const isLocalUrl = (value) => {
+  if (!value) return false;
+  try {
+    const { hostname } = new URL(value);
+    return ['127.0.0.1', 'localhost'].includes(hostname);
+  } catch {
+    return false;
+  }
+};
+
+let rawBackendUrl =
+  preferredBackendUrl && !isLocalUrl(preferredBackendUrl) ? preferredBackendUrl : window.location.origin;
+if (isLocalUrl(rawBackendUrl) && typeof window !== 'undefined') {
+  rawBackendUrl = window.location.origin;
+}
+
+let backendUrl = rawBackendUrl;
+try {
+  backendUrl = new URL(rawBackendUrl.replace(/\/+$/, '')).origin;
+} catch {
+  backendUrl = rawBackendUrl.replace(/\/+$/, '');
+}
 
 axios.defaults.baseURL = backendUrl;
 axios.defaults.withCredentials = true;

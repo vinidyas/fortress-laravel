@@ -3,30 +3,30 @@
 use App\Http\Controllers\Admin\AdminDashboardPageController;
 use App\Http\Controllers\Admin\AdminRolePageController;
 use App\Http\Controllers\Admin\AdminUserPageController;
-use App\Http\Controllers\AuditTrailPageController;
 use App\Http\Controllers\AlertHistoryPageController;
+use App\Http\Controllers\AuditTrailPageController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FaturaBillingController;
+use App\Http\Controllers\FaturaReceiptController;
 use App\Http\Controllers\Financeiro\BankReconciliationPageController;
 use App\Http\Controllers\Financeiro\FinanceiroPageController;
 use App\Http\Controllers\Financeiro\PaymentSchedulePageController;
 use App\Http\Controllers\Financeiro\SettingsPageController;
 use App\Http\Controllers\Api\Reports\ReportBankLedgerController;
-use App\Http\Requests\Reports\ReportBankLedgerFilterRequest;
-use App\Http\Controllers\Reports\FinanceiroReportPageController;
-use App\Http\Controllers\Reports\BankStatementReportPageController;
 use App\Http\Controllers\Reports\BankAccountStatementReportPageController;
 use App\Http\Controllers\Reports\BankLedgerReportPageController;
-use App\Http\Controllers\Reports\RevenueLedgerReportPageController;
+use App\Http\Controllers\Reports\FinanceiroReportPageController;
+use App\Http\Controllers\Reports\GeneralAnalyticReportPageController;
 use App\Http\Controllers\Reports\OperacionalReportPageController;
 use App\Http\Controllers\Reports\PessoasReportPageController;
-use App\Http\Controllers\Reports\GeneralAnalyticReportPageController;
+use App\Http\Controllers\Reports\RevenueLedgerReportPageController;
+use App\Http\Controllers\Reports\BankStatementReportPageController;
+use App\Http\Requests\Reports\ReportBankLedgerFilterRequest;
 use App\Http\Controllers\Profile\AccountController;
 use App\Http\Controllers\Profile\PasswordController;
-use App\Http\Controllers\FaturaBillingController;
-use App\Http\Controllers\FaturaReceiptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -62,7 +62,7 @@ Route::middleware('auth')->group(function () {
         'pessoaId' => $pessoa,
     ]))->name('pessoas.edit');
 
-    // CondomÃ­nios
+    // Condomínios
     Route::get('/condominios', fn () => Inertia::render('Condominios/Index'))->name('condominios.index');
     Route::get('/condominios/novo', fn () => Inertia::render('Condominios/Edit'))->name('condominios.create');
     Route::get('/condominios/{condominio}', fn (int $condominio) => Inertia::render('Condominios/Edit', [
@@ -130,8 +130,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/roles', AdminRolePageController::class)->name('roles.index');
     });
 });
-
-// Rotas de API movidas para routes/api.php
 
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')

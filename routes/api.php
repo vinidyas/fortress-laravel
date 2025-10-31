@@ -7,47 +7,83 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\AlertHistoryController;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\CondominioController;
 use App\Http\Controllers\Api\ContratoController;
 use App\Http\Controllers\Api\DashboardWidgetPreferenceController;
 use App\Http\Controllers\Api\EntityAuditController;
 use App\Http\Controllers\Api\FaturaAttachmentController;
-use App\Http\Controllers\Api\FaturaController;
 use App\Http\Controllers\Api\FaturaBoletoController;
+use App\Http\Controllers\Api\FaturaController;
+use App\Http\Controllers\Api\Financeiro\AccountBalanceController;
 use App\Http\Controllers\Api\Financeiro\BankStatementController;
 use App\Http\Controllers\Api\Financeiro\CostCenterController;
 use App\Http\Controllers\Api\Financeiro\FinancialAccountBalanceController;
 use App\Http\Controllers\Api\Financeiro\FinancialAccountController;
-use App\Http\Controllers\Api\Financeiro\JournalEntryController;
-use App\Http\Controllers\Api\Financeiro\AccountBalanceController;
-use App\Http\Controllers\Api\Financeiro\JournalEntryDescriptionController;
-use App\Http\Controllers\Api\Financeiro\JournalEntryAttachmentController;
-use App\Http\Controllers\Api\Financeiro\JournalEntryReceiptController;
 use App\Http\Controllers\Api\Financeiro\FinancialReconciliationController;
+use App\Http\Controllers\Api\Financeiro\JournalEntryAttachmentController;
+use App\Http\Controllers\Api\Financeiro\JournalEntryController;
+use App\Http\Controllers\Api\Financeiro\JournalEntryDescriptionController;
+use App\Http\Controllers\Api\Financeiro\JournalEntryReceiptController;
 use App\Http\Controllers\Api\Financeiro\PaymentScheduleController;
-use App\Http\Controllers\Api\CondominioController;
 use App\Http\Controllers\Api\ImovelController;
 use App\Http\Controllers\Api\PessoaController;
-use App\Http\Controllers\Api\Reports\ReportFinanceiroController;
 use App\Http\Controllers\Api\Reports\BankAccountStatementController;
+use App\Http\Controllers\Api\Reports\ReportBankLedgerController;
 use App\Http\Controllers\Api\Reports\ReportBankStatementController;
-use App\Http\Controllers\Api\Reports\ReportOperacionalController;
+use App\Http\Controllers\Api\Reports\ReportFinanceiroController;
 use App\Http\Controllers\Api\Reports\ReportGeneralAnalyticController;
+use App\Http\Controllers\Api\Reports\ReportOperacionalController;
 use App\Http\Controllers\Api\Reports\ReportPessoasController;
 use App\Http\Controllers\Webhooks\BradescoWebhookController;
 use Illuminate\Support\Facades\Route;
 
-// Rotas gerais da API (prefixo /api aplicado automaticamente pelo Laravel)
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('imoveis/generate-codigo', [ImovelController::class, 'generateCodigo'])->name('imoveis.generate-codigo');
     Route::get('imoveis/{imovel}/fotos/download', [ImovelController::class, 'downloadPhotos'])->name('imoveis.fotos.download');
-    Route::apiResource('imoveis', ImovelController::class)->parameters(['imoveis' => 'imovel']);
-    Route::apiResource('pessoas', PessoaController::class);
-    Route::apiResource('condominios', CondominioController::class);
+    Route::apiResource('imoveis', ImovelController::class)
+        ->parameters(['imoveis' => 'imovel'])
+        ->names([
+            'index'   => 'api.imoveis.index',
+            'store'   => 'api.imoveis.store',
+            'show'    => 'api.imoveis.show',
+            'update'  => 'api.imoveis.update',
+            'destroy' => 'api.imoveis.destroy',
+        ]);
+
+    Route::apiResource('pessoas', PessoaController::class)->names([
+        'index'   => 'api.pessoas.index',
+        'store'   => 'api.pessoas.store',
+        'show'    => 'api.pessoas.show',
+        'update'  => 'api.pessoas.update',
+        'destroy' => 'api.pessoas.destroy',
+    ]);
+
+    Route::apiResource('condominios', CondominioController::class)->names([
+        'index'   => 'api.condominios.index',
+        'store'   => 'api.condominios.store',
+        'show'    => 'api.condominios.show',
+        'update'  => 'api.condominios.update',
+        'destroy' => 'api.condominios.destroy',
+    ]);
+
     Route::get('contratos/generate-codigo', [ContratoController::class, 'generateCodigo'])->name('contratos.generate-codigo');
-    Route::apiResource('contratos', ContratoController::class);
+    Route::apiResource('contratos', ContratoController::class)->names([
+        'index'   => 'api.contratos.index',
+        'store'   => 'api.contratos.store',
+        'show'    => 'api.contratos.show',
+        'update'  => 'api.contratos.update',
+        'destroy' => 'api.contratos.destroy',
+    ]);
+
     Route::get('faturas/eligible-contracts', [FaturaController::class, 'eligibleContracts'])->name('faturas.eligible-contracts');
     Route::post('faturas/generate-month', [FaturaController::class, 'generateCurrentMonth'])->name('faturas.generate-month');
-    Route::apiResource('faturas', FaturaController::class);
+    Route::apiResource('faturas', FaturaController::class)->names([
+        'index'   => 'api.faturas.index',
+        'store'   => 'api.faturas.store',
+        'show'    => 'api.faturas.show',
+        'update'  => 'api.faturas.update',
+        'destroy' => 'api.faturas.destroy',
+    ]);
     Route::post('faturas/{fatura}/settle', [FaturaController::class, 'settle'])->name('faturas.settle');
     Route::post('faturas/{fatura}/cancel', [FaturaController::class, 'cancel'])->name('faturas.cancel');
     Route::post('faturas/{fatura}/email', [FaturaController::class, 'sendEmail'])->name('faturas.email');
@@ -65,8 +101,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::post('alerts/history/{dashboard_alert}/resolve', [AlertHistoryController::class, 'resolve'])->name('alerts.history.resolve');
     Route::post('dashboard/widgets', [DashboardWidgetPreferenceController::class, 'update'])->name('dashboard.widgets.update');
 
-    Route::get('auditoria', [AuditLogController::class, 'index'])->name('auditoria.index');
-    Route::get('auditoria/export', [AuditLogController::class, 'export'])->name('auditoria.export');
+    Route::get('auditoria', [AuditLogController::class, 'index'])->name('api.auditoria.index');
+    Route::get('auditoria/export', [AuditLogController::class, 'export'])->name('api.auditoria.export');
 
     Route::patch('financial-accounts/{account}/initial-balance', [FinancialAccountBalanceController::class, 'update'])->name('financial-accounts.initial-balance.update');
     Route::get('financeiro/account-balances', AccountBalanceController::class)->name('financeiro.account-balances');
@@ -76,8 +112,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('financeiro/export', [ReportFinanceiroController::class, 'export'])->name('financeiro.export');
         Route::get('bank-statements', [ReportBankStatementController::class, 'index'])->name('bank-statements.index');
         Route::get('bank-statements/export', [ReportBankStatementController::class, 'export'])->name('bank-statements.export');
-        Route::get('bank-ledger', [\App\Http\Controllers\Api\Reports\ReportBankLedgerController::class, 'index'])->name('bank-ledger.index');
-        Route::get('bank-ledger/export', [\App\Http\Controllers\Api\Reports\ReportBankLedgerController::class, 'export'])->name('bank-ledger.export');
+        Route::get('bank-ledger', [ReportBankLedgerController::class, 'index'])->name('bank-ledger.index');
+        Route::get('bank-ledger/export', [ReportBankLedgerController::class, 'export'])->name('bank-ledger.export');
         Route::get('general-analytic', [ReportGeneralAnalyticController::class, 'index'])->name('general-analytic.index');
         Route::get('general-analytic/export', [ReportGeneralAnalyticController::class, 'export'])->name('general-analytic.export');
         Route::get('bank-account-statement', [BankAccountStatementController::class, 'index'])->name('bank-account-statement.index');
@@ -87,7 +123,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('pessoas/export', [ReportPessoasController::class, 'export'])->name('pessoas.export');
     });
 
-    Route::prefix('admin')->as('admin.')->middleware('can:admin.access')->group(function () {
+    Route::prefix('admin')->as('api.admin.')->middleware('can:admin.access')->group(function () {
         Route::get('dashboard', AdminDashboardApiController::class)->name('dashboard');
         Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
@@ -99,31 +135,37 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('roles', [AdminRoleController::class, 'store'])->name('roles.store');
         Route::put('roles/{role}', [AdminRoleController::class, 'update'])->name('roles.update');
         Route::delete('roles/{role}', [AdminRoleController::class, 'destroy'])->name('roles.destroy');
-
         Route::get('permissions', AdminPermissionController::class)->name('permissions.index');
-    });
-
-    Route::prefix('imoveis/{imovel}/audit')->as('imoveis.audit.')->group(function () {
-        Route::get('/', [EntityAuditController::class, 'imovelTimeline'])->name('index');
-        Route::get('export', [EntityAuditController::class, 'imovelExport'])->name('export');
-    });
-
-    Route::prefix('contratos/{contrato}/audit')->as('contratos.audit.')->group(function () {
-        Route::get('/', [EntityAuditController::class, 'contratoTimeline'])->name('index');
-        Route::get('export', [EntityAuditController::class, 'contratoExport'])->name('export');
     });
 });
 
-// Rotas do módulo Financeiro sob /api/financeiro
 Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('financeiro')->as('financeiro.')->group(function () {
-    Route::apiResource('accounts', FinancialAccountController::class);
+    Route::apiResource('accounts', FinancialAccountController::class)->names([
+        'index'   => 'financeiro.accounts.index',
+        'store'   => 'financeiro.accounts.store',
+        'show'    => 'financeiro.accounts.show',
+        'update'  => 'financeiro.accounts.update',
+        'destroy' => 'financeiro.accounts.destroy',
+    ]);
 
     Route::get('cost-centers/tree', [CostCenterController::class, 'tree'])->name('cost-centers.tree');
     Route::get('cost-centers/export', [CostCenterController::class, 'export'])->name('cost-centers.export');
     Route::post('cost-centers/import', [CostCenterController::class, 'import'])->name('cost-centers.import');
-    Route::apiResource('cost-centers', CostCenterController::class);
+    Route::apiResource('cost-centers', CostCenterController::class)->names([
+        'index'   => 'financeiro.cost-centers.index',
+        'store'   => 'financeiro.cost-centers.store',
+        'show'    => 'financeiro.cost-centers.show',
+        'update'  => 'financeiro.cost-centers.update',
+        'destroy' => 'financeiro.cost-centers.destroy',
+    ]);
 
-    Route::apiResource('payment-schedules', PaymentScheduleController::class);
+    Route::apiResource('payment-schedules', PaymentScheduleController::class)->names([
+        'index'   => 'financeiro.payment-schedules.index',
+        'store'   => 'financeiro.payment-schedules.store',
+        'show'    => 'financeiro.payment-schedules.show',
+        'update'  => 'financeiro.payment-schedules.update',
+        'destroy' => 'financeiro.payment-schedules.destroy',
+    ]);
 
     Route::get('journal-entries/export', [JournalEntryController::class, 'export'])->name('journal-entries.export');
     Route::get('journal-entry-descriptions', JournalEntryDescriptionController::class)->name('journal-entry-descriptions.index');
@@ -137,7 +179,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('financeiro')->as('f
     Route::delete('journal-entries/{journal_entry}/attachments/{attachment}', [JournalEntryAttachmentController::class, 'destroy'])->name('journal-entries.attachments.destroy');
     Route::get('journal-entries/{journal_entry}/receipts', [JournalEntryReceiptController::class, 'index'])->name('journal-entries.receipts.index');
     Route::get('journal-entries/{journal_entry}/receipts/{receipt}/download', [JournalEntryReceiptController::class, 'download'])->name('journal-entries.receipts.download');
-    Route::apiResource('journal-entries', JournalEntryController::class);
+    Route::apiResource('journal-entries', JournalEntryController::class)->names([
+        'index'   => 'financeiro.journal-entries.index',
+        'store'   => 'financeiro.journal-entries.store',
+        'show'    => 'financeiro.journal-entries.show',
+        'update'  => 'financeiro.journal-entries.update',
+        'destroy' => 'financeiro.journal-entries.destroy',
+    ]);
 
     Route::get('bank-statements', [BankStatementController::class, 'index'])->name('bank-statements.index');
     Route::post('bank-statements', [BankStatementController::class, 'store'])->name('bank-statements.store');
@@ -148,7 +196,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('financeiro')->as('f
     Route::delete('bank-statements/{bank_statement}', [BankStatementController::class, 'destroy'])->name('bank-statements.destroy');
 
     Route::get('reconciliations/export', [FinancialReconciliationController::class, 'export'])->name('reconciliations.export');
-    Route::apiResource('reconciliations', FinancialReconciliationController::class)->only(['index', 'show', 'store', 'destroy']);
+    Route::apiResource('reconciliations', FinancialReconciliationController::class)
+        ->only(['index', 'show', 'store', 'destroy'])
+        ->names([
+            'index'   => 'financeiro.reconciliations.index',
+            'store'   => 'financeiro.reconciliations.store',
+            'show'    => 'financeiro.reconciliations.show',
+            'destroy' => 'financeiro.reconciliations.destroy',
+        ]);
 });
 
 Route::post('webhooks/bradesco', BradescoWebhookController::class)->name('webhooks.bradesco');
