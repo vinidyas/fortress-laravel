@@ -10,7 +10,6 @@ WORKDIR ${APP_DIR}
 
 COPY composer.json composer.lock ./
 RUN composer install \
-    --no-dev \
     --no-interaction \
     --prefer-dist \
     --no-progress \
@@ -18,7 +17,6 @@ RUN composer install \
 
 COPY . .
 RUN composer install \
-    --no-dev \
     --no-interaction \
     --prefer-dist \
     --no-progress \

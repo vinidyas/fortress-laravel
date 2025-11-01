@@ -39,6 +39,8 @@ class GenerateBradescoBoletoService
             ->first();
 
         if ($ultimoBoleto) {
+            $this->syncFaturaWithBoleto($fatura->refresh(), $ultimoBoleto);
+
             return $ultimoBoleto;
         }
 
@@ -68,6 +70,12 @@ class GenerateBradescoBoletoService
             'boleto_url' => $boleto->pdf_url ?? $fatura->boleto_url,
             'metodo_pagamento' => $fatura->metodo_pagamento ?: 'Boleto',
         ]);
+
+        if ($fatura->status === 'Cancelada') {
+            $fatura->status = 'Aberta';
+            $fatura->valor_pago = null;
+            $fatura->pago_em = null;
+        }
 
         $fatura->save();
     }

@@ -35,6 +35,12 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
             return;
         }
 
+        if ($this->usingSandboxFixtures()) {
+            $this->applySandboxWebhook($boleto);
+
+            return;
+        }
+
         DB::transaction(function () use ($gateway, $boleto) {
             $lockedBoleto = FaturaBoleto::query()
                 ->whereKey($boleto->id)
@@ -87,6 +93,7 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
                     }
                 });
             })
+            ->latest('id')
             ->first();
 
         if (! $boleto) {
@@ -100,6 +107,56 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
         }
 
         return $boleto;
+    }
+
+    private function applySandboxWebhook(FaturaBoleto $boleto): void
+    {
+        DB::transaction(function () use ($boleto) {
+            $locked = FaturaBoleto::query()
+                ->whereKey($boleto->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $locked) {
+                return;
+            }
+
+            $status = $this->resolveStatusFromPayload();
+            $valorPago = Arr::get($this->payload, 'valorPago');
+            $dataEvento = Arr::get($this->payload, 'dataPagamento') ?: Arr::get($this->payload, 'dataEvento');
+
+            $locked->fill([
+                'status' => $status ?? $locked->status,
+                'valor_pago' => $valorPago !== null ? (float) $valorPago : $locked->valor_pago,
+                'liquidado_em' => $dataEvento ? now()->parse($dataEvento) : $locked->liquidado_em,
+                'last_synced_at' => now(),
+            ]);
+
+            if ($status === FaturaBoleto::STATUS_PAID && ! $locked->pdf_url) {
+                $locked->pdf_url = config('services.bradesco_boleto.sandbox_pdf_url');
+            }
+
+            $locked->webhook_payload = $this->payload;
+            $locked->save();
+
+            $this->syncFaturaFromBoleto($locked);
+        });
+    }
+
+    private function usingSandboxFixtures(): bool
+    {
+        return config('services.bradesco_boleto.sandbox_use_fixtures', false) === true;
+    }
+
+    private function resolveStatusFromPayload(): ?string
+    {
+        $event = strtolower((string) Arr::get($this->payload, 'event', ''));
+
+        return match (true) {
+            str_contains($event, 'liquid') => FaturaBoleto::STATUS_PAID,
+            str_contains($event, 'cancel') => FaturaBoleto::STATUS_CANCELED,
+            default => null,
+        };
     }
 
     private function syncFaturaFromBoleto(FaturaBoleto $boleto): void

@@ -28,18 +28,26 @@ class BradescoApiClient
             ->json();
     }
 
-    public function getBoleto(array $payload): array
+    public function getBoleto(string|array $payload): array
     {
+        $body = is_array($payload) ? $payload : [
+            'nuTitulo' => (string) $payload,
+        ];
+
         return $this->request()
-            ->post('/boleto/cobranca-consulta/v1/consultar', $payload)
+            ->post('/boleto/cobranca-consulta/v1/consultar', $body)
             ->throw()
             ->json();
     }
 
-    public function cancelBoleto(array $payload): array
+    public function cancelBoleto(string|array $payload): array
     {
+        $body = is_array($payload) ? $payload : [
+            'nuTitulo' => (string) $payload,
+        ];
+
         return $this->request()
-            ->post('/boleto/cobranca-baixa/v1/baixar', $payload)
+            ->post('/boleto/cobranca-baixa/v1/baixar', $body)
             ->throw()
             ->json();
     }

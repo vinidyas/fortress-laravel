@@ -43,7 +43,7 @@ services:
       - fortress-app
     env_file:
       - .env
-    command: php artisan queue:work --queue=receipts,default --sleep=3 --tries=3 --memory=256
+    command: php artisan queue:work --queue=boletos,receipts,default --sleep=3 --tries=3 --memory=256
     volumes:
       - fortress_storage:/var/www/html/storage
     networks:

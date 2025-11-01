@@ -33,11 +33,24 @@ class BradescoBoletoGateway implements BoletoGateway
             'response' => $response,
         ]);
 
-        return DB::transaction(function () use ($fatura, $payload, $response) {
+        $externalId = $this->resolveExternalId($response);
+
+        return DB::transaction(function () use ($fatura, $payload, $response, $externalId) {
+            if ($externalId && $this->shouldApplySandboxFixtures()) {
+                $this->avoidSandboxExternalIdCollision($externalId, $fatura->id);
+            }
+
+            $nossoNumero = Arr::get($response, 'nossoNumero') ?? $externalId;
+            $pdfUrl = Arr::get($response, 'urlPdf');
+
+            if (! $pdfUrl && $this->isSandbox()) {
+                $pdfUrl = config('services.bradesco_boleto.sandbox_pdf_url');
+            }
+
             $boleto = $fatura->boletos()->create([
                 'bank_code' => BradescoApiClient::BANK_CODE,
-                'external_id' => Arr::get($response, 'id'),
-                'nosso_numero' => Arr::get($response, 'nossoNumero'),
+                'external_id' => $externalId,
+                'nosso_numero' => $nossoNumero,
                 'document_number' => Arr::get($response, 'numeroDocumento'),
                 'linha_digitavel' => Arr::get($response, 'linhaDigitavel'),
                 'codigo_barras' => Arr::get($response, 'codigoBarras'),
@@ -48,7 +61,7 @@ class BradescoBoletoGateway implements BoletoGateway
                     FaturaBoleto::STATUS_REGISTERED
                 ),
                 'registrado_em' => now(),
-                'pdf_url' => Arr::get($response, 'urlPdf'),
+                'pdf_url' => $pdfUrl,
                 'payload' => $payload,
                 'response_payload' => $response,
             ]);
@@ -163,6 +176,7 @@ class BradescoBoletoGateway implements BoletoGateway
         $tpVencimento = Arr::get($config, 'tipo_vencimento', '0');
         $indicadorMoeda = Arr::get($config, 'indicador_moeda', '1');
         $qtdeMoeda = Arr::get($config, 'quantidade_moeda', '00000000000000000');
+        $indicadorAceite = Arr::get($config, 'indicador_aceite_sacado', '2');
         $tpProtesto = Arr::get($config, 'tp_protesto', '0');
         $prazoProtesto = $this->formatInteger((int) Arr::get($config, 'prazo_protesto', 0), 2);
         $tipoDecurso = Arr::get($config, 'tipo_decurso', '0');
@@ -213,6 +227,7 @@ class BradescoBoletoGateway implements BoletoGateway
             'tipoDecursoPrazo' => $tipoDecurso,
             'tipoDiasDecursoProt' => $tipoDiasDecurso,
             'tipoPrazoDecursoTres' => $this->formatInteger((int) $tipoPrazoTres, 3),
+            'cindcdAceitSacdo' => Arr::get($contexto, 'indicador_aceite', $indicadorAceite),
             'tpProtestoAutomaticoNegativacao' => $tpProtesto,
             'prazoProtestoAutomaticoNegativacao' => $prazoProtesto,
             'codBancoDoProtesto' => Arr::get($contexto, 'protesto.banco', '000'),
@@ -241,6 +256,10 @@ class BradescoBoletoGateway implements BoletoGateway
 
         $payload = array_merge($payload, $this->buildSacadorAvalistaDefaults($contexto));
         $payload = array_merge($payload, $instructions);
+
+        if ($this->shouldApplySandboxFixtures()) {
+            $payload = array_replace_recursive($payload, $this->getSandboxOverrides());
+        }
 
         return array_filter($payload, fn ($value) => $value !== null);
     }
@@ -352,20 +371,76 @@ class BradescoBoletoGateway implements BoletoGateway
 
         $chunks = $lines->chunk(3);
 
-        $instructions = [];
+        $messages = [];
         foreach ($chunks as $index => $chunk) {
             if ($index >= 4) {
                 break;
             }
 
-            $instructions['listaMensagem_'.($index + 1).'_mensagem'] = Str::limit(
-                $chunk->implode(' | '),
-                70,
-                ''
-            );
+            $messages[] = [
+                'mensagem' => Str::limit(
+                    $chunk->implode(' | '),
+                    70,
+                    ''
+                ),
+            ];
         }
 
-        return $instructions;
+        return $messages === [] ? [] : ['listaMsgs' => $messages];
+    }
+
+    protected function shouldApplySandboxFixtures(): bool
+    {
+        return $this->isSandbox()
+            && (bool) config('services.bradesco_boleto.sandbox_use_fixtures', false);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function getSandboxOverrides(): array
+    {
+        $overrides = config('services.bradesco_boleto.sandbox_payload_overrides', []);
+
+        return is_array($overrides) ? $overrides : [];
+    }
+
+    protected function avoidSandboxExternalIdCollision(string $externalId, ?int $faturaId = null): void
+    {
+        FaturaBoleto::query()
+            ->where('bank_code', BradescoApiClient::BANK_CODE)
+            ->when($faturaId, fn ($query) => $query->where('fatura_id', $faturaId))
+            ->where('external_id', $externalId)
+            ->where('status', FaturaBoleto::STATUS_CANCELED)
+            ->get()
+            ->each(function (FaturaBoleto $duplicated) use ($externalId) {
+                if (Str::startsWith($duplicated->external_id, $externalId.'#')) {
+                    return;
+                }
+
+                $duplicated->external_id = sprintf('%s#%s', $externalId, $duplicated->id);
+                $duplicated->save();
+            });
+    }
+
+    protected function isSandbox(): bool
+    {
+        return Str::lower((string) config('services.bradesco_boleto.environment')) === 'sandbox';
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    protected function resolveExternalId(array $response): ?string
+    {
+        foreach (['id', 'nuTituloGerado', 'nuTitulo', 'nuTituloOriginal'] as $candidate) {
+            $value = Arr::get($response, $candidate);
+            if ($value !== null && $value !== '') {
+                return (string) $value;
+            }
+        }
+
+        return null;
     }
 
     protected function formatDecimal($value, int $precision = 2): string
