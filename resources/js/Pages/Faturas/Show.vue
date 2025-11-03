@@ -218,7 +218,7 @@ const headerSubtitle = computed(() => {
     return 'Cadastre uma nova fatura para um contrato existente.';
   }
 
-  const parts: string[] = ['Visão geral da Fortress Gestão Imobiliária'];
+  const parts: string[] = ['Visão geral da Fortress Empreendimentos'];
 
   if (fatura.value?.competencia) {
     const competence = new Date(fatura.value.competencia).toLocaleDateString('pt-BR', {

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AlertHistoryController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\CondominioController;
 use App\Http\Controllers\Api\ContratoController;
+use App\Http\Controllers\Api\ContratoReajusteController;
 use App\Http\Controllers\Api\DashboardWidgetPreferenceController;
 use App\Http\Controllers\Api\EntityAuditController;
 use App\Http\Controllers\Api\FaturaAttachmentController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Api\Financeiro\JournalEntryReceiptController;
 use App\Http\Controllers\Api\Financeiro\PaymentScheduleController;
 use App\Http\Controllers\Api\ImovelController;
 use App\Http\Controllers\Api\PessoaController;
+use App\Http\Controllers\Admin\PortalTenantUserController;
 use App\Http\Controllers\Api\Reports\BankAccountStatementController;
 use App\Http\Controllers\Api\Reports\ReportBankLedgerController;
 use App\Http\Controllers\Api\Reports\ReportBankStatementController;
@@ -74,6 +76,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         'update'  => 'api.contratos.update',
         'destroy' => 'api.contratos.destroy',
     ]);
+    Route::post('contratos/{contrato}/reajustes', [ContratoReajusteController::class, 'store'])->name('contratos.reajustes.store');
+    Route::get('contratos/{contrato}/audit', [EntityAuditController::class, 'contratoTimeline'])->name('contratos.audit.index');
+    Route::get('contratos/{contrato}/audit/export', [EntityAuditController::class, 'exportContratoTimeline'])->name('contratos.audit.export');
 
     Route::get('faturas/eligible-contracts', [FaturaController::class, 'eligibleContracts'])->name('faturas.eligible-contracts');
     Route::post('faturas/generate-month', [FaturaController::class, 'generateCurrentMonth'])->name('faturas.generate-month');
@@ -124,6 +129,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     });
 
     Route::prefix('admin')->as('api.admin.')->middleware('can:admin.access')->group(function () {
+        Route::post('portal/tenant-users', [PortalTenantUserController::class, 'store'])->name('portal.tenant-users.store');
+        Route::get('portal/locatarios', [PortalTenantUserController::class, 'index'])->name('portal.tenants.index');
         Route::get('dashboard', AdminDashboardApiController::class)->name('dashboard');
         Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');

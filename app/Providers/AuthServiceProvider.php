@@ -15,6 +15,7 @@ use App\Models\Imovel;
 use App\Models\PaymentSchedule;
 use App\Models\Pessoa;
 use App\Models\DashboardAlert;
+use App\Models\User;
 use App\Policies\AuditLogPolicy;
 use App\Policies\BankStatementPolicy;
 use App\Policies\ContratoPolicy;
@@ -59,5 +60,7 @@ class AuthServiceProvider extends ServiceProvider
         foreach ($this->policies as $model => $policy) {
             Gate::policy($model, $policy);
         }
+
+        Gate::define('admin.access', static fn (User $user): bool => $user->hasPermission('admin.access'));
     }
 }

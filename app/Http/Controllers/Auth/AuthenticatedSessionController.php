@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,6 +25,13 @@ class AuthenticatedSessionController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
+        $portalDomain = config('app.portal_domain');
+        $host = $request->getHost();
+
+        if ($portalDomain && $host === $portalDomain) {
+            return $this->handlePortalLogin($request);
+        }
+
         $credentials = $request->validated();
 
         if (! Auth::attempt(
@@ -35,14 +45,26 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Atualiza ultimo login
-        if (Auth::user()) {
-            Auth::user()->forceFill(['last_login_at' => now()])->save();
+        $user = Auth::user();
+
+        if ($user) {
+            $user->forceFill(['last_login_at' => now()])->save();
         }
 
-        $this->auditLogger->record('auth.login', Auth::user());
+        $this->auditLogger->record('auth.login', $user);
 
-        return redirect()->intended(route('dashboard'));
+        $redirectTo = route('dashboard');
+
+        if ($user && method_exists($user, 'hasTenantAccess') && $user->hasTenantAccess()) {
+            $hasAdminAccess = $user->can('admin.access');
+            if ($host === $portalDomain || ! $hasAdminAccess) {
+                if (Route::has('portal.dashboard')) {
+                    $redirectTo = route('portal.dashboard');
+                }
+            }
+        }
+
+        return redirect()->intended($redirectTo);
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -57,5 +79,41 @@ class AuthenticatedSessionController extends Controller
         $this->auditLogger->record('auth.logout', $user);
 
         return redirect()->route('login');
+    }
+
+    private function handlePortalLogin(LoginRequest $request): RedirectResponse
+    {
+        $credentials = $request->validated();
+        $email = strtolower($credentials['email'] ?? '');
+        $remember = $request->boolean('remember');
+
+        $user = User::query()
+            ->whereNotNull('email')
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->first();
+
+        if (! $user || ! $user->hasTenantAccess()) {
+            throw ValidationException::withMessages([
+                'email' => __('auth.failed'),
+            ]);
+        }
+
+        if (! Auth::attempt(['username' => $user->username, 'password' => $credentials['password']], $remember)) {
+            throw ValidationException::withMessages([
+                'email' => __('auth.failed'),
+            ]);
+        }
+
+        $request->session()->regenerate();
+
+        $user->forceFill(['last_login_at' => now()])->save();
+
+        $this->auditLogger->record('auth.login', $user);
+
+        $redirect = Route::has('portal.dashboard')
+            ? route('portal.dashboard')
+            : route('dashboard');
+
+        return redirect()->intended($redirect);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services\Banking\Bradesco;
 use App\Models\Fatura;
 use App\Models\FaturaBoleto;
 use App\Services\Boleto\BoletoGateway;
+use App\Services\Banking\Bradesco\Support\BradescoPayloadSanitizer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,9 @@ class BradescoBoletoGateway implements BoletoGateway
                 $pdfUrl = config('services.bradesco_boleto.sandbox_pdf_url');
             }
 
+            $sanitizedPayload = BradescoPayloadSanitizer::sanitize($payload);
+            $sanitizedResponse = BradescoPayloadSanitizer::sanitize($response);
+
             $boleto = $fatura->boletos()->create([
                 'bank_code' => BradescoApiClient::BANK_CODE,
                 'external_id' => $externalId,
@@ -62,8 +66,8 @@ class BradescoBoletoGateway implements BoletoGateway
                 ),
                 'registrado_em' => now(),
                 'pdf_url' => $pdfUrl,
-                'payload' => $payload,
-                'response_payload' => $response,
+                'payload' => $sanitizedPayload,
+                'response_payload' => $sanitizedResponse,
             ]);
 
             return $boleto;
@@ -86,13 +90,14 @@ class BradescoBoletoGateway implements BoletoGateway
         ]);
 
         $response = $this->client->getBoleto($boleto->external_id);
+        $sanitizedResponse = BradescoPayloadSanitizer::sanitize($response);
 
         $boleto->fill([
             'status' => $this->resolveInternalStatus(Arr::get($response, 'status'), $boleto->status),
             'linha_digitavel' => Arr::get($response, 'linhaDigitavel', $boleto->linha_digitavel),
             'codigo_barras' => Arr::get($response, 'codigoBarras', $boleto->codigo_barras),
             'pdf_url' => Arr::get($response, 'urlPdf', $boleto->pdf_url),
-            'response_payload' => $response,
+            'response_payload' => $sanitizedResponse,
             'last_synced_at' => now(),
         ]);
 
@@ -119,9 +124,10 @@ class BradescoBoletoGateway implements BoletoGateway
             return $boleto;
         }
 
-        $payload = [
+        $payload = array_filter([
+            'nuTitulo' => $boleto->external_id,
             'motivo' => Arr::get($contexto, 'motivo'),
-        ];
+        ], fn ($value) => $value !== null && $value !== '');
 
         $this->log('Cancelamento de boleto solicitado', [
             'fatura_boleto_id' => $boleto->id,
@@ -129,11 +135,12 @@ class BradescoBoletoGateway implements BoletoGateway
             'payload' => $payload,
         ]);
 
-        $response = $this->client->cancelBoleto($boleto->external_id, $payload);
+        $response = $this->client->cancelBoleto($payload);
+        $sanitizedResponse = BradescoPayloadSanitizer::sanitize($response);
 
         $boleto->update([
             'status' => FaturaBoleto::STATUS_CANCELED,
-            'response_payload' => $response,
+            'response_payload' => $sanitizedResponse,
         ]);
 
         $this->log('Cancelamento de boleto concluído', [
@@ -605,79 +612,6 @@ class BradescoBoletoGateway implements BoletoGateway
      */
     protected function sanitizePayload(array $payload): array
     {
-        if (isset($payload['pagador'])) {
-            $payload['pagador'] = $this->maskPagador($payload['pagador']);
-        }
-
-        foreach (['linhaDigitavel', 'linha_digitavel'] as $key) {
-            if (isset($payload[$key])) {
-                $payload[$key] = $this->maskLinhaDigitavel((string) $payload[$key]);
-            }
-        }
-
-        foreach (['codigoBarras', 'codigo_barras'] as $key) {
-            if (isset($payload[$key])) {
-                $payload[$key] = $this->maskCodigoBarras((string) $payload[$key]);
-            }
-        }
-
-        return $payload;
-    }
-
-    /**
-     * @param  array<string, mixed>  $pagador
-     * @return array<string, mixed>
-     */
-    protected function maskPagador(array $pagador): array
-    {
-        if (isset($pagador['documento'])) {
-            $pagador['documento'] = $this->maskDocumento((string) $pagador['documento']);
-        }
-
-        if (isset($pagador['nome'])) {
-            $pagador['nome'] = $this->maskNome((string) $pagador['nome']);
-        }
-
-        return $pagador;
-    }
-
-    protected function maskDocumento(string $documento): string
-    {
-        $digits = preg_replace('/\D+/', '', $documento) ?: '';
-
-        if ($digits === '' || strlen($digits) < 4) {
-            return str_repeat('*', max(strlen($documento) - 2, 0)) . substr($documento, -2);
-        }
-
-        return substr($digits, 0, 3) . str_repeat('*', strlen($digits) - 6) . substr($digits, -3);
-    }
-
-    protected function maskNome(string $nome): string
-    {
-        if (mb_strlen($nome) <= 2) {
-            return str_repeat('*', mb_strlen($nome));
-        }
-
-        return mb_substr($nome, 0, 1) . str_repeat('*', max(mb_strlen($nome) - 2, 1)) . mb_substr($nome, -1);
-    }
-
-    protected function maskLinhaDigitavel(string $linha): string
-    {
-        $digits = preg_replace('/\D+/', '', $linha) ?: '';
-
-        if ($digits === '') {
-            return '***';
-        }
-
-        if (strlen($digits) <= 5) {
-            return str_repeat('*', strlen($digits));
-        }
-
-        return substr($digits, 0, 4) . str_repeat('*', strlen($digits) - 8) . substr($digits, -4);
-    }
-
-    protected function maskCodigoBarras(string $codigo): string
-    {
-        return $this->maskLinhaDigitavel($codigo);
+        return BradescoPayloadSanitizer::sanitize($payload);
     }
 }

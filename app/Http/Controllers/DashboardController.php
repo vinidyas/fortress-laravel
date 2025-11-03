@@ -6,7 +6,6 @@ use App\Models\Contrato;
 use App\Models\Fatura;
 use App\Models\JournalEntry;
 use App\Models\Imovel;
-use App\Models\Pessoa;
 use App\Models\DashboardAlert;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -85,18 +84,39 @@ class DashboardController extends Controller
                 'alertKey' => sprintf('invoice:%d:%s', $fatura->id, optional($fatura->vencimento)?->toDateString()),
             ]);
 
-        $recentPeople = Pessoa::query()
-            ->orderByDesc('created_at')
+        $payablesTodayQuery = JournalEntry::query()
+            ->with(['costCenter'])
+            ->where('type', 'despesa')
+            ->whereIn('status', ['pendente', 'atrasado'])
+            ->whereDate('due_date', $now->toDateString());
+
+        $payablesTodaySummary = [
+            'count' => (clone $payablesTodayQuery)->count(),
+            'total' => (float) (clone $payablesTodayQuery)->sum('amount'),
+        ];
+
+        $payablesToday = (clone $payablesTodayQuery)
+            ->orderBy('due_date')
+            ->orderBy('movement_date')
+            ->orderBy('id')
             ->limit(5)
             ->get()
-            ->map(fn (Pessoa $pessoa) => [
-                'id' => $pessoa->id,
-                'name' => $pessoa->nome_razao_social,
-                'document' => $pessoa->cpf_cnpj,
-                'type' => $pessoa->tipo_pessoa,
-                'roles' => $pessoa->papeis ?? [],
-                'createdAt' => optional($pessoa->created_at)?->toDateTimeString(),
-            ]);
+            ->map(function (JournalEntry $entry) {
+                $description = $entry->description_custom
+                    ?? $entry->description?->texto
+                    ?? $entry->notes
+                    ?? sprintf('Lançamento %d', $entry->id);
+
+                return [
+                    'id' => $entry->id,
+                    'description' => $description,
+                    'amount' => (float) $entry->amount,
+                    'dueDate' => optional($entry->due_date)?->toDateString(),
+                    'status' => $entry->status,
+                    'costCenter' => $entry->costCenter?->nome,
+                    'link' => route('financeiro.entries.edit', $entry->id),
+                ];
+            });
 
         $readAlerts = $request->user()
             ? $request->user()->dismissedAlerts()->pluck('alert_key')->all()
@@ -104,7 +124,7 @@ class DashboardController extends Controller
 
         $alerts = $this->buildAlerts($now, $expiringContracts, $openInvoices, $readAlerts);
 
-        $widgets = $this->buildWidgets($request->user(), $metrics, $expiringContracts, $openInvoices, $recentPeople);
+        $widgets = $this->buildWidgets($request->user());
 
         return Inertia::render('Dashboard', [
             'metrics' => $metrics,
@@ -112,7 +132,8 @@ class DashboardController extends Controller
             'delinquency' => $delinquency,
             'expiringContracts' => $expiringContracts,
             'openInvoices' => $openInvoices,
-            'recentPeople' => $recentPeople,
+            'payablesToday' => $payablesToday,
+            'payablesTodaySummary' => $payablesTodaySummary,
             'alerts' => $alerts,
             'widgets' => $widgets,
         ]);
@@ -120,11 +141,11 @@ class DashboardController extends Controller
 
     public const WIDGET_DEFINITIONS = [
         'metrics' => 'Indicadores gerais',
-        'financial_overview' => 'Painel financeiro',
-        'bank_balances' => 'Saldos bancários',
+        'financial_overview' => 'Faturamento x recebimentos',
+        'delinquency' => 'Inadimplência',
+        'payables_today' => 'Contas a pagar (hoje)',
         'expiring_contracts' => 'Contratos a vencer',
         'open_invoices' => 'Faturas em aberto',
-        'recent_people' => 'Pessoas recentes',
     ];
 
     /**
@@ -290,36 +311,57 @@ class DashboardController extends Controller
                 $key => [
                     'key' => $key,
                     'label' => $label,
-                    'credit' => 0.0,
-                    'debit' => 0.0,
+                    'billed' => 0.0,
+                    'received' => 0.0,
                 ],
             ];
         })->toArray();
 
-        $entries = JournalEntry::query()
-            ->whereBetween('movement_date', [$start->toDateString(), $end->toDateString()])
-            ->where('status', 'pago')
-            ->whereIn('type', ['receita', 'despesa'])
-            ->get(['movement_date', 'type', 'amount']);
+        $issuedFaturas = Fatura::query()
+            ->select(['competencia', 'created_at', 'valor_total'])
+            ->where(function ($query) use ($start, $end): void {
+                $query->whereBetween('competencia', [$start->toDateString(), $end->toDateString()])
+                    ->orWhere(function ($inner) use ($start, $end): void {
+                        $inner->whereNull('competencia')
+                            ->whereBetween('created_at', [$start, $end]);
+                    });
+            })
+            ->get();
 
-        foreach ($entries as $entry) {
-            if (! $entry->movement_date) {
+        foreach ($issuedFaturas as $fatura) {
+            $issueDate = $fatura->competencia ?? $fatura->created_at;
+            if (! $issueDate instanceof Carbon) {
                 continue;
             }
 
-            $bucket = $entry->movement_date->startOfMonth()->format('Y-m');
+            $bucket = $issueDate->copy()->startOfMonth()->format('Y-m');
 
             if (! array_key_exists($bucket, $trend)) {
                 continue;
             }
 
-            $amount = (float) $entry->amount;
+            $trend[$bucket]['billed'] += (float) $fatura->valor_total;
+        }
 
-            if ($entry->type === 'receita') {
-                $trend[$bucket]['credit'] += $amount;
-            } elseif ($entry->type === 'despesa') {
-                $trend[$bucket]['debit'] += $amount;
+        $paidFaturas = Fatura::query()
+            ->select(['pago_em', 'valor_pago', 'valor_total'])
+            ->where('status', 'Paga')
+            ->whereBetween('pago_em', [$start->toDateString(), $end->toDateString()])
+            ->get();
+
+        foreach ($paidFaturas as $fatura) {
+            if (! $fatura->pago_em instanceof Carbon) {
+                continue;
             }
+
+            $bucket = $fatura->pago_em->copy()->startOfMonth()->format('Y-m');
+
+            if (! array_key_exists($bucket, $trend)) {
+                continue;
+            }
+
+            $amount = (float) ($fatura->valor_pago ?? $fatura->valor_total ?? 0);
+            $trend[$bucket]['received'] += $amount;
         }
 
         return array_values($trend);
@@ -339,7 +381,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function buildWidgets($user, array $metrics, $expiringContracts, $openInvoices, $recentPeople): array
+    private function buildWidgets($user): array
     {
         $definitions = collect(self::WIDGET_DEFINITIONS)->map(fn ($label, $key) => [
             'key' => $key,

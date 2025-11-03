@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { lookupCep, normalizeCep } from '@/utils/cep';
@@ -29,6 +29,9 @@ const isEditing = computed(() => Boolean(props.pessoaId));
 const loading = ref(false);
 const saving = ref(false);
 const errorMessage = ref('');
+const inviteMessage = ref('');
+const inviteError = ref('');
+const inviting = ref(false);
 
 const normalizePapeis = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -66,6 +69,13 @@ const form = reactive<PessoaForm>({
   complemento: '',
 });
 const cepLoading = ref(false);
+
+const requiresBoletoData = computed(() => form.papeis.includes('Locatario'));
+const page = usePage();
+const canInvitePortalAccess = computed(() => {
+  const abilities = (page.props?.auth as any)?.abilities ?? [];
+  return abilities.includes('admin.access') && isEditing.value && form.papeis.includes('Locatario');
+});
 
 async function loadPessoa() {
   if (!props.pessoaId) {
@@ -140,6 +150,31 @@ onMounted(() => {
   }
 });
 
+async function invitePortalAccess() {
+  if (!props.pessoaId) return;
+
+  inviteMessage.value = '';
+  inviteError.value = '';
+  inviting.value = true;
+
+  try {
+    await axios.post('/api/admin/portal/tenant-users', {
+      pessoa_id: props.pessoaId,
+      email: form.email || page.props?.auth?.user?.email,
+    });
+
+    inviteMessage.value = 'Convite enviado. O locatário receberá um e-mail para acessar o portal.';
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.message ||
+      error?.response?.data?.errors?.email?.[0] ||
+      'Não foi possível enviar o convite.';
+    inviteError.value = message;
+  } finally {
+    inviting.value = false;
+  }
+}
+
 async function fetchCep() {
   cepLoading.value = true;
   errorMessage.value = '';
@@ -170,13 +205,29 @@ async function fetchCep() {
 
 <template>
   <AuthenticatedLayout :title="isEditing ? 'Editar pessoa' : 'Nova pessoa'">
-    <div class="mb-6 flex items-center justify-between">
-      <h2 class="text-2xl font-semibold text-slate-900">
-        {{ isEditing ? 'Editar pessoa' : 'Nova pessoa' }}
-      </h2>
-      <Link class="text-sm font-semibold text-indigo-600 hover:text-indigo-500" href="/pessoas"
-        >Voltar</Link
-      >
+    <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-slate-900">
+          {{ isEditing ? 'Editar pessoa' : 'Nova pessoa' }}
+        </h2>
+        <p v-if="canInvitePortalAccess" class="text-xs text-slate-500">
+          Locatários precisam de acesso ao portal para emitir 2ª via e acompanhar pagamentos.
+        </p>
+      </div>
+      <div class="flex flex-col items-end gap-2 sm:flex-row">
+        <button
+          v-if="canInvitePortalAccess"
+          type="button"
+          class="inline-flex items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:border-slate-400 disabled:bg-slate-400/60 disabled:text-slate-200"
+          :disabled="inviting"
+          @click.prevent="invitePortalAccess"
+        >
+          {{ inviting ? 'Enviando...' : 'Convidar para portal' }}
+        </button>
+        <Link class="text-sm font-semibold text-indigo-600 hover:text-indigo-500" href="/pessoas"
+          >Voltar</Link
+        >
+      </div>
     </div>
 
     <div
@@ -184,6 +235,18 @@ async function fetchCep() {
       class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
     >
       {{ errorMessage }}
+    </div>
+    <div
+      v-if="inviteMessage"
+      class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+    >
+      {{ inviteMessage }}
+    </div>
+    <div
+      v-if="inviteError"
+      class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+    >
+      {{ inviteError }}
     </div>
 
     <form @submit.prevent="submit" class="grid gap-6 md:grid-cols-2">
@@ -213,6 +276,8 @@ async function fetchCep() {
           <input
             v-model="form.cpf_cnpj"
             type="text"
+            :required="requiresBoletoData"
+            maxlength="14"
             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
             placeholder="Somente numeros"
           />
@@ -225,6 +290,7 @@ async function fetchCep() {
           <input
             v-model="form.email"
             type="email"
+            :required="requiresBoletoData"
             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
           />
         </div>
@@ -233,7 +299,10 @@ async function fetchCep() {
           <input
             v-model="form.telefone"
             type="text"
+            :required="requiresBoletoData"
+            maxlength="15"
             class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            placeholder="(DDD) 99999-9999"
           />
         </div>
         <div>
@@ -242,6 +311,8 @@ async function fetchCep() {
             <input
               v-model="form.cep"
               type="text"
+              :required="requiresBoletoData"
+              maxlength="8"
               class="w-full rounded-md border border-slate-300 px-3 py-2"
               placeholder="Somente números"
             />
@@ -253,25 +324,25 @@ async function fetchCep() {
         <div class="grid gap-4 md:grid-cols-3">
           <div>
             <label class="block text-sm font-medium text-slate-700">Estado</label>
-            <input v-model="form.estado" type="text" maxlength="2" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 uppercase" />
+            <input v-model="form.estado" type="text" maxlength="2" :required="requiresBoletoData" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 uppercase" />
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Cidade</label>
-            <input v-model="form.cidade" type="text" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input v-model="form.cidade" type="text" :required="requiresBoletoData" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Bairro</label>
-            <input v-model="form.bairro" type="text" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input v-model="form.bairro" type="text" :required="requiresBoletoData" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </div>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-slate-700">Rua</label>
-            <input v-model="form.rua" type="text" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input v-model="form.rua" type="text" :required="requiresBoletoData" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Número</label>
-            <input v-model="form.numero" type="text" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input v-model="form.numero" type="text" :required="requiresBoletoData" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </div>
         </div>
         <div>
@@ -296,6 +367,9 @@ async function fetchCep() {
               {{ option.label }}
             </label>
           </div>
+          <p v-if="requiresBoletoData" class="mt-2 text-xs text-amber-600">
+            Campos de documento, contato e endereço são obrigatórios para locatários por exigência bancária.
+          </p>
         </div>
       </section>
 

@@ -183,6 +183,7 @@ const navItems = computed<NavItem[]>(() => {
         { key: 'admin-dashboard', label: 'Painel', href: r('admin.dashboard', undefined, '/admin'), ability: 'admin.access' },
         { key: 'admin-users', label: 'Usuários', href: r('admin.users.index', undefined, '/admin/usuarios'), ability: 'admin.access' },
         { key: 'admin-roles', label: 'Papéis & Permissões', href: r('admin.roles.index', undefined, '/admin/roles'), ability: 'admin.access' },
+        { key: 'admin-portal-tenants', label: 'Locatários do portal', href: r('admin.portal.tenants', undefined, '/admin/portal/locatarios'), ability: 'admin.access' },
       ],
     },
     {
@@ -393,10 +394,13 @@ const submitLogout = () => {
       <div class="flex h-full flex-col">
         <div class="mb-4 flex items-center justify-between">
           <Link href="/" class="inline-flex items-center gap-3">
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">FG</div>
+            <img
+              src="/logo-square.png"
+              alt="Fortress Empreendimentos"
+              class="h-9 w-9 rounded-lg object-cover shadow-lg shadow-indigo-900/40"
+            />
             <div v-if="!isCollapsed" class="transition-opacity">
-              <h2 class="text-lg font-semibold text-white">Fortress</h2>
-              <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Gestão Imobiliária</p>
+              <h2 class="text-lg font-semibold text-white">Fortress Empreendimentos</h2>
             </div>
           </Link>
 
@@ -560,7 +564,7 @@ const submitLogout = () => {
         <div class="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-10 overflow-visible">
           <div>
             <h1 class="text-xl font-semibold text-white">{{ props.title }}</h1>
-            <p class="text-sm text-slate-400">Visão geral do Fortress Gestão Imobiliária</p>
+            <p class="text-sm text-slate-400">Visão geral da Fortress Empreendimentos</p>
           </div>
           <div class="flex items-center gap-3">
             <slot name="header-actions" />

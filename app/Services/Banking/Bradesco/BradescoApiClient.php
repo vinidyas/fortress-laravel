@@ -7,6 +7,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class BradescoApiClient
@@ -30,9 +31,7 @@ class BradescoApiClient
 
     public function getBoleto(string|array $payload): array
     {
-        $body = is_array($payload) ? $payload : [
-            'nuTitulo' => (string) $payload,
-        ];
+        $body = $this->buildConsultaPayload($payload);
 
         return $this->request()
             ->post('/boleto/cobranca-consulta/v1/consultar', $body)
@@ -82,14 +81,18 @@ class BradescoApiClient
 
     protected function resolveConfig(): BankApiConfig
     {
-        $config = BankApiConfig::active()
+        $targetEnvironment = config('services.bradesco_boleto.environment', 'sandbox');
+
+        $query = BankApiConfig::query()
             ->where('bank_code', self::BANK_CODE)
-            ->first();
+            ->where('environment', $targetEnvironment);
+
+        $config = (clone $query)->where('active', true)->first() ?? $query->first();
 
         if (! $config) {
             $config = new BankApiConfig([
                 'bank_code' => self::BANK_CODE,
-                'environment' => config('services.bradesco_boleto.environment', 'sandbox'),
+                'environment' => $targetEnvironment,
                 'client_id' => config('services.bradesco_boleto.client_id'),
                 'client_secret' => config('services.bradesco_boleto.client_secret'),
                 'certificate_path' => config('services.bradesco_boleto.cert_path'),
@@ -169,5 +172,39 @@ class BradescoApiClient
             'bank_api_config_id' => $this->config->id,
             'expires_in' => $expiresIn,
         ]);
+    }
+
+    /**
+     * @param  string|array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function buildConsultaPayload(string|array $payload): array
+    {
+        $services = config('services.bradesco_boleto', []);
+        $requested = is_array($payload) ? $payload : [
+            'nossoNumero' => (string) $payload,
+        ];
+
+        if (! isset($requested['nossoNumero']) && isset($requested['nuTitulo'])) {
+            $requested['nossoNumero'] = (string) $requested['nuTitulo'];
+        }
+
+        $defaults = [
+            'sequencia' => Arr::get($requested, 'sequencia', '0'),
+            'produto' => Arr::get($services, 'id_produto'),
+            'negociacao' => Arr::get($services, 'negociacao'),
+            'nossoNumero' => Arr::get($requested, 'nossoNumero'),
+            'cpfCnpj' => [
+                'cpfCnpj' => Str::padLeft((string) Arr::get($services, 'cnpj_raiz', ''), 8, '0'),
+                'filial' => Str::padLeft((string) Arr::get($services, 'cnpj_filial', ''), 4, '0'),
+                'controle' => Str::padLeft((string) Arr::get($services, 'cnpj_controle', ''), 2, '0'),
+            ],
+        ];
+
+        if (isset($requested['cpfCnpj']) && is_array($requested['cpfCnpj'])) {
+            $defaults['cpfCnpj'] = array_replace($defaults['cpfCnpj'], $requested['cpfCnpj']);
+        }
+
+        return array_replace($defaults, Arr::except($requested, ['cpfCnpj']));
     }
 }

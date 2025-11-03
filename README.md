@@ -55,6 +55,7 @@ Scripts úteis:
 | `npm run format`    | Verifica formatação via Prettier                 |
 | `npm run build`     | Build de produção (Vite)                         |
 | `npm run check`     | Type‑check + ESLint + testes + build + Prettier  |
+| `php artisan pessoas:check-locatario-boleto-data [--json]` | Lista locatários com dados obrigatórios ausentes/invalidos para emissão de boleto |
 
 ## Como rodar em outro computador
 

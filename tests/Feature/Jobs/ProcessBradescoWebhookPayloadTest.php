@@ -163,4 +163,32 @@ class ProcessBradescoWebhookPayloadTest extends TestCase
         Event::assertDispatchedTimes(BoletoCanceled::class, 1);
         Event::assertNotDispatched(BoletoPaid::class);
     }
+
+    public function testItIgnoresBoletosFromOtherBanks(): void
+    {
+        $boleto = FaturaBoleto::query()->create([
+            'fatura_id' => Fatura::factory()->create()->id,
+            'bank_code' => 'itau',
+            'external_id' => 'ext-555',
+            'valor' => 100.00,
+            'vencimento' => now()->addDays(3)->toDateString(),
+            'status' => FaturaBoleto::STATUS_REGISTERED,
+        ]);
+
+        $payload = [
+            'externalId' => $boleto->external_id,
+            'nossoNumero' => '00000000000',
+        ];
+
+        $gateway = Mockery::mock(BradescoBoletoGateway::class);
+        $gateway->shouldNotReceive('refreshStatus');
+
+        $job = new ProcessBradescoWebhookPayload($payload);
+        $job->handle($gateway);
+
+        $this->assertDatabaseHas('fatura_boletos', [
+            'id' => $boleto->id,
+            'status' => FaturaBoleto::STATUS_REGISTERED,
+        ]);
+    }
 }

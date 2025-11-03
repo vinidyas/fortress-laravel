@@ -32,4 +32,4 @@
         </div>
     </body>
 </html>
-<?php /**PATH /home/vinidyas/Projetos/fortress-laravel/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/views/minimal.blade.php ENDPATH**/ ?>
+<?php /**PATH /root/docker/fortress/fortress-laravel/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/views/minimal.blade.php ENDPATH**/ ?>

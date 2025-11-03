@@ -33,6 +33,7 @@
 - Em desenvolvimento local, defina `BRADESCO_USE_FAKE=true` (já configurado em `.env.example`).
 - O `FakeBradescoApiClient` guarda registros em memória, emite IDs incrementais e simula retorno de cancelamento/pagamento.
 - Para testes, é possível combinar com `Http::fake()` caso seja necessário validar serialização dos payloads antes da documentação oficial.
+- Para converter dados históricos, execute `php artisan bradesco:sanitize-boleto-payloads` após deploys que envolvam ajustes de mascaramento (use `--dry-run` para validar antes).
 
 ### Payloads esperados (provisórios)
 
@@ -74,6 +75,16 @@
 - Todos os eventos relevantes são registrados em `storage/logs/bradesco.log` com dados sensíveis mascarados.
 - As tabelas `fatura_boletos` e `audit_logs` (quando configurado) guardam o histórico completo das alterações dos boletos.
 - Os webhooks ficam em `/api/webhooks/bradesco` e exigem o header `X-Webhook-Token` (mesmo valor de `BRADESCO_WEBHOOK_SECRET`).
+- Sempre que o formato de mascaramento for ajustado, rode `php artisan bradesco:sanitize-boleto-payloads` para higienizar boletos já existentes no banco.
+- Caso seja necessário armazenar payloads completos para auditoria, avaliar uso de criptografia em repouso (por exemplo via casts encriptados ou coluna separada com `Crypt::encrypt`).
+
+## Preparação para Produção
+
+- **Certificados e chaves mTLS**: provisionar os arquivos `.cer` e `.key` no servidor aplicando permissões restritivas e atualizar as variáveis `BRADESCO_TLS_CERT_PATH`, `BRADESCO_TLS_KEY_PATH` e `BRADESCO_TLS_KEY_PASS`. Ideal manter o material sensível fora do repositório, usando secret manager ou volume dedicado.
+- **Workers dedicados**: garantir `queue:work` com a fila `boletos` separada (vide serviço `fortress-queue` no `docker-compose`) e monitorar consumo/latência via Horizon ou stack equivalente.
+- **Alertas operacionais**: configurar monitoramento para falhas de token (`bradesco.log`), exceções de webhook (status != 200) e para o job `sync-pending-bradesco-boletos`. Integrar esses alertas ao Slack/Observability do time financeiro.
+- **Fluxo fim a fim no sandbox**: antes do go-live, executar o roteiro emissão ➝ recebimento do webhook ➝ sincronização via job (`php artisan bradesco:create-dummy-invoice` ajuda a montar o cenário). Validar que o webhook atualiza fatura/transactions e que não restam boletos pendentes após o `sync`.
+- **Checklist pós-deploy**: rodar `php artisan bradesco:sanitize-boleto-payloads --dry-run` para monitorar dados legados, validar conectividade com o endpoint de token (`php artisan bradesco:test-auth`) e garantir que o webhook (`/api/webhooks/bradesco`) está acessível apenas para o Bradesco via rede e token.
 
 ## Próximos passos (aguardando doc oficial)
 

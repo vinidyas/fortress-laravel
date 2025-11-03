@@ -34,8 +34,10 @@ class PessoaStoreRequest extends FormRequest
     public function rules(): array
     {
         $tipoPessoa = $this->input('tipo_pessoa');
+        $papeis = $this->input('papeis', []);
+        $requiresBoletoData = is_array($papeis) && in_array('Locatario', $papeis, true);
 
-        $cpfRules = ['nullable', 'string'];
+        $cpfRules = $requiresBoletoData ? ['required', 'string'] : ['nullable', 'string'];
         if ($tipoPessoa === 'Fisica') {
             $cpfRules[] = 'size:11';
             $cpfRules[] = function (string $attribute, $value, callable $fail) {
@@ -53,21 +55,42 @@ class PessoaStoreRequest extends FormRequest
         }
         $cpfRules[] = Rule::unique('pessoas', 'cpf_cnpj');
 
+        $telefoneRules = $requiresBoletoData
+            ? ['required', 'string', 'max:30', $this->telefoneRule()]
+            : ['nullable', 'string', 'max:30', $this->telefoneRule(true)];
+
+        $cepRules = $requiresBoletoData ? ['required', 'string', 'size:8'] : ['nullable', 'string', 'max:20'];
+        $estadoRules = $requiresBoletoData ? ['required', 'string', 'size:2'] : ['nullable', 'string', 'size:2'];
+        $cidadeRules = $requiresBoletoData ? ['required', 'string', 'max:120'] : ['nullable', 'string', 'max:120'];
+        $bairroRules = $requiresBoletoData ? ['required', 'string', 'max:120'] : ['nullable', 'string', 'max:120'];
+        $ruaRules = $requiresBoletoData ? ['required', 'string', 'max:150'] : ['nullable', 'string', 'max:150'];
+        $numeroRules = $requiresBoletoData ? ['required', 'string', 'max:20'] : ['nullable', 'string', 'max:20'];
+        $emailRules = $requiresBoletoData ? ['required', 'string', 'max:150', 'email'] : ['nullable', 'string', 'max:150', 'email'];
+
         return [
             'nome_razao_social' => ['required', 'string', 'max:255'],
             'tipo_pessoa' => ['required', Rule::in(['Fisica', 'Juridica'])],
             'cpf_cnpj' => $cpfRules,
-            'email' => ['nullable', 'string', 'max:150', 'email'],
-            'telefone' => ['nullable', 'string', 'max:30'],
-            'cep' => ['nullable', 'string', 'max:20'],
-            'estado' => ['nullable', 'string', 'size:2'],
-            'cidade' => ['nullable', 'string', 'max:120'],
-            'bairro' => ['nullable', 'string', 'max:120'],
-            'rua' => ['nullable', 'string', 'max:150'],
-            'numero' => ['nullable', 'string', 'max:20'],
+            'email' => $emailRules,
+            'telefone' => $telefoneRules,
+            'cep' => $cepRules,
+            'estado' => $estadoRules,
+            'cidade' => $cidadeRules,
+            'bairro' => $bairroRules,
+            'rua' => $ruaRules,
+            'numero' => $numeroRules,
             'complemento' => ['nullable', 'string', 'max:150'],
             'papeis' => ['nullable', 'array'],
             'papeis.*' => [Rule::in(self::PAPEIS_PERMITIDOS)],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'cpf_cnpj.size' => 'Informe 11 dígitos para CPF ou 14 dígitos para CNPJ.',
+            'cep.size' => 'Informe um CEP com 8 dígitos.',
+            'estado.size' => 'Informe a sigla do estado com 2 letras (ex.: SP).',
         ];
     }
 
@@ -75,10 +98,16 @@ class PessoaStoreRequest extends FormRequest
     {
         $normalizedCpf = $this->normalizeCpfCnpj($this->input('cpf_cnpj'));
         $normalizedPapeis = $this->normalizePapeis($this->input('papeis'));
+        $normalizedCep = $this->digits($this->input('cep'));
+        $normalizedTelefone = $this->digits($this->input('telefone'));
+        $normalizedEstado = $this->normalizeEstado($this->input('estado'));
 
         $this->merge([
             'cpf_cnpj' => $normalizedCpf,
             'papeis' => $normalizedPapeis,
+            'cep' => $normalizedCep,
+            'telefone' => $normalizedTelefone,
+            'estado' => $normalizedEstado,
         ]);
     }
 
@@ -88,36 +117,79 @@ class PessoaStoreRequest extends FormRequest
             return null;
         }
 
-        $digits = preg_replace('/\D+/', '', (string) $value);
+        $digits = $this->digits($value);
 
         return $digits === '' ? null : $digits;
     }
 
     private function normalizePapeis(mixed $value): array
     {
-        $papeis = [];
+        $rawItems = [];
 
-        if (is_string($value)) {
-            $papeis = array_map('trim', explode(',', $value));
-        } elseif (is_array($value)) {
-            $papeis = array_map(function ($item) {
-                return is_string($item) ? trim($item) : $item;
-            }, $value);
+        if (is_array($value)) {
+            $rawItems = $value;
+        } elseif (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '') {
+                return [];
+            }
+
+            $decoded = json_decode($trimmed, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $rawItems = $decoded;
+            } else {
+                $rawItems = explode(',', $trimmed);
+            }
+        } elseif ($value === null) {
+            return [];
+        } else {
+            $rawItems = [(string) $value];
         }
 
-        $papeis = array_filter($papeis, fn ($item) => is_string($item) && $item !== '');
-        $papeis = array_unique(array_map(function ($item) {
-            $normalized = ucfirst(mb_strtolower($item));
+        $normalized = [];
+        foreach ($rawItems as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
 
-            return self::PAPEIS_ALIASES[$normalized] ?? $normalized;
-        }, $papeis));
+            $candidate = trim($item, " \t\n\r\0\x0B\"'");
+            if ($candidate === '') {
+                continue;
+            }
 
-        return array_values(array_intersect($papeis, self::PAPEIS_PERMITIDOS));
+            $normalized[] = $this->normalizePapelString($candidate);
+        }
+
+        $normalized = array_filter($normalized);
+        $normalized = array_unique($normalized);
+
+        return array_values(array_intersect($normalized, self::PAPEIS_PERMITIDOS));
+    }
+
+    private function normalizePapelString(string $papel): string
+    {
+        $normalized = ucfirst(mb_strtolower($papel));
+
+        return self::PAPEIS_ALIASES[$normalized] ?? $normalized;
+    }
+
+    private function telefoneRule(bool $nullable = false): \Closure
+    {
+        return function (string $attribute, $value, callable $fail) use ($nullable) {
+            if ($nullable && ($value === null || $value === '')) {
+                return;
+            }
+
+            $digits = $this->digits($value);
+            if (strlen($digits) < 10 || strlen($digits) > 11) {
+                $fail('Informe um telefone com DDD contendo 10 ou 11 dígitos.');
+            }
+        };
     }
 
     private function isValidCpf(string $digits): bool
     {
-        $cpf = preg_replace('/\D+/', '', $digits) ?? '';
+        $cpf = $this->digits($digits);
         if (strlen($cpf) !== 11) {
             return false;
         }
@@ -149,7 +221,7 @@ class PessoaStoreRequest extends FormRequest
 
     private function isValidCnpj(string $digits): bool
     {
-        $cnpj = preg_replace('/\D+/', '', $digits) ?? '';
+        $cnpj = $this->digits($digits);
         if (strlen($cnpj) !== 14) {
             return false;
         }
@@ -175,5 +247,21 @@ class PessoaStoreRequest extends FormRequest
         $dv2 = $calcDv(substr($cnpj, 0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
 
         return $dv2 === (int) $cnpj[13];
+    }
+
+    private function digits(mixed $value): string
+    {
+        return preg_replace('/\D+/', '', (string) $value) ?? '';
+    }
+
+    private function normalizeEstado(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : strtoupper(substr($trimmed, 0, 2));
     }
 }

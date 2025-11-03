@@ -1,11 +1,14 @@
 <?php
+
 namespace App\Jobs\Bradesco;
 
 use App\Events\Boleto\BoletoCanceled;
 use App\Events\Boleto\BoletoPaid;
 use App\Models\Fatura;
 use App\Models\FaturaBoleto;
+use App\Services\Banking\Bradesco\BradescoApiClient;
 use App\Services\Banking\Bradesco\BradescoBoletoGateway;
+use App\Services\Banking\Bradesco\Support\BradescoPayloadSanitizer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Arr;
@@ -50,13 +53,13 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
             if (! $lockedBoleto) {
                 Log::warning('[Bradesco] Boleto não encontrado durante atualização transacional', [
                     'fatura_boleto_id' => $boleto->id,
-                    'payload' => $this->payload,
+                    'payload' => $this->sanitizedPayload(),
                 ]);
 
                 return;
             }
 
-            $lockedBoleto->webhook_payload = $this->payload;
+            $lockedBoleto->webhook_payload = $this->sanitizedPayload();
             $lockedBoleto->save();
 
             $synced = $gateway->refreshStatus($lockedBoleto);
@@ -82,6 +85,7 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
         $nossoNumero = (string) Arr::get($this->payload, 'nossoNumero', '');
 
         $boleto = FaturaBoleto::query()
+            ->where('bank_code', BradescoApiClient::BANK_CODE)
             ->when($externalId || $nossoNumero, function ($query) use ($externalId, $nossoNumero) {
                 $query->where(function ($inner) use ($externalId, $nossoNumero) {
                     if ($externalId) {
@@ -100,7 +104,7 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
             Log::warning('[Bradesco] Webhook recebido para boleto não encontrado', [
                 'external_id' => $externalId,
                 'nosso_numero' => $nossoNumero,
-                'payload' => $this->payload,
+                'payload' => $this->sanitizedPayload(),
             ]);
 
             return null;
@@ -136,7 +140,7 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
                 $locked->pdf_url = config('services.bradesco_boleto.sandbox_pdf_url');
             }
 
-            $locked->webhook_payload = $this->payload;
+            $locked->webhook_payload = $this->sanitizedPayload();
             $locked->save();
 
             $this->syncFaturaFromBoleto($locked);
@@ -178,6 +182,14 @@ class ProcessBradescoWebhookPayload implements ShouldQueue
             FaturaBoleto::STATUS_CANCELED => $this->markFaturaAsCanceled($fatura, $boleto),
             default => null,
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sanitizedPayload(): array
+    {
+        return BradescoPayloadSanitizer::sanitize($this->payload);
     }
 
     private function markFaturaAsPaid(Fatura $fatura, FaturaBoleto $boleto): void

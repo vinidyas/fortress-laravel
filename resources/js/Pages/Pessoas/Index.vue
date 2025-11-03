@@ -80,6 +80,8 @@ const createForm = reactive({
   complemento: '',
 });
 
+const createRequiresBoletoData = computed(() => createForm.papeis.includes('Locatario'));
+
 const normalizePapeis = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
 
@@ -460,15 +462,34 @@ onMounted(() => {
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">CPF / CNPJ</label>
-                  <input v-model="createForm.cpf_cnpj" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="Somente números" />
+                  <input
+                    v-model="createForm.cpf_cnpj"
+                    type="text"
+                    :required="createRequiresBoletoData"
+                    maxlength="14"
+                    class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
+                    placeholder="Somente números"
+                  />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Email</label>
-                  <input v-model="createForm.email" type="email" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
+                  <input
+                    v-model="createForm.email"
+                    type="email"
+                    :required="createRequiresBoletoData"
+                    class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
+                  />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Telefone</label>
-                  <input v-model="createForm.telefone" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
+                  <input
+                    v-model="createForm.telefone"
+                    type="text"
+                    :required="createRequiresBoletoData"
+                    maxlength="15"
+                    class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
+                    placeholder="(DDD) 99999-9999"
+                  />
                 </div>
                 <div class="md:col-span-2">
                   <label class="text-sm font-medium text-slate-200">Papéis</label>
@@ -478,6 +499,9 @@ onMounted(() => {
                       {{ option.label }}
                     </label>
                   </div>
+                  <p v-if="createRequiresBoletoData" class="mt-2 text-xs text-amber-300">
+                    Dados de documento, contato e endereço são obrigatórios para locatários por exigência do Bradesco.
+                  </p>
                 </div>
               </div>
             </section>
@@ -491,7 +515,14 @@ onMounted(() => {
                 <div class="md:col-span-2 flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">CEP</label>
                   <div class="flex items-center gap-2">
-                    <input v-model="createForm.cep" type="text" class="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="Somente números" />
+                    <input
+                      v-model="createForm.cep"
+                      type="text"
+                      :required="createRequiresBoletoData"
+                      maxlength="8"
+                      class="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
+                      placeholder="Somente números"
+                    />
                     <button type="button" @click="fetchCepCreate" :disabled="createCepLoading" class="whitespace-nowrap rounded-md border border-indigo-500/40 bg-indigo-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500/80">
                       {{ createCepLoading ? 'Buscando...' : 'Buscar' }}
                     </button>
@@ -499,23 +530,23 @@ onMounted(() => {
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Estado</label>
-                  <input v-model="createForm.estado" type="text" maxlength="2" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100 uppercase" />
+                  <input v-model="createForm.estado" type="text" maxlength="2" :required="createRequiresBoletoData" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100 uppercase" />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Cidade</label>
-                  <input v-model="createForm.cidade" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
+                  <input v-model="createForm.cidade" type="text" :required="createRequiresBoletoData" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Bairro</label>
-                  <input v-model="createForm.bairro" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
+                  <input v-model="createForm.bairro" type="text" :required="createRequiresBoletoData" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Rua</label>
-                  <input v-model="createForm.rua" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
+                  <input v-model="createForm.rua" type="text" :required="createRequiresBoletoData" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Número</label>
-                  <input v-model="createForm.numero" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
+                  <input v-model="createForm.numero" type="text" :required="createRequiresBoletoData" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
                 </div>
                 <div class="md:col-span-2 flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Complemento / Apto</label>
@@ -535,4 +566,3 @@ onMounted(() => {
   </transition>
   </AuthenticatedLayout>
 </template>
-

@@ -17,23 +17,33 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
-        $middleware->trustHosts([
+        $portalDomain = env('PORTAL_DOMAIN');
+
+        $trustedHosts = [
             '127.0.0.1',
             'localhost',
             'fortressempreendimentos.com.br',
             'sistema.fortressempreendimentos.com.br',
             'pangolin.vrios.com.br',
-        ]);
+        ];
+
+        if (! empty($portalDomain)) {
+            $trustedHosts[] = $portalDomain;
+        }
+
+        $middleware->trustHosts($trustedHosts);
         
         $middleware->statefulApi();
 
         $middleware->web(append: [
+            \App\Http\Middleware\ConfigureAssetRootFromRequest::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
 
         $middleware->alias([
             'auth' => \App\Http\Middleware\Authenticate::class,
             'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
+            'tenant' => \App\Http\Middleware\EnsureTenantAccess::class,
         ]);
     })
     ->withCommands([

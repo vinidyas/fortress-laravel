@@ -108,6 +108,11 @@ class Contrato extends Model
         return $this->hasMany(ContratoAnexo::class);
     }
 
+    public function reajustes(): HasMany
+    {
+        return $this->hasMany(ContratoReajuste::class);
+    }
+
     public function faturas(): HasMany
     {
         return $this->hasMany(Fatura::class);

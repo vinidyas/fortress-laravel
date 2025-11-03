@@ -58,6 +58,10 @@ class NewPasswordController extends Controller
 
         RateLimiter::clear($throttleKey);
 
-        return redirect()->route('login')->with('status', __($status));
+        $message = $status === Password::PASSWORD_RESET
+            ? __('Senha redefinida com sucesso. Agora é só entrar com a nova senha.')
+            : __($status);
+
+        return redirect()->route('login')->with('status', $message);
     }
 }

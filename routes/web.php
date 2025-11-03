@@ -27,6 +27,8 @@ use App\Http\Controllers\Reports\BankStatementReportPageController;
 use App\Http\Requests\Reports\ReportBankLedgerFilterRequest;
 use App\Http\Controllers\Profile\AccountController;
 use App\Http\Controllers\Profile\PasswordController;
+use App\Http\Controllers\Portal\ContratoController as PortalContratoController;
+use App\Http\Controllers\Portal\FaturaController as PortalFaturaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -128,8 +130,27 @@ Route::middleware('auth')->group(function () {
         Route::get('/', AdminDashboardPageController::class)->name('dashboard');
         Route::get('/usuarios', AdminUserPageController::class)->name('users.index');
         Route::get('/roles', AdminRolePageController::class)->name('roles.index');
+        Route::get('/portal/locatarios', \App\Http\Controllers\Admin\PortalTenantPageController::class)->name('portal.tenants');
     });
 });
+
+$portalDomain = config('app.portal_domain');
+
+if (! empty($portalDomain)) {
+    Route::group([
+        'domain' => $portalDomain,
+        'middleware' => ['auth', 'tenant'],
+    ], function (): void {
+        Route::redirect('/', '/dashboard')->name('portal.home');
+        Route::inertia('/dashboard', 'Portal/Invoices')->name('portal.dashboard');
+        Route::redirect('/faturas', '/dashboard');
+
+        Route::get('/api/contratos', [PortalContratoController::class, 'index'])->name('portal.contracts.index');
+        Route::get('/api/faturas', [PortalFaturaController::class, 'index'])->name('portal.invoices.index');
+        Route::get('/api/faturas/{fatura}', [PortalFaturaController::class, 'show'])->name('portal.invoices.show');
+        Route::get('/faturas/{fatura}/recibo', [PortalFaturaController::class, 'receipt'])->name('portal.invoices.receipt');
+    });
+}
 
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')

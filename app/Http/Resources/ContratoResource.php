@@ -84,6 +84,23 @@ class ContratoResource extends JsonResource
                 'mime_type' => $anexo->mime_type,
                 'url' => Storage::disk('public')->url($anexo->path),
             ])->all()),
+            'reajustes' => $this->whenLoaded('reajustes', fn () => $this->reajustes
+                ->sortByDesc('created_at')
+                ->map(fn ($reajuste) => [
+                    'id' => $reajuste->id,
+                    'indice' => $reajuste->indice,
+                    'percentual_aplicado' => $reajuste->percentual_aplicado,
+                    'valor_anterior' => $reajuste->valor_anterior,
+                    'valor_reajuste' => $reajuste->valor_reajuste,
+                    'valor_novo' => $reajuste->valor_novo,
+                    'teto_percentual' => $reajuste->teto_percentual,
+                    'data_base_reajuste' => $reajuste->data_base_reajuste,
+                    'data_proximo_reajuste_anterior' => $reajuste->data_proximo_reajuste_anterior,
+                    'data_proximo_reajuste_novo' => $reajuste->data_proximo_reajuste_novo,
+                    'observacoes' => $reajuste->observacoes,
+                    'executado_por' => $reajuste->usuario?->nome ?? $reajuste->usuario?->username,
+                    'created_at' => $reajuste->created_at,
+                ])->values()->all()),
         ];
     }
 }

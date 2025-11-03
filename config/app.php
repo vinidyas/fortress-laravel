@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Fortress Empreendimentos'),
 
     /*
     |--------------------------------------------------------------------------
@@ -53,6 +53,8 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+    'portal_domain' => env('PORTAL_DOMAIN', 'portal.fortressempreendimentos.com.br'),
+    'portal_url' => env('PORTAL_URL', 'https://portal.fortressempreendimentos.com.br'),
 
     /*
     |--------------------------------------------------------------------------

@@ -77,4 +77,4 @@
     </footer>
 </body>
 </html>
-<?php /**PATH /home/vinidyas/Projetos/fortress-laravel/resources/views/pdf/financial-receipt.blade.php ENDPATH**/ ?>
+<?php /**PATH /root/docker/fortress/fortress-laravel/resources/views/pdf/financial-receipt.blade.php ENDPATH**/ ?>

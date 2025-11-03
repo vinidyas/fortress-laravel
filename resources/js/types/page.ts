@@ -9,6 +9,10 @@ export type PageProps = {
     user?: AuthUser | null;
     abilities?: string[];
   };
+  portal?: {
+    isPortalDomain: boolean;
+    domain: string | null;
+  };
 };
 
 export type Ability = string;

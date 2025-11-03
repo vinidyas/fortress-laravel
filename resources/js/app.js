@@ -10,6 +10,7 @@ import { createPinia } from 'pinia';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { InertiaProgress } from '@inertiajs/progress';
 import { useNotificationStore } from './Stores/notifications';
+import PortalNotifications from '@/Pages/Portal/Components/PortalNotifications.vue';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Fortress Gestao Imobiliaria';
 
@@ -89,6 +90,8 @@ createInertiaApp({
         else notifications.info(message, timeout);
       } catch (_) {}
     });
+
+    vueApp.component('PortalNotifications', PortalNotifications);
 
     vueApp.mount(el);
   },

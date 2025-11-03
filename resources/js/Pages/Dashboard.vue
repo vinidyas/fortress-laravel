@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import DashboardBankBalancesCard from '@/Components/Financeiro/DashboardBankBalancesCard.vue';
 import { Link } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
@@ -37,13 +36,19 @@ interface OpenInvoice {
   lateDays: number | null;
 }
 
-interface RecentPerson {
+interface PayableTodayItem {
   id: number;
-  name: string;
-  document: string | null;
-  type: string;
-  roles: string[];
-  createdAt: string | null;
+  description: string;
+  amount: number;
+  dueDate: string | null;
+  status: string;
+  costCenter?: string | null;
+  link?: string | null;
+}
+
+interface PayableTodaySummary {
+  count: number;
+  total: number;
 }
 
 interface AlertAction {
@@ -71,8 +76,8 @@ interface WidgetSettings {
 interface FinancialTrendPoint {
   key: string;
   label: string;
-  credit: number;
-  debit: number;
+  billed: number;
+  received: number;
 }
 
 interface DelinquencySummary {
@@ -92,7 +97,8 @@ const props = defineProps<{
   metrics?: Partial<Metrics>;
   expiringContracts: ExpiringContract[];
   openInvoices: OpenInvoice[];
-  recentPeople: RecentPerson[];
+  payablesToday?: PayableTodayItem[];
+  payablesTodaySummary?: Partial<PayableTodaySummary>;
   alerts?: AlertItem[];
   widgets?: Array<{ key: string; label: string; hidden?: boolean; position?: number }>;
   financialTrend?: FinancialTrendPoint[];
@@ -154,10 +160,16 @@ const delinquency = computed<DelinquencySummary>(() => ({
   rate: Number(props.delinquency?.rate ?? 0),
 }));
 
+const payablesToday = computed<PayableTodayItem[]>(() => props.payablesToday ?? []);
+const payablesTodaySummary = computed<PayableTodaySummary>(() => ({
+  count: Number(props.payablesTodaySummary?.count ?? 0),
+  total: Number(props.payablesTodaySummary?.total ?? 0),
+}));
+
 const trendMaxValue = computed(() => {
   const values = financialTrend.value.flatMap((point) => [
-    Number(point.credit ?? 0),
-    Number(point.debit ?? 0),
+    Number(point.billed ?? 0),
+    Number(point.received ?? 0),
   ]);
 
   if (!values.length) {
@@ -174,7 +186,7 @@ const chartWidth = 100 - chartPadding * 2;
 const chartHeight = 100 - chartPadding * 2;
 const chartBaseline = 100 - chartPadding;
 
-const buildPoints = (key: 'credit' | 'debit'): ChartPoint[] => {
+const buildPoints = (key: 'billed' | 'received'): ChartPoint[] => {
   if (!financialTrend.value.length) {
     return [];
   }
@@ -219,20 +231,20 @@ const makeAreaPath = (points: ChartPoint[]) => {
   return `${line} L ${last.x} ${chartBaseline} L ${first.x} ${chartBaseline} Z`;
 };
 
-const creditPoints = computed<ChartPoint[]>(() => buildPoints('credit'));
-const debitPoints = computed<ChartPoint[]>(() => buildPoints('debit'));
+const billedPoints = computed<ChartPoint[]>(() => buildPoints('billed'));
+const receivedPoints = computed<ChartPoint[]>(() => buildPoints('received'));
 
-const creditPath = computed(() => makePath(creditPoints.value));
-const debitPath = computed(() => makePath(debitPoints.value));
-const creditAreaPath = computed(() => makeAreaPath(creditPoints.value));
-const debitAreaPath = computed(() => makeAreaPath(debitPoints.value));
+const billedPath = computed(() => makePath(billedPoints.value));
+const receivedPath = computed(() => makePath(receivedPoints.value));
+const billedAreaPath = computed(() => makeAreaPath(billedPoints.value));
+const receivedAreaPath = computed(() => makeAreaPath(receivedPoints.value));
 
-const totalCredit = computed(() =>
-  financialTrend.value.reduce((sum, point) => sum + Number(point.credit ?? 0), 0)
+const totalBilled = computed(() =>
+  financialTrend.value.reduce((sum, point) => sum + Number(point.billed ?? 0), 0)
 );
 
-const totalDebit = computed(() =>
-  financialTrend.value.reduce((sum, point) => sum + Number(point.debit ?? 0), 0)
+const totalReceived = computed(() =>
+  financialTrend.value.reduce((sum, point) => sum + Number(point.received ?? 0), 0)
 );
 
 const chartGridStyle = computed(() => ({
@@ -240,9 +252,7 @@ const chartGridStyle = computed(() => ({
 }));
 
 const trendHasData = computed(() =>
-  financialTrend.value.some(
-    (point) => Number(point.credit ?? 0) > 0 || Number(point.debit ?? 0) > 0
-  )
+  financialTrend.value.some((point) => Number(point.billed ?? 0) > 0 || Number(point.received ?? 0) > 0)
 );
 
 const delinquencyRate = computed(() => {
@@ -257,14 +267,55 @@ const delinquencyRate = computed(() => {
 const delinquencyRateDisplay = computed(() => `${delinquencyRate.value.toFixed(1)}%`);
 const delinquencyOpenValue = computed(() => formatCurrency(delinquency.value.openAmount ?? 0));
 const delinquencyPaidValue = computed(() => formatCurrency(delinquency.value.paidThisMonth ?? 0));
+const payablesTodayTotalDisplay = computed(() => formatCurrency(payablesTodaySummary.value.total ?? 0));
+
+const payableStatusLabel = (status: string) => {
+  const normalized = (status ?? '').toLowerCase();
+
+  if (normalized === 'atrasado') {
+    return 'Em atraso';
+  }
+
+  if (normalized === 'pendente' || normalized === 'planejado') {
+    return 'Pendente';
+  }
+
+  if (normalized === 'pago') {
+    return 'Pago';
+  }
+
+  if (normalized === 'cancelado') {
+    return 'Cancelado';
+  }
+
+  return status || '-';
+};
+
+const payableStatusClasses = (status: string) => {
+  const normalized = (status ?? '').toLowerCase();
+
+  if (normalized === 'atrasado') {
+    return 'bg-rose-500/20 text-rose-100 border border-rose-500/40';
+  }
+
+  if (normalized === 'pendente' || normalized === 'planejado') {
+    return 'bg-amber-500/20 text-amber-100 border border-amber-500/40';
+  }
+
+  if (normalized === 'pago') {
+    return 'bg-emerald-500/15 text-emerald-200 border border-emerald-500/40';
+  }
+
+  return 'bg-slate-800/60 text-slate-200 border border-slate-700/40';
+};
 
 const defaultWidgetDefinitions: Record<string, string> = {
   metrics: 'Indicadores gerais',
-  financial_overview: 'Painel financeiro',
-  bank_balances: 'Saldos bancários',
+  financial_overview: 'Faturamento x recebimentos',
+  delinquency: 'Inadimplência',
+  payables_today: 'Contas a pagar (hoje)',
   expiring_contracts: 'Contratos a vencer',
   open_invoices: 'Faturas em aberto',
-  recent_people: 'Pessoas recentes',
 };
 
 const allWidgets = ref<WidgetSettings[]>([]);
@@ -918,18 +969,28 @@ const alertClasses = (type: AlertType) => {
             v-else-if="widget.key === 'financial_overview'"
             class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-black/40"
           >
-            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p class="text-sm font-semibold text-white">Painel financeiro</p>
-                <p class="text-xs text-slate-400">Recebimentos x despesas (últimos 6 meses)</p>
+                <p class="text-sm font-semibold text-white">Faturamento x recebimentos</p>
+                <p class="text-xs text-slate-400">Comparativo mensal de faturas emitidas e recebidas</p>
               </div>
-              <div class="text-left md:text-right">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Inadimplência
-                </p>
-                <p class="text-2xl font-semibold text-rose-300">{{ delinquencyRateDisplay }}</p>
-                <p class="text-xs text-slate-500">Em aberto {{ delinquencyOpenValue }}</p>
-                <p class="text-xs text-slate-500">Recebido no mês {{ delinquencyPaidValue }}</p>
+              <div class="flex flex-wrap gap-6 text-xs text-slate-400">
+                <div>
+                  <p class="uppercase tracking-wide text-slate-500">Emitido (6 meses)</p>
+                  <p class="text-lg font-semibold text-rose-300">{{ formatCurrency(totalBilled) }}</p>
+                </div>
+                <div>
+                  <p class="uppercase tracking-wide text-slate-500">Recebido (6 meses)</p>
+                  <p class="text-lg font-semibold text-emerald-300">{{ formatCurrency(totalReceived) }}</p>
+                </div>
+                <div>
+                  <p class="uppercase tracking-wide text-slate-500">Recebido no mês</p>
+                  <p class="text-lg font-semibold text-emerald-200">{{ delinquencyPaidValue }}</p>
+                </div>
+                <div>
+                  <p class="uppercase tracking-wide text-slate-500">Em aberto</p>
+                  <p class="text-lg font-semibold text-rose-200">{{ delinquencyOpenValue }}</p>
+                </div>
               </div>
             </div>
 
@@ -937,85 +998,50 @@ const alertClasses = (type: AlertType) => {
               <div class="h-48 w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                 <svg viewBox="0 0 100 100" class="h-full w-full" preserveAspectRatio="none">
                   <defs>
-                    <linearGradient id="creditGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#34d399" stop-opacity="0.4" />
-                      <stop offset="100%" stop-color="#34d399" stop-opacity="0" />
+                    <linearGradient id="billedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#fb7185" stop-opacity="0.35" />
+                      <stop offset="100%" stop-color="#fb7185" stop-opacity="0" />
                     </linearGradient>
-                    <linearGradient id="debitGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#f87171" stop-opacity="0.35" />
-                      <stop offset="100%" stop-color="#f87171" stop-opacity="0" />
+                    <linearGradient id="receivedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#34d399" stop-opacity="0.35" />
+                      <stop offset="100%" stop-color="#34d399" stop-opacity="0" />
                     </linearGradient>
                   </defs>
 
-                  <rect x="0" y="0" width="100" height="100" fill="none" />
-                  <line x1="0" :y1="chartBaseline" x2="100" :y2="chartBaseline" stroke="#1f2937" stroke-width="0.6" />
-                  <line x1="0" y1="50" x2="100" y2="50" stroke="#1f2937" stroke-width="0.4" stroke-dasharray="2 3" />
-                  <line x1="0" y1="10" x2="100" y2="10" stroke="#1f2937" stroke-width="0.4" stroke-dasharray="2 3" />
-
-                  <path
-                    v-if="trendHasData"
-                    :d="debitAreaPath"
-                    fill="url(#debitGradient)"
-                    stroke="none"
-                    opacity="0.8"
-                  />
-                  <path
-                    v-if="trendHasData"
-                    :d="debitPath"
-                    fill="none"
-                    stroke="#f87171"
-                    stroke-width="1.6"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    vector-effect="non-scaling-stroke"
-                  />
-                  <path
-                    v-if="trendHasData"
-                    :d="creditAreaPath"
-                    fill="url(#creditGradient)"
-                    stroke="none"
-                    opacity="0.8"
-                  />
-                  <path
-                    v-if="trendHasData"
-                    :d="creditPath"
-                    fill="none"
-                    stroke="#34d399"
-                    stroke-width="1.6"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    vector-effect="non-scaling-stroke"
-                  />
+                  <path v-if="trendHasData" :d="billedAreaPath" fill="url(#billedGradient)" stroke="none" opacity="0.8" />
+                  <path v-if="trendHasData" :d="billedPath" fill="none" stroke="#fb7185" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                  <path v-if="trendHasData" :d="receivedAreaPath" fill="url(#receivedGradient)" stroke="none" opacity="0.8" />
+                  <path v-if="trendHasData" :d="receivedPath" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
 
                   <g v-if="trendHasData">
                     <circle
-                      v-for="point in debitPoints"
-                      :key="`debit-${point.label}`"
+                      v-for="point in billedPoints"
+                      :key="`billed-${point.label}`"
                       :cx="point.x"
                       :cy="point.y"
                       r="1.4"
-                      class="fill-rose-300"
+                      class="fill-rose-200"
                     />
                     <circle
-                      v-for="point in creditPoints"
-                      :key="`credit-${point.label}`"
+                      v-for="point in receivedPoints"
+                      :key="`received-${point.label}`"
                       :cx="point.x"
                       :cy="point.y"
                       r="1.4"
-                      class="fill-emerald-300"
+                      class="fill-emerald-200"
                     />
                   </g>
                 </svg>
               </div>
 
               <div class="flex flex-wrap items-center gap-4 text-xs">
-                <span class="inline-flex items-center gap-2 text-emerald-300">
-                  <span class="h-2 w-2 rounded-full bg-emerald-400" />
-                  Recebimentos {{ formatCurrency(totalCredit) }}
-                </span>
                 <span class="inline-flex items-center gap-2 text-rose-300">
                   <span class="h-2 w-2 rounded-full bg-rose-400" />
-                  Despesas {{ formatCurrency(totalDebit) }}
+                  Emitido {{ formatCurrency(totalBilled) }}
+                </span>
+                <span class="inline-flex items-center gap-2 text-emerald-300">
+                  <span class="h-2 w-2 rounded-full bg-emerald-400" />
+                  Recebido {{ formatCurrency(totalReceived) }}
                 </span>
               </div>
 
@@ -1026,11 +1052,11 @@ const alertClasses = (type: AlertType) => {
                   class="rounded-lg border border-slate-800 bg-slate-950/40 px-2 py-3"
                 >
                   <p class="font-medium text-slate-200">{{ point.label }}</p>
-                  <p class="mt-1 text-[0.7rem] text-emerald-300">
-                    {{ formatCurrency(point.credit) }}
+                  <p class="mt-1 text-[0.7rem] text-rose-300">
+                    Emitido {{ formatCurrency(point.billed) }}
                   </p>
-                  <p class="text-[0.7rem] text-rose-300">
-                    {{ formatCurrency(point.debit) }}
+                  <p class="text-[0.7rem] text-emerald-300">
+                    Recebido {{ formatCurrency(point.received) }}
                   </p>
                 </div>
               </div>
@@ -1040,13 +1066,9 @@ const alertClasses = (type: AlertType) => {
               v-else
               class="mt-6 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 px-4 py-12 text-center text-sm text-slate-400"
             >
-              Nenhum lançamento financeiro recente.
+              Não há faturas emitidas ou recebidas no período.
             </div>
           </div>
-
-          <DashboardBankBalancesCard
-            v-else-if="widget.key === 'bank_balances'"
-          />
 
           <div
             v-else-if="widget.key === 'expiring_contracts'"
@@ -1134,57 +1156,115 @@ const alertClasses = (type: AlertType) => {
           </div>
 
           <div
-            v-else-if="widget.key === 'recent_people'"
+            v-else-if="widget.key === 'delinquency'"
+            class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-black/40"
+          >
+            <header class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-sm font-semibold text-white">Inadimplência do mês</p>
+                <p class="text-xs text-slate-400">
+                  Percentual calculado sobre faturas emitidas e quitadas no período atual.
+                </p>
+              </div>
+              <span class="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200">
+                {{ delinquencyRateDisplay }}
+              </span>
+            </header>
+
+            <div class="mt-6 grid gap-4 md:grid-cols-2">
+              <div class="rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-6 text-center">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Em aberto</p>
+                <p class="mt-2 text-xl font-semibold text-rose-200">{{ delinquencyOpenValue }}</p>
+              </div>
+              <div class="rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-6 text-center">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Recebido no mês</p>
+                <p class="mt-2 text-xl font-semibold text-emerald-200">{{ delinquencyPaidValue }}</p>
+              </div>
+            </div>
+
+            <footer class="mt-6 text-xs text-slate-500">
+              Atualize as faturas assim que o Bradesco confirmar a liquidação para manter o índice fiel.
+            </footer>
+          </div>
+
+          <div
+            v-else-if="widget.key === 'payables_today'"
             class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-black/40 xl:col-span-2"
           >
-            <header class="mb-6 flex items-center justify-between">
+            <header class="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <p class="text-sm font-semibold text-white">Pessoas adicionadas recentemente</p>
+                <p class="text-sm font-semibold text-white">Contas a pagar (hoje)</p>
                 <p class="text-xs text-slate-400">
-                  Últimos cadastros de pessoas com papéis associados.
+                  Lançamentos financeiros com vencimento no dia corrente.
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-slate-400">Total do dia</p>
+                <p class="text-lg font-semibold text-rose-200">{{ payablesTodayTotalDisplay }}</p>
+                <p class="text-xs text-slate-500">
+                  {{ payablesTodaySummary.count }}
+                  {{ payablesTodaySummary.count === 1 ? 'lançamento' : 'lançamentos' }}
                 </p>
               </div>
             </header>
 
             <div
-              v-if="!recentPeople.length"
+              v-if="!payablesToday.length"
               class="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 px-4 py-12 text-center text-sm text-slate-400"
             >
-              Nenhum cadastro recente.
+              Nenhuma conta vence hoje.
             </div>
 
-            <div v-else class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-slate-800 text-sm text-slate-100">
-                <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
-                  <tr>
-                    <th class="px-4 py-3 text-left">Nome</th>
-                    <th class="px-4 py-3 text-left">Documento</th>
-                    <th class="px-4 py-3 text-left">Tipo</th>
-                    <th class="px-4 py-3 text-left">Papéis</th>
-                    <th class="px-4 py-3 text-left">Criado em</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800">
-                  <tr v-for="person in recentPeople" :key="person.id" class="hover:bg-slate-900/60">
-                    <td class="px-4 py-3 text-slate-200">{{ person.name }}</td>
-                    <td class="px-4 py-3 text-slate-300">{{ person.document ?? '-' }}</td>
-                    <td class="px-4 py-3 text-slate-300">{{ person.type }}</td>
-                    <td class="px-4 py-3 text-slate-300">
-                      <span v-if="person.roles.length" class="inline-flex flex-wrap gap-1">
-                        <span
-                          v-for="role in person.roles"
-                          :key="role"
-                          class="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-300"
-                        >
-                          {{ role }}
-                        </span>
-                      </span>
-                      <span v-else>-</span>
-                    </td>
-                    <td class="px-4 py-3 text-slate-300">{{ person.createdAt ?? '-' }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div v-else class="space-y-4">
+              <ul class="space-y-3">
+                <li
+                  v-for="payable in payablesToday"
+                  :key="`payable-${payable.id}`"
+                  class="flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-900/70 p-4 md:flex-row md:items-center md:justify-between"
+                >
+                  <div class="space-y-1">
+                    <p class="text-sm font-semibold text-white">{{ payable.description }}</p>
+                    <p class="text-xs text-slate-400">
+                      <span v-if="payable.costCenter">Centro de custo: {{ payable.costCenter }}</span>
+                      <span v-else>Sem centro de custo</span>
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-4 md:justify-end">
+                    <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="payableStatusClasses(payable.status)">
+                      {{ payableStatusLabel(payable.status) }}
+                    </span>
+                    <div class="text-right text-xs text-slate-400">
+                      <p>Vencimento</p>
+                      <p class="font-semibold text-slate-100">{{ formatDate(payable.dueDate) }}</p>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-sm font-semibold text-rose-200">{{ formatCurrency(payable.amount) }}</p>
+                      <Link
+                        v-if="payable.link"
+                        :href="payable.link"
+                        class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 transition hover:text-indigo-100"
+                      >
+                        <span>Detalhes</span>
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+
+              <div class="text-right">
+                <Link
+                  href="/financeiro"
+                  class="inline-flex items-center gap-2 text-xs font-semibold text-indigo-300 transition hover:text-indigo-100"
+                >
+                  <span>Ver todos os lançamentos</span>
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
             </div>
           </div>
         </template>

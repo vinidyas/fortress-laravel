@@ -6,6 +6,8 @@ namespace App\Console;
 
 use App\Console\Commands\Bradesco\TestBradescoAuth;
 use App\Console\Commands\Bradesco\CreateDummyInvoice;
+use App\Console\Commands\Bradesco\SanitizeBoletoPayloads;
+use App\Console\Commands\CheckLocatarioBoletoData;
 use App\Console\Commands\FinanceMigrateAccountBalances;
 use App\Console\Commands\FinanceMigratePaymentSchedules;
 use App\Console\Commands\FinanceMigrateTransactions;
@@ -28,8 +30,10 @@ class Kernel extends ConsoleKernel
         FinanceMigratePaymentSchedules::class,
         FinanceMigrateAccountBalances::class,
         ImportMccLedger::class,
+        CheckLocatarioBoletoData::class,
         TestBradescoAuth::class,
         CreateDummyInvoice::class,
+        SanitizeBoletoPayloads::class,
     ];
 
     /**

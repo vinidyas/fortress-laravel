@@ -9,11 +9,24 @@ class FaturaPolicy
 {
     public function viewAny(User $user): bool
     {
+        if (method_exists($user, 'hasTenantAccess') && $user->hasTenantAccess()) {
+            return true;
+        }
+
         return $this->checkAbility($user, 'faturas.view');
     }
 
     public function view(User $user, Fatura $fatura): bool
     {
+        if (method_exists($user, 'hasTenantAccess') && $user->hasTenantAccess()) {
+            $pessoaId = $user->pessoa_id;
+            $locatarioId = $fatura->contrato?->locatario_id;
+
+            if ($pessoaId && $locatarioId && (int) $pessoaId === (int) $locatarioId) {
+                return true;
+            }
+        }
+
         return $this->checkAbility($user, 'faturas.view');
     }
 

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import ApplyReajusteModal from '@/Components/Contratos/ApplyReajusteModal.vue';
 import axios from '@/bootstrap';
+import { useToast } from '@/composables/useToast';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
+import type { PageProps } from '@/types/page';
 
 type Nullable<T> = T | null;
 
@@ -55,6 +58,22 @@ type FaturaResumo = {
   boleto_atual?: Nullable<FaturaBoletoResumo>;
 };
 
+type ContratoReajusteResumo = {
+  id: number;
+  indice: Nullable<string>;
+  percentual_aplicado: Nullable<string | number>;
+  valor_anterior: Nullable<string | number>;
+  valor_reajuste: Nullable<string | number>;
+  valor_novo: Nullable<string | number>;
+  teto_percentual: Nullable<string | number>;
+  data_base_reajuste: Nullable<string>;
+  data_proximo_reajuste_anterior: Nullable<string>;
+  data_proximo_reajuste_novo: Nullable<string>;
+  observacoes: Nullable<string>;
+  executado_por: Nullable<string>;
+  created_at: Nullable<string>;
+};
+
 type ContratoDetalhe = {
   id: number;
   codigo_contrato: string;
@@ -70,7 +89,9 @@ type ContratoDetalhe = {
   valor_aluguel: Nullable<string>;
   desconto_mensal: Nullable<string>;
   reajuste_indice: Nullable<string>;
+  reajuste_indice_outro: Nullable<string>;
   reajuste_periodicidade_meses: Nullable<number>;
+  reajuste_teto_percentual: Nullable<string | number>;
   data_proximo_reajuste: Nullable<string>;
   garantia_tipo: Nullable<string>;
   caucao_valor: Nullable<string>;
@@ -91,6 +112,13 @@ type ContratoDetalhe = {
   fiadores: FiadorResumo[];
   conta_cobranca: Nullable<ContaCobrancaResumo>;
   anexos: AnexoResumo[];
+  reajustes?: ContratoReajusteResumo[];
+};
+
+type ReajusteAppliedPayload = {
+  message?: string;
+  contrato?: unknown;
+  reajuste?: unknown;
 };
 
 const props = defineProps<{ contratoId: number }>();
@@ -105,6 +133,72 @@ const faturasError = ref('');
 const hasLoadedFaturas = ref(false);
 const clipboardSupported = typeof navigator !== 'undefined' && !!navigator.clipboard;
 const copyingLinhaDigitavelId = ref<number | null>(null);
+const page = usePage<PageProps>();
+const toast = useToast();
+
+const abilities = computed(() => page.props.auth?.abilities ?? []);
+const canUpdateContrato = computed(() => abilities.value.includes('contratos.update'));
+const showReajusteModal = ref(false);
+
+const sortedReajustes = computed<ContratoReajusteResumo[]>(() => {
+  const lista = contrato.value?.reajustes ?? [];
+  if (!lista.length) {
+    return [];
+  }
+
+  return [...lista].sort((a, b) => {
+    const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bDate - aDate;
+  });
+});
+
+const canApplyReajuste = computed(() => {
+  if (!canUpdateContrato.value) return false;
+  if (!contrato.value) return false;
+  const indice = contrato.value.reajuste_indice;
+  const periodicidade = contrato.value.reajuste_periodicidade_meses ?? 0;
+  const proximaData = contrato.value.data_proximo_reajuste;
+  if (!indice || indice === 'SEM_REAJUSTE') return false;
+  if (!periodicidade || periodicidade <= 0) return false;
+  if (!proximaData) return false;
+  return true;
+});
+
+function openReajusteModal() {
+  if (!canApplyReajuste.value) {
+    return;
+  }
+
+  showReajusteModal.value = true;
+}
+
+function closeReajusteModal() {
+  showReajusteModal.value = false;
+}
+
+function handleReajusteApplied(payload: ReajusteAppliedPayload) {
+  showReajusteModal.value = false;
+
+  const contratoAtualizado = (payload?.contrato ?? null) as ContratoDetalhe | null;
+  const reajusteCriado = (payload?.reajuste ?? null) as ContratoReajusteResumo | null;
+
+  if (contratoAtualizado) {
+    contrato.value = contratoAtualizado;
+  } else {
+    void loadContrato();
+  }
+
+  if (reajusteCriado && !contratoAtualizado && contrato.value) {
+    const historico = contrato.value.reajustes ?? [];
+    contrato.value = {
+      ...contrato.value,
+      reajustes: [reajusteCriado, ...historico],
+    };
+  }
+
+  toast.success(payload?.message ?? 'Reajuste aplicado com sucesso.');
+}
 
 const statusLabels: Record<string, string> = {
   Ativo: 'Ativo',
@@ -150,6 +244,7 @@ watch(
     faturas.value = [];
     faturasError.value = '';
     hasLoadedFaturas.value = false;
+    showReajusteModal.value = false;
     loadContrato();
   }
 );
@@ -186,6 +281,19 @@ function formatDate(value: Nullable<string>): string {
     return value;
   }
   return new Intl.DateTimeFormat('pt-BR').format(date);
+}
+
+function formatDateTime(value: Nullable<string>): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 function formatCurrency(value: Nullable<string | number>): string {
@@ -670,7 +778,21 @@ function reloadFaturas() {
           </div>
 
           <div class="space-y-4">
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400">Garantia & reajuste</h3>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400">Garantia & reajuste</h3>
+              <button
+                v-if="canApplyReajuste"
+                type="button"
+                class="inline-flex items-center gap-2 rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:bg-indigo-500/20 hover:text-white"
+                @click="openReajusteModal"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                </svg>
+                Aplicar reajuste
+              </button>
+            </div>
             <dl class="space-y-3 text-sm">
               <div>
                 <dt class="text-xs uppercase tracking-wide text-slate-500">Tipo de garantia</dt>
@@ -684,13 +806,111 @@ function reloadFaturas() {
                 <dt class="text-xs uppercase tracking-wide text-slate-500">Índice de reajuste</dt>
                 <dd class="font-medium text-white">{{ contrato.reajuste_indice ?? 'Sem reajuste' }}</dd>
               </div>
+              <div v-if="contrato.reajuste_indice === 'OUTRO'">
+                <dt class="text-xs uppercase tracking-wide text-slate-500">Índice personalizado</dt>
+                <dd class="font-medium text-white">{{ contrato.reajuste_indice_outro ?? '-' }}</dd>
+              </div>
               <div>
                 <dt class="text-xs uppercase tracking-wide text-slate-500">Periodicidade do reajuste</dt>
                 <dd class="font-medium text-white">
-                  {{ contrato.reajuste_indice === 'SEM_REAJUSTE' ? 'Não se aplica' : (contrato.reajuste_periodicidade_meses ? contrato.reajuste_periodicidade_meses + ' meses' : '-') }}
+                  {{
+                    contrato.reajuste_indice === 'SEM_REAJUSTE'
+                      ? 'Não se aplica'
+                      : contrato.reajuste_periodicidade_meses
+                        ? contrato.reajuste_periodicidade_meses + ' meses'
+                        : '-'
+                  }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs uppercase tracking-wide text-slate-500">Teto percentual</dt>
+                <dd class="font-medium text-white">
+                  {{
+                    contrato.reajuste_teto_percentual === null || contrato.reajuste_teto_percentual === undefined
+                      ? '-'
+                      : formatPercent(contrato.reajuste_teto_percentual)
+                  }}
                 </dd>
               </div>
             </dl>
+
+            <div
+              v-if="canApplyReajuste"
+              class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 text-sm text-indigo-100"
+            >
+              <p class="text-xs font-semibold uppercase tracking-wide text-indigo-200/80">Resumo do reajuste programado</p>
+              <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <p class="text-xs text-indigo-200/70">Valor atual do aluguel</p>
+                  <p class="text-sm font-semibold text-white">{{ formatCurrency(contrato.valor_aluguel) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-indigo-200/70">Próxima data prevista</p>
+                  <p class="text-sm font-semibold text-white">{{ formatDate(contrato.data_proximo_reajuste) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-indigo-200/70">Periodicidade</p>
+                  <p class="text-sm font-semibold text-white">
+                    {{
+                      contrato.reajuste_periodicidade_meses
+                        ? contrato.reajuste_periodicidade_meses + ' meses'
+                        : '-'
+                    }}
+                  </p>
+                </div>
+              </div>
+              <p class="mt-3 text-xs text-indigo-200/70">
+                Ao aplicar o reajuste o valor atualizado passa a vigorar imediatamente e a próxima data será
+                recalculada a partir da periodicidade configurada.
+              </p>
+            </div>
+
+            <div class="space-y-3 border-t border-slate-800/60 pt-4">
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Histórico de reajustes</h4>
+              <p v-if="!sortedReajustes.length" class="text-sm text-slate-400">
+                Nenhum reajuste aplicado até o momento.
+              </p>
+              <ul v-else class="space-y-3">
+                <li
+                  v-for="reajuste in sortedReajustes"
+                  :key="reajuste.id"
+                  class="rounded-lg border border-slate-800 bg-slate-950/60 p-4"
+                >
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="space-y-1">
+                      <p class="text-sm font-semibold text-white">
+                        {{ formatDate(reajuste.data_base_reajuste) }} → {{ formatDate(reajuste.data_proximo_reajuste_novo) }}
+                      </p>
+                      <p class="text-xs text-slate-400">
+                        Aplicado em {{ formatDateTime(reajuste.created_at) }}
+                        <template v-if="reajuste.executado_por">
+                          • por {{ reajuste.executado_por }}
+                        </template>
+                      </p>
+                      <p class="text-xs text-slate-500">
+                        Índice: {{ reajuste.indice ?? contrato.reajuste_indice ?? '—' }}
+                        <template v-if="reajuste.teto_percentual">
+                          • Teto {{ formatPercent(reajuste.teto_percentual) }}
+                        </template>
+                      </p>
+                    </div>
+                    <div class="text-right text-sm text-slate-200">
+                      <p class="font-semibold text-white">{{ formatCurrency(reajuste.valor_novo) }}</p>
+                      <p class="text-xs text-emerald-300">
+                        +{{ formatCurrency(reajuste.valor_reajuste) }}
+                        <span class="ml-1 text-slate-400">({{ formatPercent(reajuste.percentual_aplicado) }})</span>
+                      </p>
+                      <p class="text-xs text-slate-500">
+                        Valor anterior: {{ formatCurrency(reajuste.valor_anterior) }}
+                      </p>
+                    </div>
+                  </div>
+                  <p v-if="reajuste.observacoes" class="mt-3 text-sm text-slate-300">
+                    {{ reajuste.observacoes }}
+                  </p>
+                </li>
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -736,5 +956,11 @@ function reloadFaturas() {
         </section>
       </template>
     </div>
+    <ApplyReajusteModal
+      :show="showReajusteModal"
+      :contrato="contrato"
+      @close="closeReajusteModal"
+      @applied="handleReajusteApplied"
+    />
   </AuthenticatedLayout>
 </template>

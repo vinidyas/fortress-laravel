@@ -120,7 +120,15 @@ class ContratoController extends Controller
     {
         $this->authorize('view', $contrato);
 
-        return new ContratoResource($contrato->load(['imovel.condominio', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos']));
+        return new ContratoResource($contrato->load([
+            'imovel.condominio',
+            'locador',
+            'locatario',
+            'fiadores',
+            'contaCobranca',
+            'anexos',
+            'reajustes.usuario',
+        ]));
     }
 
     public function store(ContratoStoreRequest $request)
@@ -144,7 +152,15 @@ class ContratoController extends Controller
 
             $this->storeAnexos($contrato, $request);
 
-            return (new ContratoResource($contrato->load(['imovel.condominio', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos'])))
+            return (new ContratoResource($contrato->load([
+                'imovel.condominio',
+                'locador',
+                'locatario',
+                'fiadores',
+                'contaCobranca',
+                'anexos',
+                'reajustes.usuario',
+            ])))
                 ->response()
                 ->setStatusCode(Response::HTTP_CREATED);
         });
@@ -178,7 +194,15 @@ class ContratoController extends Controller
 
             $this->storeAnexos($contrato, $request);
 
-            return new ContratoResource($contrato->load(['imovel.condominio', 'locador', 'locatario', 'fiadores', 'contaCobranca', 'anexos']));
+            return new ContratoResource($contrato->load([
+                'imovel.condominio',
+                'locador',
+                'locatario',
+                'fiadores',
+                'contaCobranca',
+                'anexos',
+                'reajustes.usuario',
+            ]));
         });
     }
 

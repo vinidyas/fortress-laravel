@@ -44,7 +44,11 @@ class PermissionsSeeder extends Seeder
             'faturas.view', 'faturas.create', 'faturas.update', 'faturas.delete', 'faturas.settle', 'faturas.cancel', 'faturas.email',
         ];
 
-        $allPermissions = array_unique(array_merge($financePermissions, $auditPermissions, $reportPermissions, $alertPermissions, $basePermissions));
+        $portalPermissions = [
+            'portal.access',
+        ];
+
+        $allPermissions = array_unique(array_merge($financePermissions, $auditPermissions, $reportPermissions, $alertPermissions, $basePermissions, $portalPermissions));
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate([
@@ -73,6 +77,7 @@ class PermissionsSeeder extends Seeder
                     'condominios.view', 'condominios.create', 'condominios.update',
                     'contratos.view', 'contratos.create', 'contratos.update',
                     'reports.view.operacional', 'reports.view.pessoas',
+                    'portal.access',
                 ],
             ],
             'financeiro' => [

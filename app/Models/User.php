@@ -8,6 +8,7 @@ use App\Models\UserAlert;
 use App\Models\UserDashboardWidget;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -30,6 +31,7 @@ class User extends Authenticatable
         'password',
         'nome',
         'email',
+        'pessoa_id',
         'role_id',
         'permissoes',
         'ativo',
@@ -125,5 +127,17 @@ class User extends Authenticatable
     public function getEmailForPasswordReset(): ?string
     {
         return $this->email ?? $this->username;
+    }
+
+    public function pessoa(): BelongsTo
+    {
+        return $this->belongsTo(Pessoa::class);
+    }
+
+    public function hasTenantAccess(): bool
+    {
+        $pessoa = $this->pessoa;
+
+        return (bool) $pessoa?->hasPapel('Locatario');
     }
 }
