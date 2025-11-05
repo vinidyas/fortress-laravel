@@ -38,18 +38,18 @@ class FinancialAccountRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'apelido' => ['nullable', 'string', 'max:60'],
+            'apelido' => ['required', 'string', 'max:60'],
             'nome' => ['required', 'string', 'max:120'],
             'tipo' => ['required', Rule::in(['conta_corrente', 'poupanca', 'investimento', 'caixa', 'outro'])],
-            'instituicao' => ['nullable', 'string', 'max:120'],
-            'banco' => ['nullable', 'string', 'max:120'],
-            'agencia' => ['nullable', 'string', 'max:20'],
-            'numero' => ['nullable', 'string', 'max:40'],
+            'instituicao' => ['required', 'string', 'max:120'],
+            'banco' => ['required', 'string', 'max:120'],
+            'agencia' => ['required', 'string', 'max:20'],
+            'numero' => ['required', 'string', 'max:40'],
             'carteira' => ['nullable', 'string', 'max:20'],
             'moeda' => ['nullable', 'string', 'size:3'],
             'saldo_inicial' => ['required', 'numeric', 'min:0'],
             'data_saldo_inicial' => ['nullable', 'date'],
-            'categoria' => ['nullable', Rule::in(['operacional', 'reserva', 'investimento'])],
+            'categoria' => ['required', Rule::in(['operacional', 'reserva', 'investimento'])],
             'permite_transf' => ['sometimes', 'boolean'],
             'padrao_recebimento' => ['sometimes', 'boolean'],
             'padrao_pagamento' => ['sometimes', 'boolean'],
@@ -63,6 +63,13 @@ class FinancialAccountRequest extends FormRequest
         $payload = [
             'saldo_inicial' => $this->normalizeDecimalToFloat($this->input('saldo_inicial', 0), null),
         ];
+
+        foreach (['nome', 'apelido', 'instituicao', 'banco', 'agencia', 'numero', 'carteira', 'moeda'] as $field) {
+            if ($this->has($field)) {
+                $value = $this->input($field);
+                $payload[$field] = is_string($value) ? trim($value) : $value;
+            }
+        }
 
         foreach (['permite_transf', 'padrao_recebimento', 'padrao_pagamento'] as $field) {
             if ($this->has($field)) {

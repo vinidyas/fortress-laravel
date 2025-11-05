@@ -27,6 +27,7 @@ class JournalEntryFactory extends Factory
             'description_custom' => $this->faker->sentence(4),
             'notes' => $this->faker->optional()->sentence(),
             'reference_code' => $this->faker->optional()->regexify('[A-Z0-9]{6}'),
+            'improvement_type' => $this->faker->optional()->randomElement(['reforma', 'investimento']),
             'origin' => 'manual',
             'clone_of_id' => null,
             'movement_date' => $movement->toDateString(),

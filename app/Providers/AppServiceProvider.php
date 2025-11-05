@@ -6,6 +6,8 @@ namespace App\Providers;
 
 use App\Domain\Financeiro\Services\AccountBalanceService;
 use App\Domain\Financeiro\Services\Reconciliation\Parsers\BankStatementParserFactory;
+use App\Domain\Cnpj\CnpjLookupService;
+use App\Domain\Cnpj\Providers\BrasilApiCnpjProvider;
 use App\Events\Boleto\BoletoCanceled;
 use App\Events\Boleto\BoletoPaid;
 use App\Events\Boleto\BoletoRegistered;
@@ -26,6 +28,7 @@ use App\Services\Banking\Bradesco\BradescoApiClient;
 use App\Services\Banking\Bradesco\FakeBradescoApiClient;
 use App\Services\Banking\Bradesco\BradescoBoletoGateway;
 use App\Services\Boleto\BoletoGateway;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -45,6 +48,46 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return new BradescoApiClient();
+        });
+
+        $this->app->singleton(BrasilApiCnpjProvider::class, function ($app) {
+            $config = (array) $app['config']->get('services.cnpj_lookup.brasilapi', []);
+
+            return new BrasilApiCnpjProvider($config);
+        });
+
+        $this->app->singleton(CnpjLookupService::class, function ($app) {
+            $config = (array) $app['config']->get('services.cnpj_lookup', []);
+            $declaredProviders = array_filter(array_map('trim', $config['providers'] ?? []));
+
+            $providerMap = [
+                'brasilapi' => BrasilApiCnpjProvider::class,
+            ];
+
+            $providers = [];
+
+            foreach ($declaredProviders as $providerKey) {
+                $normalizedKey = strtolower($providerKey);
+
+                if (! isset($providerMap[$normalizedKey])) {
+                    continue;
+                }
+
+                $providers[] = $app->make($providerMap[$normalizedKey]);
+            }
+
+            if ($providers === []) {
+                $providers[] = $app->make(BrasilApiCnpjProvider::class);
+            }
+
+            /** @var CacheRepository $cache */
+            $cache = $app->make(CacheRepository::class);
+
+            return new CnpjLookupService(
+                providers: $providers,
+                cache: $cache,
+                cacheTtl: (int) ($config['cache_ttl'] ?? 60 * 60 * 24),
+            );
         });
 
         config([

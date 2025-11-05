@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Link } from '@inertiajs/vue3';
+import TransactionFormModal from '@/Components/Financeiro/TransactionFormModal.vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { formatDate } from '@/utils/date';
 import { useNotificationStore } from '@/Stores/notifications';
+import type { TransactionPayload } from '@/Components/Financeiro/TransactionForm.vue';
 
 interface Metrics {
   propertiesTotal: number;
@@ -93,6 +95,29 @@ interface ChartPoint {
   label: string;
 }
 
+interface FinanceOption {
+  id: number;
+  nome: string;
+  codigo?: string | null;
+  parent_id?: number | null;
+}
+
+interface FinancePersonOption extends FinanceOption {
+  papeis?: string[] | null;
+}
+
+interface FinancePropertyOption {
+  id: number;
+  titulo?: string | null;
+  codigo_interno?: string | null;
+}
+
+interface FinancePermissions {
+  update: boolean;
+  delete: boolean;
+  reconcile: boolean;
+}
+
 const props = defineProps<{
   metrics?: Partial<Metrics>;
   expiringContracts: ExpiringContract[];
@@ -103,7 +128,16 @@ const props = defineProps<{
   widgets?: Array<{ key: string; label: string; hidden?: boolean; position?: number }>;
   financialTrend?: FinancialTrendPoint[];
   delinquency?: Partial<DelinquencySummary>;
+  financeAccounts?: FinanceOption[];
+  financeCostCenters?: FinanceOption[];
+  financePeople?: FinancePersonOption[];
+  financeProperties?: FinancePropertyOption[];
+  financePermissions?: Partial<FinancePermissions>;
 }>();
+
+const page = usePage();
+const abilities = computed<string[]>(() => (page.props as any)?.auth?.abilities ?? []);
+const canUseAssistant = computed(() => abilities.value.includes('assistant.use'));
 
 const defaultMetrics: Metrics = {
   propertiesTotal: 0,
@@ -164,6 +198,16 @@ const payablesToday = computed<PayableTodayItem[]>(() => props.payablesToday ?? 
 const payablesTodaySummary = computed<PayableTodaySummary>(() => ({
   count: Number(props.payablesTodaySummary?.count ?? 0),
   total: Number(props.payablesTodaySummary?.total ?? 0),
+}));
+
+const financeAccounts = computed<FinanceOption[]>(() => props.financeAccounts ?? []);
+const financeCostCenters = computed<FinanceOption[]>(() => props.financeCostCenters ?? []);
+const financePeople = computed<FinancePersonOption[]>(() => props.financePeople ?? []);
+const financeProperties = computed<FinancePropertyOption[]>(() => props.financeProperties ?? []);
+const financePermissions = computed<FinancePermissions>(() => ({
+  update: Boolean(props.financePermissions?.update),
+  delete: Boolean(props.financePermissions?.delete),
+  reconcile: Boolean(props.financePermissions?.reconcile),
 }));
 
 const trendMaxValue = computed(() => {
@@ -515,9 +559,35 @@ const toggleWidgetSettingsPanel = () => {
 const alertList = ref<AlertItem[]>(props.alerts ? [...props.alerts] : []);
 const showAlertPanel = ref(false);
 const notificationButtonRef = ref<HTMLElement | null>(null);
+const assistantButtonRef = ref<HTMLElement | null>(null);
 const alertPanelRef = ref<HTMLElement | null>(null);
 const notificationStore = useNotificationStore();
 const clearingAlerts = ref(false);
+
+const showAssistantPanel = ref(false);
+const assistantMessages = ref<Array<{ role: 'assistant' | 'user'; text: string }>>([
+  {
+    role: 'assistant',
+    text: 'Olá! Posso gerar um resumo financeiro ou localizar faturas e contas a pagar. O que você precisa agora?',
+  },
+]);
+const assistantInput = ref('');
+const assistantLoading = ref(false);
+const assistantPanelRef = ref<HTMLElement | null>(null);
+const assistantMessagesEndRef = ref<HTMLElement | null>(null);
+const assistantContext = ref<Record<string, any> | null>(null);
+const assistantQuickPrompts = [
+  { label: 'Resumo do dia', message: 'Resumo do dia' },
+  { label: 'Faturas em atraso', message: 'Me fale sobre as faturas em atraso' },
+  { label: 'Contas a pagar', message: 'Quais contas a pagar hoje?' },
+  { label: 'Contratos ativos', message: 'Quantos contratos estão ativos?' },
+];
+const minAssistantPanelHeight = 280;
+const maxAssistantPanelHeight = 640;
+const assistantPanelHeight = ref(320);
+const isResizingAssistant = ref(false);
+let assistantResizeStartY = 0;
+let assistantResizeStartHeight = 320;
 
 const toggleAlertPanel = () => {
   if (!alertList.value.length) {
@@ -551,6 +621,15 @@ const handleClickOutside = (event: MouseEvent) => {
   ) {
     closeWidgetSettingsPanel();
   }
+
+  if (
+    showAssistantPanel.value &&
+    target &&
+    !assistantButtonRef.value?.contains(target) &&
+    !assistantPanelRef.value?.contains(target)
+  ) {
+    closeAssistantPanel();
+  }
 };
 
 const clearAlerts = async () => {
@@ -580,6 +659,234 @@ const clearAlerts = async () => {
   }
 };
 
+const loadingPayableId = ref<number | null>(null);
+const transactionModal = reactive<{ visible: boolean; transaction: TransactionPayload | null }>({
+  visible: false,
+  transaction: null,
+});
+
+const mapEntryToFormPayload = (entry: any): TransactionPayload => ({
+  id: entry.id,
+  clone_of_id: entry.clone_of_id ?? null,
+  account: entry.account ?? null,
+  counter_account: entry.counter_account ?? null,
+  cost_center: entry.cost_center ?? null,
+  property: entry.property ?? null,
+  property_label: entry.property_label ?? entry.propertyLabel ?? null,
+  propertyLabel: entry.property_label ?? entry.propertyLabel ?? null,
+  property_label_mcc: entry.property_label_mcc ?? entry.propertyLabelMcc ?? null,
+  propertyLabelMcc: entry.property_label_mcc ?? entry.propertyLabelMcc ?? null,
+  person: entry.person ?? null,
+  movement_date: entry.movement_date ?? entry.data_ocorrencia ?? null,
+  due_date: entry.due_date ?? null,
+  payment_date: entry.payment_date ?? entry.due_date ?? entry.movement_date ?? null,
+  descricao: entry.description ?? null,
+  description: entry.description ?? null,
+  description_id: entry.description_id ?? null,
+  notes: entry.notes ?? null,
+  reference_code: entry.reference_code ?? null,
+  tipo: entry.tipo ?? entry.type ?? 'receita',
+  valor: entry.valor ?? entry.amount ?? '0',
+  status: entry.status ?? entry.status_code ?? 'planejado',
+  installments: (entry.installments ?? []).map((installment: any, index: number) => ({
+    id: installment.id ?? null,
+    numero_parcela: installment.numero_parcela ?? index + 1,
+    movement_date: installment.movement_date ?? null,
+    due_date: installment.due_date ?? installment.movement_date ?? null,
+    payment_date: installment.payment_date ?? installment.due_date ?? null,
+    valor_principal: String(installment.valor_principal ?? installment.valor_total ?? 0),
+    valor_juros: String(installment.valor_juros ?? 0),
+    valor_multa: String(installment.valor_multa ?? 0),
+    valor_desconto: String(installment.valor_desconto ?? 0),
+    valor_total: String(installment.valor_total ?? 0),
+    status: installment.status ?? 'planejado',
+    meta: (installment.meta as Record<string, unknown> | null) ?? null,
+  })),
+  allocations: (entry.allocations ?? []).map((allocation: any) => ({
+    cost_center_id: allocation.cost_center_id ?? allocation.cost_center?.id ?? null,
+    property_id: allocation.property_id ?? allocation.property?.id ?? null,
+    percentage:
+      allocation.percentage !== undefined && allocation.percentage !== null
+        ? String(allocation.percentage)
+        : '',
+    amount:
+      allocation.amount !== undefined && allocation.amount !== null
+        ? String(allocation.amount)
+        : '',
+  })),
+  currency: entry.currency ?? 'BRL',
+  attachments: entry.attachments ?? [],
+  receipts: entry.receipts ?? [],
+});
+
+const closeTransactionModal = () => {
+  transactionModal.visible = false;
+  transactionModal.transaction = null;
+};
+
+const refreshPayables = () => {
+  router.reload({ only: ['payablesToday', 'payablesTodaySummary'] });
+};
+
+const handleTransactionSaved = () => {
+  closeTransactionModal();
+  refreshPayables();
+};
+
+const handleTransactionDeleted = () => {
+  closeTransactionModal();
+  refreshPayables();
+};
+
+const openPayableDetails = async (payable: PayableTodayItem) => {
+  if (!payable?.id) {
+    notificationStore.error('Lançamento inválido.');
+    return;
+  }
+
+  loadingPayableId.value = payable.id;
+  transactionModal.transaction = null;
+
+  try {
+    const { data } = await axios.get(`/api/financeiro/journal-entries/${payable.id}`);
+    const entry = data?.data ?? {};
+    transactionModal.transaction = mapEntryToFormPayload(entry);
+    transactionModal.visible = true;
+  } catch (error: any) {
+    const message = error?.response?.data?.message ?? 'Não foi possível carregar o lançamento.';
+    notificationStore.error(message);
+  } finally {
+    loadingPayableId.value = null;
+  }
+};
+
+const startAssistantResize = (event: MouseEvent) => {
+  if (!canUseAssistant.value) {
+    return;
+  }
+
+  event.preventDefault();
+  assistantResizeStartY = event.clientY;
+  assistantResizeStartHeight = assistantPanelHeight.value;
+  isResizingAssistant.value = true;
+  document.addEventListener('mousemove', onAssistantResize);
+  document.addEventListener('mouseup', stopAssistantResize);
+};
+
+const onAssistantResize = (event: MouseEvent) => {
+  if (!isResizingAssistant.value) {
+    return;
+  }
+
+  const delta = event.clientY - assistantResizeStartY;
+  let nextHeight = assistantResizeStartHeight + delta;
+  nextHeight = Math.min(maxAssistantPanelHeight, Math.max(minAssistantPanelHeight, nextHeight));
+  assistantPanelHeight.value = nextHeight;
+};
+
+const stopAssistantResize = () => {
+  if (!isResizingAssistant.value) {
+    document.removeEventListener('mousemove', onAssistantResize);
+    document.removeEventListener('mouseup', stopAssistantResize);
+    return;
+  }
+
+  isResizingAssistant.value = false;
+  document.removeEventListener('mousemove', onAssistantResize);
+  document.removeEventListener('mouseup', stopAssistantResize);
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('assistantPanelHeight', String(Math.round(assistantPanelHeight.value)));
+  }
+};
+
+const scrollAssistantToBottom = () => {
+  nextTick(() => assistantMessagesEndRef.value?.scrollIntoView({ behavior: 'smooth' }));
+};
+
+const toggleAssistantPanel = () => {
+  if (!canUseAssistant.value) {
+    return;
+  }
+
+  showAssistantPanel.value = !showAssistantPanel.value;
+  if (showAssistantPanel.value) {
+    showAlertPanel.value = false;
+    closeWidgetSettingsPanel();
+    nextTick(() => {
+      const textarea = assistantPanelRef.value?.querySelector<HTMLTextAreaElement>('textarea');
+      textarea?.focus();
+    });
+    scrollAssistantToBottom();
+  }
+};
+
+const closeAssistantPanel = () => {
+  showAssistantPanel.value = false;
+};
+
+watch(assistantMessages, scrollAssistantToBottom, { deep: true });
+
+watch(canUseAssistant, (value) => {
+  if (!value) {
+    showAssistantPanel.value = false;
+  }
+});
+
+const sendAssistantMessage = async () => {
+  if (!canUseAssistant.value) {
+    return;
+  }
+
+  if (assistantLoading.value) {
+    return;
+  }
+
+  const content = assistantInput.value.trim();
+
+  if (!content) {
+    return;
+  }
+
+  assistantMessages.value.push({ role: 'user', text: content });
+  assistantInput.value = '';
+  assistantLoading.value = true;
+  assistantContext.value = null;
+
+  try {
+    const { data } = await axios.post('/api/finance-assistant', { message: content });
+    const reply = data?.data?.reply ?? 'Não consegui gerar uma resposta no momento.';
+    assistantMessages.value.push({ role: 'assistant', text: reply });
+    assistantContext.value = data?.data?.context ?? null;
+  } catch (error: any) {
+    const message = error?.response?.data?.message ?? 'Não foi possível consultar o assistente agora.';
+    assistantMessages.value.push({ role: 'assistant', text: message });
+    assistantContext.value = null;
+  } finally {
+    assistantLoading.value = false;
+    scrollAssistantToBottom();
+  }
+};
+
+const triggerQuickPrompt = async (prompt: string) => {
+  if (!canUseAssistant.value) {
+    return;
+  }
+
+  if (assistantLoading.value) {
+    return;
+  }
+
+  if (!showAssistantPanel.value) {
+    toggleAssistantPanel();
+    await nextTick();
+  }
+
+  assistantInput.value = prompt;
+  await nextTick();
+  void sendAssistantMessage();
+};
+
 watch(
   () => props.alerts,
   (value) => {
@@ -593,10 +900,18 @@ watch(
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+
+  if (typeof window !== 'undefined') {
+    const storedHeight = Number(window.localStorage.getItem('assistantPanelHeight'));
+    if (!Number.isNaN(storedHeight) && storedHeight >= minAssistantPanelHeight && storedHeight <= maxAssistantPanelHeight) {
+      assistantPanelHeight.value = storedHeight;
+    }
+  }
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside);
+  stopAssistantResize();
 });
 
 const alertClasses = (type: AlertType) => {
@@ -743,6 +1058,24 @@ const alertClasses = (type: AlertType) => {
               </footer>
             </div>
           </transition>
+        </div>
+
+        <div v-if="canUseAssistant" class="relative">
+          <button
+            ref="assistantButtonRef"
+            type="button"
+            class="relative inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-900 px-3 py-3 text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            @click.stop="toggleAssistantPanel"
+            :title="showAssistantPanel ? 'Fechar assistente' : 'Abrir assistente financeiro'"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M7 8h10M7 12h6m-1 8l-4-3H7a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4h-1l-4 3z"
+              />
+            </svg>
+          </button>
         </div>
 
         <div class="relative">
@@ -1239,16 +1572,19 @@ const alertClasses = (type: AlertType) => {
                     </div>
                     <div class="text-right">
                       <p class="text-sm font-semibold text-rose-200">{{ formatCurrency(payable.amount) }}</p>
-                      <Link
-                        v-if="payable.link"
-                        :href="payable.link"
-                        class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 transition hover:text-indigo-100"
+                      <button
+                        type="button"
+                        class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 transition hover:text-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="loadingPayableId === payable.id"
+                        @click="openPayableDetails(payable)"
                       >
-                        <span>Detalhes</span>
+                        <span>
+                          {{ loadingPayableId === payable.id ? 'Abrindo...' : 'Detalhes' }}
+                        </span>
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
-                      </Link>
+                      </button>
                     </div>
                   </div>
                 </li>
@@ -1277,5 +1613,156 @@ const alertClasses = (type: AlertType) => {
         Todos os widgets estão ocultos. Utilize o botão "Widgets" para reativar os cards.
       </div>
     </div>
+
+    <transition name="fade">
+      <div
+        v-if="canUseAssistant && showAssistantPanel"
+        ref="assistantPanelRef"
+        class="fixed bottom-24 right-6 z-40 w-full max-w-md rounded-3xl border border-slate-800 bg-slate-950/95 shadow-2xl shadow-black/50 backdrop-blur"
+      >
+        <header class="flex items-start justify-between gap-4 border-b border-white/5 px-5 py-4">
+          <div>
+            <p class="text-sm font-semibold text-white">Assistente financeiro</p>
+            <p class="text-xs text-slate-400">Pergunte sobre faturas, contas a pagar e contratos.</p>
+          </div>
+          <button
+            type="button"
+            class="rounded-full p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            @click="closeAssistantPanel"
+          >
+            <span class="sr-only">Fechar</span>
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+
+        <div class="relative flex flex-col px-5 py-4 pb-6" :style="{ height: assistantPanelHeight + 'px' }">
+          <div class="mb-3 flex flex-wrap gap-2">
+            <button
+              v-for="prompt in assistantQuickPrompts"
+              :key="`assistant-prompt-${prompt.message}`"
+              type="button"
+              class="inline-flex items-center gap-1 rounded-full border border-indigo-500/40 px-3 py-1 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-100"
+              :disabled="assistantLoading"
+              @click.prevent="triggerQuickPrompt(prompt.message)"
+            >
+              {{ prompt.label }}
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div
+              v-for="(msg, index) in assistantMessages"
+              :key="`assistant-msg-${index}`"
+              class="rounded-2xl px-4 py-3 text-sm leading-relaxed"
+              :class="
+                msg.role === 'assistant'
+                  ? 'bg-slate-800/70 text-slate-100 border border-slate-700/80'
+                  : 'bg-indigo-500/80 text-white border border-indigo-400/60 self-end'
+              "
+            >
+              {{ msg.text }}
+            </div>
+            <span ref="assistantMessagesEndRef" />
+          </div>
+
+          <div
+            v-if="assistantContext && (assistantContext.overdue_invoices?.length || assistantContext.payables_today_list?.length || assistantContext.payables_overdue_list?.length)"
+            class="mt-3 space-y-3 text-xs text-slate-300"
+          >
+            <div
+              v-if="assistantContext.overdue_invoices?.length"
+              class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-100"
+            >
+              <p class="mb-2 font-semibold text-rose-200">Faturas em atraso (top {{ assistantContext.overdue_invoices.length }})</p>
+              <ul class="space-y-1">
+                <li v-for="invoice in assistantContext.overdue_invoices" :key="`assist-invoice-${invoice.id}`">
+                  <span class="font-semibold">#{{ invoice.id }}</span>
+                  — contrato {{ invoice.contract ?? 's/ contrato' }} — vence em {{ invoice.due_date ?? 's/data' }}
+                  — {{ formatCurrency(invoice.amount) }}
+                  <span v-if="invoice.days_overdue"> ({{ invoice.days_overdue }} dia(s) em atraso)</span>
+                </li>
+              </ul>
+            </div>
+
+            <div
+              v-if="assistantContext.payables_today_list?.length"
+              class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-100"
+            >
+              <p class="mb-2 font-semibold text-amber-200">Contas com vencimento hoje</p>
+              <ul class="space-y-1">
+                <li v-for="item in assistantContext.payables_today_list" :key="`assist-payable-today-${item.id}`">
+                  {{ item.description }} — {{ formatCurrency(item.amount) }} — {{ item.cost_center ?? 'sem centro' }}
+                </li>
+              </ul>
+            </div>
+
+            <div
+              v-if="assistantContext.payables_overdue_list?.length"
+              class="rounded-2xl border border-orange-500/30 bg-orange-500/10 p-3 text-orange-100"
+            >
+              <p class="mb-2 font-semibold text-orange-200">Contas em atraso (top {{ assistantContext.payables_overdue_list.length }})</p>
+              <ul class="space-y-1">
+                <li v-for="item in assistantContext.payables_overdue_list" :key="`assist-payable-overdue-${item.id}`">
+                  {{ item.description }} — {{ formatCurrency(item.amount) }} — venc. {{ item.due_date ?? 's/data' }}
+                  <span v-if="item.days_overdue"> ({{ item.days_overdue }} dia(s) em atraso)</span>
+                </li>
+              </ul>
+            </div>
+            </div>
+
+            <form class="mt-4 space-y-3" @submit.prevent="sendAssistantMessage">
+              <div class="rounded-2xl border border-slate-700 bg-slate-900/70 focus-within:border-indigo-500/60">
+                <textarea
+                v-model="assistantInput"
+                rows="3"
+                class="w-full rounded-2xl border-0 bg-transparent px-3 py-3 text-sm text-white placeholder-slate-500 focus:ring-0"
+                placeholder="Ex.: Resumo do dia, faturas em atraso, contas a pagar..."
+                :disabled="assistantLoading"
+                @keydown.enter.exact.prevent="sendAssistantMessage"
+              ></textarea>
+            </div>
+            <div class="flex items-center justify-between gap-3 text-xs text-slate-500">
+              <span v-if="assistantLoading" class="flex items-center gap-2 text-indigo-300">
+                <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8m8 8a8 8 0 01-8 8" />
+                </svg>
+                Gerando resposta...
+              </span>
+              <button
+                type="submit"
+                class="ml-auto inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="assistantLoading || !assistantInput.trim()"
+              >
+                Enviar
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </form>
+          <div
+            class="absolute bottom-1 left-0 right-0 h-3 cursor-ns-resize rounded-b-3xl"
+            @mousedown.prevent.stop="startAssistantResize"
+          ></div>
+        </div>
+      </div>
+    </transition>
+
+    <TransactionFormModal
+      :show="transactionModal.visible"
+      mode="edit"
+      :transaction="transactionModal.transaction"
+      :accounts="financeAccounts"
+      :cost-centers="financeCostCenters"
+      :people="financePeople"
+      :properties="financeProperties"
+      :permissions="financePermissions"
+      @close="closeTransactionModal"
+      @updated="handleTransactionSaved"
+      @created="handleTransactionSaved"
+      @deleted="handleTransactionDeleted"
+    />
   </AuthenticatedLayout>
 </template>

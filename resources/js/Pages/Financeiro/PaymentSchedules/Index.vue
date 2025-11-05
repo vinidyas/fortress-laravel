@@ -79,8 +79,8 @@ const handlePagination = (link: { url: string | null }) => {
         </div>
       </header>
 
-      <div class="overflow-hidden rounded-xl border border-slate-800">
-        <table class="min-w-full divide-y divide-slate-800 text-sm text-slate-100">
+      <div class="overflow-x-auto rounded-xl border border-slate-800">
+        <table class="min-w-[600px] lg:min-w-full divide-y divide-slate-800 text-sm text-slate-100">
           <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th class="px-4 py-3 text-left">Título</th>
@@ -132,4 +132,3 @@ const handlePagination = (link: { url: string | null }) => {
     </section>
   </AuthenticatedLayout>
 </template>
-

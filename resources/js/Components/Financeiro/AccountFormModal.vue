@@ -190,6 +190,16 @@ watch(
   }
 );
 
+watch(() => form.nome, () => delete errors.nome);
+watch(() => form.apelido, () => delete errors.apelido);
+watch(() => form.instituicao, () => delete errors.instituicao);
+watch(() => form.banco, () => delete errors.banco);
+watch(() => form.agencia, () => delete errors.agencia);
+watch(() => form.numero, () => delete errors.numero);
+watch(() => form.tipo, () => delete errors.tipo);
+watch(() => form.categoria, () => delete errors.categoria);
+watch(() => form.saldo_inicial, () => delete errors.saldo_inicial);
+
 const close = () => {
   if (submitting.value) {
     return;
@@ -207,18 +217,71 @@ const submit = async () => {
   Object.keys(errors).forEach((key) => delete errors[key as keyof typeof errors]);
   formError.value = '';
 
+  const trimmedNome = form.nome?.trim() ?? '';
+  const trimmedApelido = form.apelido?.trim() ?? '';
+  const trimmedInstituicao = form.instituicao?.trim() ?? '';
+  const trimmedBanco = form.banco?.trim() ?? '';
+  const trimmedAgencia = form.agencia?.trim() ?? '';
+  const trimmedNumero = form.numero?.trim() ?? '';
+  const trimmedSaldo = form.saldo_inicial === null ? '' : String(form.saldo_inicial).trim();
+
+  const requiredFieldErrors: Record<string, string> = {};
+
+  if (!trimmedNome) {
+    requiredFieldErrors.nome = 'Informe o nome da conta.';
+  }
+
+  if (!trimmedApelido) {
+    requiredFieldErrors.apelido = 'Informe um apelido para a conta.';
+  }
+
+  if (!trimmedInstituicao) {
+    requiredFieldErrors.instituicao = 'Informe a instituição financeira.';
+  }
+
+  if (!trimmedBanco) {
+    requiredFieldErrors.banco = 'Informe o banco.';
+  }
+
+  if (!trimmedAgencia) {
+    requiredFieldErrors.agencia = 'Informe a agência.';
+  }
+
+  if (!trimmedNumero) {
+    requiredFieldErrors.numero = 'Informe o número da conta.';
+  }
+
+  if (!form.tipo) {
+    requiredFieldErrors.tipo = 'Selecione o tipo de conta.';
+  }
+
+  if (!form.categoria) {
+    requiredFieldErrors.categoria = 'Selecione a categoria da conta.';
+  }
+
+  if (trimmedSaldo === '') {
+    requiredFieldErrors.saldo_inicial = 'Informe o saldo inicial.';
+  }
+
+  if (Object.keys(requiredFieldErrors).length > 0) {
+    Object.assign(errors, requiredFieldErrors);
+    formError.value = 'Preencha os campos obrigatórios destacados.';
+    submitting.value = false;
+    return;
+  }
+
   try {
     const payload = {
-      nome: form.nome,
+      nome: trimmedNome,
       tipo: form.tipo,
-      apelido: form.apelido || null,
-      instituicao: form.instituicao || null,
-      banco: form.banco || null,
-      agencia: form.agencia || null,
-      numero: form.numero || null,
+      apelido: trimmedApelido,
+      instituicao: trimmedInstituicao,
+      banco: trimmedBanco,
+      agencia: trimmedAgencia,
+      numero: trimmedNumero,
       carteira: form.carteira || null,
       moeda: form.moeda ? form.moeda.toUpperCase() : 'BRL',
-      saldo_inicial: form.saldo_inicial === '' ? 0 : Number(form.saldo_inicial),
+      saldo_inicial: trimmedSaldo === '' ? 0 : Number(trimmedSaldo),
       data_saldo_inicial: form.data_saldo_inicial || null,
       limite_credito: form.limite_credito === '' ? null : Number(form.limite_credito),
       categoria: form.categoria,
@@ -316,50 +379,55 @@ const submit = async () => {
               <p v-if="errors.nome" class="text-xs text-rose-400">{{ errors.nome }}</p>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-sm font-medium text-slate-200">Apelido</label>
+              <label class="text-sm font-medium text-slate-200">Apelido *</label>
               <input
                 v-model="form.apelido"
                 type="text"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 placeholder="Conta operacional"
               />
               <p v-if="errors.apelido" class="text-xs text-rose-400">{{ errors.apelido }}</p>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-sm font-medium text-slate-200">Instituição</label>
+              <label class="text-sm font-medium text-slate-200">Instituição *</label>
               <input
                 v-model="form.instituicao"
                 type="text"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 placeholder="Banco XP"
               />
               <p v-if="errors.instituicao" class="text-xs text-rose-400">{{ errors.instituicao }}</p>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-sm font-medium text-slate-200">Banco</label>
+              <label class="text-sm font-medium text-slate-200">Banco *</label>
               <input
                 v-model="form.banco"
                 type="text"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 placeholder="Banco 001"
               />
               <p v-if="errors.banco" class="text-xs text-rose-400">{{ errors.banco }}</p>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-sm font-medium text-slate-200">Agência</label>
+              <label class="text-sm font-medium text-slate-200">Agência *</label>
               <input
                 v-model="form.agencia"
                 type="text"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 placeholder="0001-9"
               />
               <p v-if="errors.agencia" class="text-xs text-rose-400">{{ errors.agencia }}</p>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-sm font-medium text-slate-200">Número</label>
+              <label class="text-sm font-medium text-slate-200">Número *</label>
               <input
                 v-model="form.numero"
                 type="text"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 placeholder="12345-6"
               />
@@ -378,6 +446,7 @@ const submit = async () => {
               <label class="text-sm font-medium text-slate-200">Tipo *</label>
               <select
                 v-model="form.tipo"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option v-for="option in tipoOptions" :key="option" :value="option">
@@ -398,6 +467,7 @@ const submit = async () => {
               <label class="text-sm font-medium text-slate-200">Categoria *</label>
               <select
                 v-model="form.categoria"
+                required
                 class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option v-for="option in categoriaOptions" :key="option" :value="option">

@@ -73,6 +73,7 @@ class JournalEntryResource extends JsonResource
             'description' => $this->description_custom,
             'description_id' => $this->description_id,
             'reference_code' => $this->reference_code,
+            'improvement_type' => $this->improvement_type,
             'origin' => $this->origin,
             'clone_of_id' => $this->clone_of_id,
             'account' => $this->whenLoaded('bankAccount', fn () => [

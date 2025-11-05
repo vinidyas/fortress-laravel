@@ -44,7 +44,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/perfil', [AccountController::class, 'edit'])->name('profile.edit');
-    Route::put('/perfil', [AccountController::class, 'update'])->name('profile.update');
+    Route::match(['POST', 'PUT'], '/perfil', [AccountController::class, 'update'])->name('profile.update');
     Route::get('/perfil/senha', [PasswordController::class, 'edit'])->name('profile.password.edit');
     Route::put('/perfil/senha', [PasswordController::class, 'update'])->name('profile.password.update');
 

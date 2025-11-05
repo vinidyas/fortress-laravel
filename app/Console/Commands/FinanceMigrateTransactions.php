@@ -120,6 +120,7 @@ class FinanceMigrateTransactions extends Command
             descriptionCustom: $description ? null : $transaction->descricao,
             notes: $meta['observacao'] ?? null,
             referenceCode: $meta['codigo_referencia'] ?? null,
+            improvementType: $meta['improvement_type'] ?? null,
             origin: 'legacy',
             cloneOfId: null,
             movementDate: $transaction->data_ocorrencia->toDateString(),

@@ -17,6 +17,7 @@ class PermissionsSeeder extends Seeder
             'financeiro.delete',
             'financeiro.reconcile',
             'financeiro.export',
+            'assistant.use',
         ];
 
         $auditPermissions = [
@@ -88,6 +89,7 @@ class PermissionsSeeder extends Seeder
                     'faturas.view', 'faturas.create', 'faturas.update', 'faturas.settle', 'faturas.cancel', 'faturas.email',
                     'reports.view.financeiro', 'reports.export',
                     'alerts.view',
+                    'assistant.use',
                 ],
             ],
             'auditor' => [

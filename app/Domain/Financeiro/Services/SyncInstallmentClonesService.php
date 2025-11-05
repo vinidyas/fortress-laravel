@@ -84,6 +84,7 @@ class SyncInstallmentClonesService
                     descriptionCustom: $entry->description_custom,
                     notes: $notes,
                     referenceCode: $entry->reference_code,
+                    improvementType: $entry->improvement_type,
                     origin: 'parcelado',
                     cloneOfId: $entry->id,
                     movementDate: optional($installment->movement_date)->toDateString() ?? optional($entry->movement_date)->toDateString(),

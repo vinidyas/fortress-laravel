@@ -25,6 +25,7 @@ class JournalEntry extends Model
         'description_custom',
         'notes',
         'reference_code',
+        'improvement_type',
         'origin',
         'clone_of_id',
         'movement_date',
@@ -48,6 +49,7 @@ class JournalEntry extends Model
         'installments_count' => 'integer',
         'paid_installments' => 'integer',
         'attachments_count' => 'integer',
+        'improvement_type' => 'string',
     ];
 
     public function bankAccount(): BelongsTo

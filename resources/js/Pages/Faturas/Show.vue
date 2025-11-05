@@ -131,6 +131,7 @@ const generatingBoleto = ref(false);
 const copyingLinhaDigitavel = ref(false);
 const clipboardSupported = typeof navigator !== 'undefined' && !!navigator.clipboard;
 
+const boletoGenerationDisabled = true;
 const boletos = computed<FaturaBoletoData[]>(() => fatura.value?.boletos ?? []);
 const boletoAtual = computed<FaturaBoletoData | null>(() => {
   if (fatura.value?.boleto_atual) {
@@ -141,7 +142,9 @@ const boletoAtual = computed<FaturaBoletoData | null>(() => {
 });
 const boletoLinhaDigitavel = computed<Nullable<string>>(() => boletoAtual.value?.linha_digitavel ?? null);
 const boletoLinhaDigitavelFormatada = computed(() => formatLinhaDigitavel(boletoLinhaDigitavel.value));
-const canGenerateBoleto = computed(() => !isNew.value && fatura.value?.status !== 'Cancelada');
+const canGenerateBoleto = computed(
+  () => !boletoGenerationDisabled && !isNew.value && fatura.value?.status !== 'Cancelada'
+);
 const boletoActionLabel = computed(() => (boletoAtual.value ? 'Reemitir boleto' : 'Gerar boleto'));
 
 const attachments = ref<AttachmentItem[]>([]);
@@ -297,7 +300,13 @@ async function fetchFatura() {
 }
 
 async function generateBoleto() {
-  if (!props.faturaId || generatingBoleto.value || !canGenerateBoleto.value) {
+  if (!props.faturaId || generatingBoleto.value) {
+    return;
+  }
+
+  if (!canGenerateBoleto.value) {
+    errorMessage.value =
+      'A geração automática de boletos Bradesco está temporariamente desativada. Utilize outra forma de cobrança.';
     return;
   }
 
@@ -1153,7 +1162,7 @@ async function saveItens(): Promise<void> {
               </svg>
             </button>
             <button
-              v-if="!isNew && canGenerateBoleto"
+              v-if="!isNew && !boletoGenerationDisabled && canGenerateBoleto"
               type="button"
               class="inline-flex items-center justify-center gap-2 rounded-xl border border-orange-500/40 bg-orange-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-500/80 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="generatingBoleto"
@@ -1179,6 +1188,12 @@ async function saveItens(): Promise<void> {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 19h14" />
               </svg>
             </a>
+            <div
+              v-if="boletoGenerationDisabled"
+              class="max-w-xs rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-xs leading-relaxed text-orange-200"
+            >
+              A geração/reemissão automática de boletos pelo Bradesco está temporariamente desativada. Utilize outra forma de cobrança ou entre em contato com o suporte.
+            </div>
             <button
               v-if="boletoLinhaDigitavel && clipboardSupported"
               type="button"
@@ -1412,11 +1427,8 @@ async function saveItens(): Promise<void> {
             </div>
           </div>
 
-          <div
-            v-else
-            class="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300"
-          >
-            Nenhum boleto emitido ainda. Clique em <span class="font-semibold text-white">Gerar boleto</span> para registrar junto ao Bradesco.
+          <div v-else class="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+            Nenhum boleto emitido ainda. A emissão automática pelo Bradesco está suspensa; utilize outro meio de cobrança enquanto o serviço não é liberado.
           </div>
 
           <p class="mt-4 text-xs leading-relaxed text-slate-400">

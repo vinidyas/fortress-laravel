@@ -36,6 +36,7 @@ class CreateJournalEntryService
                 'description_custom' => $data->descriptionCustom,
                 'notes' => $data->notes,
                 'reference_code' => $data->referenceCode,
+                'improvement_type' => $data->improvementType,
                 'origin' => $data->origin,
                 'clone_of_id' => $data->cloneOfId,
                 'movement_date' => $data->movementDate,

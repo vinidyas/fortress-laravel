@@ -123,6 +123,7 @@ class FinanceMigratePaymentSchedules extends Command
             descriptionCustom: $schedule->titulo,
             notes: $meta['observacao'] ?? null,
             referenceCode: $meta['codigo_referencia'] ?? null,
+            improvementType: $meta['improvement_type'] ?? null,
             origin: 'parcelado',
             cloneOfId: null,
             movementDate: $schedule->vencimento->toDateString(),

@@ -5,6 +5,7 @@ import { Head, router } from '@inertiajs/vue3';
 import axios from '@/bootstrap';
 import { useToast } from '@/composables/useToast';
 import { computed, ref } from 'vue';
+import type { AxiosError } from 'axios';
 
 type AccountRow = {
   id: number;
@@ -27,6 +28,7 @@ type AccountRow = {
   padrao_pagamento: boolean;
   ativo: boolean;
   observacoes?: string | null;
+  can_delete: boolean;
 };
 
 const props = defineProps<{
@@ -42,6 +44,7 @@ const showFormModal = ref(false);
 const formMode = ref<'create' | 'edit'>('create');
 const currentAccount = ref<AccountRow | null>(null);
 const loadingAccount = ref(false);
+const deletingAccountId = ref<number | null>(null);
 const hasActions = computed(() => props.can.update || props.can.delete);
 
 const tipoLabel = (tipo: string) =>
@@ -121,6 +124,37 @@ const handleUpdated = () => {
   showFormModal.value = false;
   refreshAccounts();
 };
+
+const handleDelete = async (account: AccountRow) => {
+  if (!props.can.delete || !account.can_delete) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Deseja realmente remover a conta "${account.nome}"? Essa ação não poderá ser desfeita.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  deletingAccountId.value = account.id;
+
+  try {
+    const response = await axios.delete(`/api/financeiro/accounts/${account.id}`);
+    const message =
+      response.data?.message ?? 'Conta financeira removida com sucesso.';
+    toast.success(message);
+    refreshAccounts();
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    const message =
+      axiosError.response?.data?.message ?? 'Não foi possível remover a conta financeira.';
+    toast.error(message);
+  } finally {
+    deletingAccountId.value = null;
+  }
+};
 </script>
 
 <template>
@@ -130,10 +164,10 @@ const handleUpdated = () => {
     <section
       class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-black/40"
     >
-      <header class="mb-4 flex items-center justify-between">
-        <div>
-          <h1 class="text-lg font-semibold text-white">Contas financeiras</h1>
-          <p class="text-sm text-slate-400">Gerencie as contas utilizadas nos lancamentos.</p>
+      <header class="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-base font-semibold text-white sm:text-lg">Contas financeiras</h1>
+          <p class="text-xs text-slate-400 sm:text-sm">Gerencie as contas utilizadas nos lancamentos.</p>
         </div>
         <button
           v-if="props.can.create"
@@ -154,8 +188,8 @@ const handleUpdated = () => {
         </button>
       </header>
 
-      <div class="overflow-hidden rounded-xl border border-slate-800">
-        <table class="min-w-full divide-y divide-slate-800 text-sm text-slate-100">
+      <div class="overflow-x-auto rounded-xl border border-slate-800">
+        <table class="min-w-[640px] lg:min-w-full divide-y divide-slate-800 text-sm text-slate-100">
           <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th class="px-4 py-3 text-left">Conta</th>
@@ -271,10 +305,19 @@ const handleUpdated = () => {
                     v-if="props.can.update"
                     type="button"
                     class="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:bg-slate-800 disabled:opacity-60"
-                    :disabled="loadingAccount"
+                    :disabled="loadingAccount || deletingAccountId === account.id"
                     @click="openEditModal(account)"
                   >
                     Editar
+                  </button>
+                  <button
+                    v-if="props.can.delete && account.can_delete"
+                    type="button"
+                    class="rounded-lg border border-rose-500 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/10 disabled:opacity-60"
+                    :disabled="deletingAccountId === account.id"
+                    @click="handleDelete(account)"
+                  >
+                    {{ deletingAccountId === account.id ? 'Removendo...' : 'Excluir' }}
                   </button>
                 </div>
               </td>

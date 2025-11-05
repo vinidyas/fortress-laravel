@@ -109,6 +109,36 @@ class JournalEntriesTest extends TestCase
         ]);
     }
 
+    public function test_cria_journal_entry_com_classificacao(): void
+    {
+        $this->actingAsUser(['financeiro.create', 'financeiro.view']);
+
+        $account = FinancialAccount::factory()->create(['moeda' => 'BRL']);
+
+        $payload = [
+            'type' => 'despesa',
+            'bank_account_id' => $account->id,
+            'movement_date' => Carbon::today()->toDateString(),
+            'due_date' => Carbon::today()->toDateString(),
+            'amount' => 120.5,
+            'improvement_type' => 'reforma',
+            'installments' => [[
+                'movement_date' => Carbon::today()->toDateString(),
+                'due_date' => Carbon::today()->toDateString(),
+                'valor_principal' => 120.5,
+                'valor_total' => 120.5,
+            ]],
+        ];
+
+        $response = $this->postJson('/api/financeiro/journal-entries', $payload);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('journal_entries', [
+            'bank_account_id' => $account->id,
+            'improvement_type' => 'reforma',
+        ]);
+    }
+
     public function test_clone_journal_entry(): void
     {
         $this->actingAsUser(['financeiro.create', 'financeiro.view']);

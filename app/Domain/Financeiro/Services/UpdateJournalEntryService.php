@@ -32,6 +32,7 @@ class UpdateJournalEntryService
                 'description_custom' => $data->descriptionCustom,
                 'notes' => $data->notes,
                 'reference_code' => $data->referenceCode,
+                'improvement_type' => $data->improvementType,
                 'movement_date' => $data->movementDate,
                 'due_date' => $data->dueDate,
                 'payment_date' => $data->paymentDate,

@@ -33,6 +33,12 @@ class FinancialAccountResource extends JsonResource
             'padrao_pagamento' => $this->padrao_pagamento,
             'observacoes' => $this->observacoes,
             'ativo' => $this->ativo,
+            'transactions_count' => $this->whenCounted('transactions'),
+            'journal_entries_count' => $this->whenCounted('journalEntries'),
+            'counter_journal_entries_count' => $this->whenCounted('counterJournalEntries'),
+            'can_delete' => ($this->transactions_count ?? 0) === 0
+                && ($this->journal_entries_count ?? 0) === 0
+                && ($this->counter_journal_entries_count ?? 0) === 0,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -87,7 +87,8 @@ RUN if [ -d storage ]; then \
     if [ -d bootstrap/cache ]; then \
         chown -R www-data:www-data storage bootstrap/cache && \
         chmod -R ug+rw bootstrap/cache; \
-    fi
+    fi && \
+    ln -sfn ${APP_DIR}/storage/app/public ${APP_DIR}/public/storage
 
 USER www-data
 
@@ -100,3 +101,5 @@ WORKDIR /var/www/html
 COPY --from=composer_deps ${APP_DIR}/public ./public
 COPY --from=frontend /build/public/build ./public/build
 COPY docs/docker-vps/fortress/nginx.conf /etc/nginx/conf.d/default.conf
+RUN mkdir -p ${APP_DIR}/storage/app/public && \
+    ln -sfn ${APP_DIR}/storage/app/public ${APP_DIR}/public/storage

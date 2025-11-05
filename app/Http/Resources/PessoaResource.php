@@ -31,6 +31,7 @@ class PessoaResource extends JsonResource
                 'numero' => $this->numero,
                 'complemento' => $this->complemento,
             ],
+            'dados_bancarios' => $this->dados_bancarios ?? [],
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -59,6 +59,7 @@ class CloneJournalEntryService
             descriptionCustom: $entry->description_custom,
             notes: $entry->notes,
             referenceCode: $overrides['reference_code'] ?? $entry->reference_code,
+            improvementType: $entry->improvement_type,
             origin: 'clonado',
             cloneOfId: $entry->id,
             movementDate: $overrides['movement_date'] ?? $entry->movement_date->toDateString(),

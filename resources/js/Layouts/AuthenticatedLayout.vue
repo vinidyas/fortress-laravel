@@ -38,6 +38,8 @@ const currentUrl = computed(() => page.url ?? '');
 const isSidebarOpen = ref(false);
 const isCollapsed = ref(true);
 const pinned = ref(false);
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280);
+const isMobile = computed(() => viewportWidth.value < 1024);
 
 const notificationStore = useNotificationStore();
 const notifications = computed(() => notificationStore.items);
@@ -98,6 +100,13 @@ const handleEscape = (event: KeyboardEvent) => {
 const expanded = ref<Record<string, boolean>>({});
 const toggleExpanded = (key: string) => { expanded.value[key] = !expanded.value[key]; };
 
+const handleWindowResize = () => {
+  updateMenuPosition();
+  if (typeof window !== 'undefined') {
+    viewportWidth.value = window.innerWidth;
+  }
+};
+
 onMounted(() => {
   // Abrir automaticamente a seção do item ativo
   try {
@@ -120,8 +129,9 @@ onMounted(() => {
   }
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('resize', handleWindowResize);
     window.addEventListener('scroll', updateMenuPosition, true);
+    handleWindowResize();
   }
 
   if (canViewBalances.value) {
@@ -133,10 +143,11 @@ onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
     document.removeEventListener('click', handleClickOutside);
     document.removeEventListener('keydown', handleEscape);
+    document.body.classList.remove('overflow-hidden');
   }
 
   if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', updateMenuPosition);
+    window.removeEventListener('resize', handleWindowResize);
     window.removeEventListener('scroll', updateMenuPosition, true);
   }
 });
@@ -149,7 +160,6 @@ const navItems = computed<NavItem[]>(() => {
   };
   const items: NavItem[] = [
     { key: 'dashboard', label: 'Dashboard', href: r('dashboard','', '/'), icon: 'M3 12h18M3 6h18M3 18h18', exact: true },
-    { key: 'cadastros', label: 'Cadastros', href: r('cadastros.index', undefined, '/cadastros'), icon: 'M4 5h16M4 10h16M4 15h16' },
     { key: 'imoveis', label: 'Imóveis', href: r('imoveis.index', undefined, '/imoveis'), icon: 'M4 12l8-6 8 6v8a2 2 0 01-2 2H6a2 2 0 01-2-2z', ability: 'imoveis.view' },
     { key: 'contratos', label: 'Contratos', href: r('contratos.index', undefined, '/contratos'), icon: 'M7 7h10M7 12h10M7 17h6', ability: 'contratos.view' },
     { key: 'faturas', label: 'Faturas', href: r('faturas.index', undefined, '/faturas'), icon: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', ability: 'faturas.view' },
@@ -160,11 +170,10 @@ const navItems = computed<NavItem[]>(() => {
       icon: 'M3 3h18M5 7h14v12H5z',
       ability: 'financeiro.view',
       children: [
-        { key: 'financeiro-accounts', label: 'Contas', href: route('financeiro.accounts'), ability: 'financeiro.view' },
-        { key: 'financeiro-centers', label: 'Centros de Custo', href: route('financeiro.cost-centers'), ability: 'financeiro.view' },
         { key: 'financeiro-lancamentos', label: 'Lançamentos', href: route('financeiro.index'), ability: 'financeiro.view' },
       ],
     },
+    { key: 'cadastros', label: 'Cadastros', href: r('cadastros.index', undefined, '/cadastros'), icon: 'M4 5h16M4 10h16M4 15h16' },
     {
       key: 'auditoria',
       label: 'Auditoria',
@@ -343,21 +352,65 @@ const itemClasses = (active: boolean) => [
 const childItemClasses = (active: boolean) => [ active ? 'text-indigo-300' : 'text-slate-400 hover:text-indigo-200' ].join(' ');
 
 const toggleSidebar = () => { isSidebarOpen.value = !isSidebarOpen.value; };
+const closeSidebar = () => { isSidebarOpen.value = false; };
+
+const sidebarWidthClass = computed(() => {
+  if (isMobile.value) {
+    return 'w-72 max-w-[90vw]';
+  }
+
+  return isCollapsed.value ? 'w-20' : 'w-80';
+});
 
 // Persistir preferência de “fixar” o menu lateral
 if (typeof window !== 'undefined') {
   try {
     const saved = localStorage.getItem('sidebarPinned');
     pinned.value = saved === 'true';
-    if (pinned.value) isCollapsed.value = false;
+    if (pinned.value && !isMobile.value) {
+      isCollapsed.value = false;
+    }
   } catch {}
 }
 
 const togglePin = () => {
   pinned.value = !pinned.value;
   try { localStorage.setItem('sidebarPinned', String(pinned.value)); } catch {}
-  isCollapsed.value = !pinned.value ? true : false;
+  if (pinned.value) {
+    isCollapsed.value = false;
+  } else {
+    isCollapsed.value = isMobile.value ? false : true;
+  }
 };
+
+watch(isSidebarOpen, (open) => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  if (isMobile.value) {
+    if (open) {
+      document.body.classList.add('overflow-hidden');
+      isCollapsed.value = false;
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+  }
+});
+
+watch(isMobile, (mobile) => {
+  if (mobile) {
+    isCollapsed.value = false;
+  } else {
+    if (!pinned.value) {
+      isCollapsed.value = true;
+    }
+    isSidebarOpen.value = false;
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('overflow-hidden');
+    }
+  }
+});
 
 watch(currentUrl, () => {
   closeUserMenu();
@@ -380,16 +433,16 @@ const submitLogout = () => {
 </script>
 
 <template>
-  <div class="app-compact min-h-screen w-full bg-slate-950 overflow-x-hidden transition-all" :class="isCollapsed ? 'lg:pl-20' : 'lg:pl-80'">
+  <div class="app-compact min-h-screen w-full bg-slate-950 transition-all lg:overflow-x-hidden" :class="isCollapsed ? 'lg:pl-20' : 'lg:pl-80'">
     <transition name="fade">
       <div v-if="userMenuOpen" class="fixed inset-0 z-[9980]" @click="closeUserMenu" />
     </transition>
 
     <aside
       class="fixed left-0 top-0 z-40 h-full -translate-x-full border-r border-slate-800 bg-slate-950/95 p-4 text-slate-300 backdrop-blur transition-all duration-200 lg:translate-x-0"
-      :class="[isCollapsed ? 'w-20' : 'w-80', { 'translate-x-0': isSidebarOpen }]"
-      @mouseenter="isCollapsed = false"
-      @mouseleave="!pinned && (isCollapsed = true)"
+      :class="[sidebarWidthClass, { 'translate-x-0 shadow-2xl shadow-black/50 lg:shadow-none': isSidebarOpen && isMobile, 'translate-x-0': isSidebarOpen && !isMobile }]"
+      @mouseenter="!isMobile && (isCollapsed = false)"
+      @mouseleave="!pinned && !isMobile && (isCollapsed = true)"
     >
       <div class="flex h-full flex-col">
         <div class="mb-4 flex items-center justify-between">
@@ -404,7 +457,7 @@ const submitLogout = () => {
             </div>
           </Link>
 
-          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 lg:hidden" @click="toggleSidebar">
+        <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 lg:hidden" @click="closeSidebar">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 6h18M3 18h18"/></svg>
             Fechar
           </button>
@@ -558,15 +611,23 @@ const submitLogout = () => {
         </nav>
       </div>
     </aside>
+  
+    <transition name="fade">
+      <div
+        v-if="isSidebarOpen && isMobile"
+        class="fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-sm lg:hidden"
+        @click="closeSidebar"
+      />
+    </transition>
 
     <div class="flex w-full flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 ">
       <header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-        <div class="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-10 overflow-visible">
-          <div>
-            <h1 class="text-xl font-semibold text-white">{{ props.title }}</h1>
-            <p class="text-sm text-slate-400">Visão geral da Fortress Empreendimentos</p>
+        <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-10 overflow-visible">
+          <div class="min-w-0 flex-1">
+            <h1 class="text-lg font-semibold text-white sm:text-xl">{{ props.title }}</h1>
+            <p class="text-xs text-slate-400 sm:text-sm">Visão geral da Fortress Empreendimentos</p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center justify-end gap-3 sm:flex-nowrap">
             <slot name="header-actions" />
 
             <div v-if="user" class="relative">
@@ -683,7 +744,7 @@ const submitLogout = () => {
         </div>
       </header>
 
-      <main class="flex-1 px-4 py-8 sm:px-6 lg:px-12">
+      <main class="flex-1 w-full overflow-x-auto px-4 py-6 sm:px-6 lg:px-12 lg:overflow-x-visible">
         <slot />
       </main>
 

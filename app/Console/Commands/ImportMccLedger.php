@@ -24,7 +24,9 @@ class ImportMccLedger extends Command
     protected $signature = 'mcc:import {path : Caminho absoluto ou relativo para o CSV exportado do MCC}
         {--status=pago : Status padrão que os lançamentos importados receberão}
         {--dry-run : Processa o arquivo e apresenta o resumo sem gravar no banco}
-        {--update-existing : Atualiza lançamentos já importados (origin=importado) em vez de criar novos}';
+        {--update-existing : Atualiza lançamentos já importados (origin=importado) em vez de criar novos}
+        {--default-account= : ID ou nome da conta bancária que deve receber os lançamentos quando não houver correspondência}
+        {--skip-lookups : Não tenta relacionar contas, centros de custo, imóveis ou pessoas existentes}';
 
     protected $description = 'Importa lançamentos financeiros exportados do sistema MCC';
 
@@ -64,6 +66,10 @@ class ImportMccLedger extends Command
 
     private int $updated = 0;
 
+    private ?int $forcedBankAccountId = null;
+
+    private bool $skipLookups = false;
+
     public function __construct(
         private readonly CreateJournalEntryService $createJournalEntry
     ) {
@@ -83,6 +89,26 @@ class ImportMccLedger extends Command
         $status = JournalEntryStatus::tryFrom(strtolower((string) $this->option('status'))) ?? JournalEntryStatus::Pago;
         $dryRun = (bool) $this->option('dry-run');
         $updateExisting = (bool) $this->option('update-existing');
+        $this->skipLookups = (bool) $this->option('skip-lookups');
+
+        $defaultAccountOption = $this->option('default-account');
+
+        if ($defaultAccountOption !== null && $defaultAccountOption !== '') {
+            try {
+                $this->forcedBankAccountId = $this->resolveForcedAccountId((string) $defaultAccountOption);
+            } catch (InvalidArgumentException $exception) {
+                $this->error($exception->getMessage());
+
+                return self::FAILURE;
+            }
+        }
+
+        if ($this->skipLookups && $this->forcedBankAccountId === null) {
+            $this->error('Quando utilizar --skip-lookups é necessário informar --default-account com uma conta bancária existente.');
+
+            return self::FAILURE;
+        }
+
         $this->dryRun = $dryRun;
         $this->updateExisting = $updateExisting;
 
@@ -257,7 +283,7 @@ class ImportMccLedger extends Command
 
         if (! $accountId) {
             if (! $this->dryRun) {
-                throw new InvalidArgumentException(sprintf('Conta não localizada: "%s"', $accountName));
+                throw new InvalidArgumentException(sprintf('Conta não localizada: "%s". Ajuste o arquivo ou informe --default-account.', $accountName));
             }
 
             $accountId = 0;
@@ -317,6 +343,7 @@ class ImportMccLedger extends Command
             descriptionCustom: $description,
             notes: $notes ?: null,
             referenceCode: $document ?: null,
+            improvementType: null,
             origin: 'importado',
             cloneOfId: null,
             movementDate: $movementDate->toDateString(),
@@ -353,13 +380,26 @@ class ImportMccLedger extends Command
     private function bootstrapLookups(): void
     {
         $this->accounts = FinancialAccount::query()->get(['id', 'nome']);
-        $this->costCenters = CostCenter::query()->get(['id', 'nome', 'codigo']);
-        $this->people = Pessoa::query()->get(['id', 'nome_razao_social']);
-        $this->properties = Imovel::query()->get(['id', 'codigo', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade']);
-
         $this->accountLookup = $this->accounts
             ->mapWithKeys(fn (FinancialAccount $account) => [$this->normalizeKey($account->nome) => $account->id])
             ->all();
+
+        if ($this->skipLookups) {
+            $this->costCenters = Collection::make();
+            $this->people = Collection::make();
+            $this->properties = Collection::make();
+            $this->costCenterLookup = [];
+            $this->personLookup = [];
+            $this->propertyLookupByCode = [];
+            $this->propertyLookupByComplement = [];
+            $this->propertyLookupByAddress = [];
+
+            return;
+        }
+
+        $this->costCenters = CostCenter::query()->get(['id', 'nome', 'codigo']);
+        $this->people = Pessoa::query()->get(['id', 'nome_razao_social']);
+        $this->properties = Imovel::query()->get(['id', 'codigo', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade']);
 
         $this->costCenterLookup = $this->costCenters
             ->filter(fn (CostCenter $center) => $center->codigo)
@@ -398,8 +438,55 @@ class ImportMccLedger extends Command
             ->all();
     }
 
+    private function resolveForcedAccountId(string $identifier): int
+    {
+        $identifier = trim($identifier);
+
+        if ($identifier === '') {
+            throw new InvalidArgumentException('O parâmetro --default-account não pode ser vazio.');
+        }
+
+        if (is_numeric($identifier)) {
+            $account = FinancialAccount::query()->find((int) $identifier);
+        } else {
+            $normalized = mb_strtolower($identifier);
+
+            $account = FinancialAccount::query()
+                ->whereRaw('LOWER(nome) = ?', [$normalized])
+                ->first();
+
+            if (! $account) {
+                $account = FinancialAccount::query()
+                    ->whereRaw('LOWER(nome) LIKE ?', [$normalized.'%'])
+                    ->orderBy('id')
+                    ->first();
+            }
+
+            if (! $account) {
+                $account = FinancialAccount::query()
+                    ->whereRaw('LOWER(nome) LIKE ?', ['%'.$normalized.'%'])
+                    ->orderBy('id')
+                    ->first();
+            }
+        }
+
+        if (! $account) {
+            throw new InvalidArgumentException(sprintf('Conta bancária não encontrada para "%s".', $identifier));
+        }
+
+        return (int) $account->id;
+    }
+
     private function resolveAccountId(?string $raw, int $lineNumber): ?int
     {
+        if ($this->forcedBankAccountId !== null) {
+            return $this->forcedBankAccountId;
+        }
+
+        if ($this->skipLookups) {
+            return null;
+        }
+
         if (! $raw) {
             return null;
         }
@@ -420,7 +507,7 @@ class ImportMccLedger extends Command
             $this->warnings[] = [
                 'linha' => $lineNumber,
                 'descricao' => trim($raw),
-                'aviso' => sprintf('Conta "%s" seria criada automaticamente.', $raw),
+                'aviso' => sprintf('Conta "%s" não localizada; informe --default-account para lançar mesmo assim.', $raw),
             ];
 
             $this->accountLookup[$normalized] = 0;
@@ -428,33 +515,21 @@ class ImportMccLedger extends Command
             return 0;
         }
 
-        $account = FinancialAccount::create([
-            'nome' => trim($raw),
-            'tipo' => 'conta_corrente',
-            'saldo_inicial' => 0,
-            'saldo_atual' => 0,
-            'moeda' => 'BRL',
-            'categoria' => 'operacional',
-            'permite_transf' => true,
-            'padrao_recebimento' => false,
-            'padrao_pagamento' => false,
-            'ativo' => true,
-        ]);
-
-        $this->accounts->push($account);
-        $this->accountLookup[$normalized] = $account->id;
-
         $this->warnings[] = [
             'linha' => $lineNumber,
             'descricao' => trim($raw),
-            'aviso' => sprintf('Conta "%s" criada automaticamente (ID %d).', $raw, $account->id),
+            'aviso' => sprintf('Conta "%s" não localizada; ajuste o arquivo ou informe --default-account.', $raw),
         ];
 
-        return $account->id;
+        return null;
     }
 
     private function resolveCostCenterId(?string $raw): ?int
     {
+        if ($this->skipLookups) {
+            return null;
+        }
+
         if (! $raw) {
             return null;
         }
@@ -488,6 +563,10 @@ class ImportMccLedger extends Command
 
     private function resolvePropertyId(?string $raw, int $lineNumber): ?int
     {
+        if ($this->skipLookups) {
+            return null;
+        }
+
         if (! $raw) {
             return null;
         }
@@ -547,6 +626,34 @@ class ImportMccLedger extends Command
             }
         }
 
+        foreach ($candidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            foreach ($this->properties as $property) {
+                $aliases = array_unique(array_filter([
+                    $property->codigo,
+                    $property->complemento,
+                    trim((string) ($property->logradouro ? $property->logradouro.' '.$property->numero : null)),
+                    trim((string) ($property->logradouro ? $property->logradouro.' '.$property->numero.' '.$property->bairro : null)),
+                    trim((string) ($property->bairro ? $property->bairro.' '.$property->cidade : null)),
+                ]));
+
+                foreach ($aliases as $alias) {
+                    $normalizedAlias = $this->normalizeKey((string) $alias);
+
+                    if ($normalizedAlias === '') {
+                        continue;
+                    }
+
+                    if ($this->looselyMatches($candidate, $normalizedAlias)) {
+                        return $property->id;
+                    }
+                }
+            }
+        }
+
         $this->warnings[] = [
             'linha' => $lineNumber,
             'descricao' => $raw,
@@ -556,15 +663,57 @@ class ImportMccLedger extends Command
         return null;
     }
 
+    private function looselyMatches(string $left, string $right): bool
+    {
+        if ($left === '' || $right === '') {
+            return false;
+        }
+
+        if ($left === $right) {
+            return true;
+        }
+
+        if (str_contains($left, $right) || str_contains($right, $left)) {
+            return true;
+        }
+
+        similar_text($left, $right, $percentage);
+        if ($percentage >= 78.0) {
+            return true;
+        }
+
+        $tokensLeft = array_values(array_filter(explode('_', $left), fn ($token) => strlen($token) >= 4));
+        $tokensRight = array_values(array_filter(explode('_', $right), fn ($token) => strlen($token) >= 4));
+
+        if (! empty($tokensLeft) && ! empty($tokensRight)) {
+            $intersection = array_intersect($tokensLeft, $tokensRight);
+
+            if (count($intersection) >= 2) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function resolvePersonId(?string $raw, JournalEntryType $type, int $lineNumber): ?int
     {
+        if ($this->skipLookups) {
+            return null;
+        }
+
         if (! $raw) {
             return null;
         }
 
         $normalized = trim($raw);
         $key = $this->normalizeKey($normalized);
-        $role = $type === JournalEntryType::Receita ? 'Cliente' : 'Fornecedor';
+
+        if (array_key_exists($key, $this->personLookup)) {
+            $cached = $this->personLookup[$key];
+
+            return $cached ?: null;
+        }
 
         if (isset($this->personLookup[$key])) {
             return $this->personLookup[$key];
@@ -577,57 +726,18 @@ class ImportMccLedger extends Command
         if ($person) {
             $this->personLookup[$key] = $person->id;
 
-            $roles = $person->papeis ?? [];
-            if (! in_array($role, $roles, true)) {
-                if ($this->dryRun) {
-                    $this->warnings[] = [
-                        'linha' => $lineNumber,
-                        'descricao' => $normalized,
-                        'aviso' => sprintf('Pessoa "%s" receberia o papel "%s".', $normalized, $role),
-                    ];
-                } else {
-                    $person->papeis = array_values(array_unique([...$roles, $role]));
-                    $person->save();
-
-                    $this->warnings[] = [
-                        'linha' => $lineNumber,
-                        'descricao' => $normalized,
-                        'aviso' => sprintf('Papel "%s" atribuído a "%s" (ID %d).', $role, $normalized, $person->id),
-                    ];
-                }
-            }
-
             return $person->id;
         }
-
-        if ($this->dryRun) {
-            $this->warnings[] = [
-                'linha' => $lineNumber,
-                'descricao' => $normalized,
-                'aviso' => sprintf('Pessoa "%s" seria criada automaticamente como %s.', $normalized, mb_strtolower($role)),
-            ];
-
-            $this->personLookup[$key] = 0;
-
-            return 0;
-        }
-
-        $person = Pessoa::create([
-            'nome_razao_social' => $normalized,
-            'tipo_pessoa' => 'Juridica',
-            'papeis' => [$role],
-        ]);
-
-        $this->people->push($person);
-        $this->personLookup[$key] = $person->id;
 
         $this->warnings[] = [
             'linha' => $lineNumber,
             'descricao' => $normalized,
-            'aviso' => sprintf('Pessoa "%s" criada automaticamente como %s (ID %d).', $normalized, mb_strtolower($role), $person->id),
+            'aviso' => 'Pessoa não localizada. O lançamento será importado sem vínculo com pessoa.',
         ];
 
-        return $person->id;
+        $this->personLookup[$key] = 0;
+
+        return null;
     }
 
     private function parseDate(?string $value, int $line, string $field): ?Carbon

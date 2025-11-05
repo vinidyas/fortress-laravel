@@ -19,6 +19,7 @@ class JournalEntryData
         public readonly ?string $descriptionCustom,
         public readonly ?string $notes,
         public readonly ?string $referenceCode,
+        public readonly ?string $improvementType,
         public readonly string $origin,
         public readonly ?int $cloneOfId,
         public readonly string $movementDate,

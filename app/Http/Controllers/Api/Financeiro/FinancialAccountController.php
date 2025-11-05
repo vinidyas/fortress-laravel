@@ -19,6 +19,7 @@ class FinancialAccountController extends Controller
         $this->authorize('viewAny', FinancialAccount::class);
 
         $accounts = FinancialAccount::query()
+            ->withCount(['transactions', 'journalEntries', 'counterJournalEntries'])
             ->when($request->boolean('ativos'), fn ($query) => $query->where('ativo', true))
             ->when($request->filled('tipo'), fn ($query) => $query->where('tipo', $request->string('tipo')))
             ->orderBy('nome')
@@ -33,6 +34,7 @@ class FinancialAccountController extends Controller
         $this->authorize('create', FinancialAccount::class);
 
         $account = FinancialAccount::create($request->validated());
+        $account->loadCount(['transactions', 'journalEntries', 'counterJournalEntries']);
 
         event(new AccountBalancesShouldRefresh([$account->id]));
 
@@ -46,6 +48,8 @@ class FinancialAccountController extends Controller
     {
         $this->authorize('view', $account);
 
+        $account->loadCount(['transactions', 'journalEntries', 'counterJournalEntries']);
+
         return FinancialAccountResource::make($account);
     }
 
@@ -54,6 +58,7 @@ class FinancialAccountController extends Controller
         $this->authorize('update', $account);
 
         $account->update($request->validated());
+        $account->loadCount(['transactions', 'journalEntries', 'counterJournalEntries']);
 
         event(new AccountBalancesShouldRefresh([$account->id]));
 

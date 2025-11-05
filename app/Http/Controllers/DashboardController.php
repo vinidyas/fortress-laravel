@@ -7,6 +7,9 @@ use App\Models\Fatura;
 use App\Models\JournalEntry;
 use App\Models\Imovel;
 use App\Models\DashboardAlert;
+use App\Models\FinancialAccount;
+use App\Models\CostCenter;
+use App\Models\Pessoa;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -126,6 +129,62 @@ class DashboardController extends Controller
 
         $widgets = $this->buildWidgets($request->user());
 
+        $user = $request->user();
+        $canManageFinance = $user?->can('viewAny', JournalEntry::class) ?? false;
+
+        $financeAccounts = $canManageFinance
+            ? FinancialAccount::query()->orderBy('nome')->get(['id', 'nome'])
+            : collect();
+
+        $financeCostCenters = $canManageFinance
+            ? CostCenter::query()->orderBy('nome')->get(['id', 'nome', 'codigo', 'parent_id'])
+            : collect();
+
+        $financePeople = $canManageFinance
+            ? Pessoa::query()
+                ->orderBy('nome_razao_social')
+                ->get([
+                    'id',
+                    'nome_razao_social as nome',
+                    'papeis',
+                ])
+            : collect();
+
+        $financeProperties = $canManageFinance
+            ? Imovel::query()
+                ->with('condominio:id,nome')
+                ->orderBy('codigo')
+                ->get(['id', 'codigo', 'complemento', 'condominio_id'])
+                ->map(function (Imovel $imovel) {
+                    $condominioNome = trim($imovel->condominio->nome ?? '');
+                    $complemento = trim($imovel->complemento ?? '');
+                    $titulo = $condominioNome;
+
+                    if ($complemento !== '') {
+                        $titulo = $titulo !== ''
+                            ? sprintf('%s — %s', $condominioNome, $complemento)
+                            : $complemento;
+                    }
+
+                    if ($titulo === '') {
+                        $titulo = sprintf('Imóvel %s', $imovel->codigo ?? $imovel->id);
+                    }
+
+                    return [
+                        'id' => $imovel->id,
+                        'titulo' => $titulo,
+                        'codigo_interno' => $imovel->codigo,
+                    ];
+                })
+                ->values()
+            : collect();
+
+        $financePermissions = [
+            'update' => $user?->hasPermission('financeiro.update') ?? false,
+            'delete' => $user?->hasPermission('financeiro.delete') ?? false,
+            'reconcile' => $user?->hasPermission('financeiro.reconcile') ?? false,
+        ];
+
         return Inertia::render('Dashboard', [
             'metrics' => $metrics,
             'financialTrend' => $financialTrend,
@@ -136,6 +195,11 @@ class DashboardController extends Controller
             'payablesTodaySummary' => $payablesTodaySummary,
             'alerts' => $alerts,
             'widgets' => $widgets,
+            'financeAccounts' => $financeAccounts,
+            'financeCostCenters' => $financeCostCenters,
+            'financePeople' => $financePeople,
+            'financeProperties' => $financeProperties,
+            'financePermissions' => $financePermissions,
         ]);
     }
 

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ContratoController;
 use App\Http\Controllers\Api\ContratoReajusteController;
 use App\Http\Controllers\Api\DashboardWidgetPreferenceController;
 use App\Http\Controllers\Api\EntityAuditController;
+use App\Http\Controllers\Api\CnpjLookupController;
 use App\Http\Controllers\Api\FaturaAttachmentController;
 use App\Http\Controllers\Api\FaturaBoletoController;
 use App\Http\Controllers\Api\FaturaController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\Api\Financeiro\CostCenterController;
 use App\Http\Controllers\Api\Financeiro\FinancialAccountBalanceController;
 use App\Http\Controllers\Api\Financeiro\FinancialAccountController;
 use App\Http\Controllers\Api\Financeiro\FinancialReconciliationController;
+use App\Http\Controllers\Api\Financeiro\FinanceAssistantController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryAttachmentController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryDescriptionController;
@@ -40,6 +42,7 @@ use App\Http\Controllers\Webhooks\BradescoWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::get('cnpj/{cnpj}', CnpjLookupController::class)->name('api.cnpj.show');
     Route::get('imoveis/generate-codigo', [ImovelController::class, 'generateCodigo'])->name('imoveis.generate-codigo');
     Route::get('imoveis/{imovel}/fotos/download', [ImovelController::class, 'downloadPhotos'])->name('imoveis.fotos.download');
     Route::apiResource('imoveis', ImovelController::class)
@@ -79,6 +82,10 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::post('contratos/{contrato}/reajustes', [ContratoReajusteController::class, 'store'])->name('contratos.reajustes.store');
     Route::get('contratos/{contrato}/audit', [EntityAuditController::class, 'contratoTimeline'])->name('contratos.audit.index');
     Route::get('contratos/{contrato}/audit/export', [EntityAuditController::class, 'exportContratoTimeline'])->name('contratos.audit.export');
+
+    Route::post('finance-assistant', FinanceAssistantController::class)
+        ->middleware('can:assistant.use')
+        ->name('finance.assistant');
 
     Route::get('faturas/eligible-contracts', [FaturaController::class, 'eligibleContracts'])->name('faturas.eligible-contracts');
     Route::post('faturas/generate-month', [FaturaController::class, 'generateCurrentMonth'])->name('faturas.generate-month');

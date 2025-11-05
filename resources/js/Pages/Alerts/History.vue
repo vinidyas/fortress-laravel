@@ -291,8 +291,8 @@ const formatPayload = (payload: Record<string, unknown>) => {
         </div>
       </form>
 
-      <div class="mt-6 overflow-hidden rounded-xl border border-slate-800">
-        <table class="min-w-full divide-y divide-slate-800 text-sm text-slate-100">
+      <div class="mt-6 overflow-x-auto rounded-xl border border-slate-800">
+        <table class="min-w-[640px] lg:min-w-full divide-y divide-slate-800 text-sm text-slate-100">
           <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th class="px-4 py-3 text-left">Alerta</th>

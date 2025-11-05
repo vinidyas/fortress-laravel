@@ -26,6 +26,23 @@ type MetaPagination = {
   total: number;
 };
 
+type CnpjLookupResponse = {
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  cep?: string | null;
+  uf?: string | null;
+  municipio?: string | null;
+  bairro?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  provider?: string | null;
+  fetched_at?: string | null;
+};
+
 const tipoOptions = ['Fisica', 'Juridica'];
 const papelOptions = [
   { value: 'Locatario', label: 'Locatário' },
@@ -64,6 +81,9 @@ const showCreateModal = ref(false);
 const createSaving = ref(false);
 const createError = ref('');
 const createCepLoading = ref(false);
+const createCnpjLoading = ref(false);
+const createCnpjMessage = ref('');
+const createActiveTab = ref<'geral' | 'banco'>('geral');
 const createForm = reactive({
   nome_razao_social: '',
   tipo_pessoa: 'Fisica' as 'Fisica' | 'Juridica',
@@ -78,6 +98,15 @@ const createForm = reactive({
   rua: '',
   numero: '',
   complemento: '',
+  bank: {
+    banco: '',
+    agencia: '',
+    conta: '',
+    tipo_conta: 'corrente' as 'corrente' | 'poupanca' | 'pagamento',
+    titular: '',
+    documento_titular: '',
+    pix_chave: '',
+  },
 });
 
 const createRequiresBoletoData = computed(() => createForm.papeis.includes('Locatario'));
@@ -95,6 +124,7 @@ const normalizePapeis = (value: unknown): string[] => {
 
 function openCreate() {
   createError.value = '';
+  createActiveTab.value = 'geral';
   showCreateModal.value = true;
 }
 
@@ -112,6 +142,17 @@ function resetCreateForm() {
   createForm.rua = '';
   createForm.numero = '';
   createForm.complemento = '';
+  createForm.bank = {
+    banco: '',
+    agencia: '',
+    conta: '',
+    tipo_conta: 'corrente',
+    titular: '',
+    documento_titular: '',
+    pix_chave: '',
+  };
+  createCnpjMessage.value = '';
+  createActiveTab.value = 'geral';
 }
 
 function closeCreate() {
@@ -153,11 +194,143 @@ async function fetchCepCreate() {
   }
 }
 
+function buildCnpjMessage(payload: CnpjLookupResponse): string {
+  const provider = payload.provider ?? 'BrasilAPI';
+  const fetchedAt = payload.fetched_at ? new Date(payload.fetched_at) : null;
+
+  if (fetchedAt instanceof Date && !Number.isNaN(fetchedAt.getTime())) {
+    return `Dados preenchidos via ${provider} em ${fetchedAt.toLocaleString('pt-BR')}.`;
+  }
+
+  return `Dados preenchidos via ${provider}.`;
+}
+
+function applyCnpjDataToCreateForm(payload: CnpjLookupResponse) {
+  createForm.tipo_pessoa = 'Juridica';
+  createForm.nome_razao_social = payload.razao_social ?? createForm.nome_razao_social;
+
+  if (payload.email) {
+    createForm.email = payload.email;
+  }
+
+  if (payload.telefone) {
+    const telefoneDigits = payload.telefone.replace(/\D/g, '');
+    createForm.telefone = telefoneDigits;
+  }
+
+  if (payload.cep) {
+    createForm.cep = payload.cep.replace(/\D/g, '');
+  }
+
+  if (payload.uf) {
+    createForm.estado = payload.uf.toUpperCase();
+  }
+
+  if (payload.municipio) {
+    createForm.cidade = payload.municipio;
+  }
+
+  if (payload.bairro) {
+    createForm.bairro = payload.bairro;
+  }
+
+  if (payload.logradouro) {
+    createForm.rua = payload.logradouro;
+  }
+
+  if (payload.numero) {
+    createForm.numero = payload.numero;
+  }
+
+  if (payload.complemento) {
+    createForm.complemento = payload.complemento;
+  }
+}
+
+async function fetchCnpjCreateData() {
+  if (createForm.tipo_pessoa !== 'Juridica') {
+    createError.value = 'A busca automática só está disponível para pessoas jurídicas.';
+    return;
+  }
+
+  const documento = createForm.cpf_cnpj.replace(/\D/g, '');
+
+  if (documento.length !== 14) {
+    createError.value = 'Informe um CNPJ com 14 dígitos para buscar os dados automaticamente.';
+    return;
+  }
+
+  createCnpjLoading.value = true;
+  createError.value = '';
+  createCnpjMessage.value = '';
+
+  try {
+    const { data } = await axios.get(`/api/cnpj/${documento}`);
+    const payload: CnpjLookupResponse = data?.data ?? {};
+
+    createForm.cpf_cnpj = documento;
+    applyCnpjDataToCreateForm(payload);
+    createCnpjMessage.value = buildCnpjMessage(payload);
+    toast.success('Dados preenchidos a partir do CNPJ informado.');
+  } catch (error: any) {
+    const responseMessage = error?.response?.data?.message;
+    createError.value = responseMessage || 'Não foi possível consultar o CNPJ no momento.';
+  } finally {
+    createCnpjLoading.value = false;
+  }
+}
+
 async function submitCreate() {
   createSaving.value = true;
   createError.value = '';
   try {
-    const payload = { ...createForm, papeis: createForm.papeis };
+    const nome = createForm.nome_razao_social.trim();
+    const documento = createForm.cpf_cnpj.replace(/\D/g, '');
+
+    if (!nome) {
+      createError.value = 'Informe o nome ou razão social.';
+      return;
+    }
+
+    if (!createForm.tipo_pessoa) {
+      createError.value = 'Selecione o tipo de pessoa.';
+      return;
+    }
+
+    if (!documento) {
+      createError.value = 'Informe o CPF ou CNPJ.';
+      return;
+    }
+
+    if (createForm.papeis.length === 0) {
+      createError.value = 'Selecione ao menos um papel para a pessoa/empresa.';
+      return;
+    }
+
+    const payload = {
+      nome_razao_social: nome,
+      tipo_pessoa: createForm.tipo_pessoa,
+      cpf_cnpj: documento,
+      email: createForm.email || null,
+      telefone: createForm.telefone || null,
+      papeis: createForm.papeis,
+      cep: createForm.cep || null,
+      estado: createForm.estado || null,
+      cidade: createForm.cidade || null,
+      bairro: createForm.bairro || null,
+      rua: createForm.rua || null,
+      numero: createForm.numero || null,
+      complemento: createForm.complemento || null,
+      dados_bancarios: {
+        banco: createForm.bank.banco || null,
+        agencia: createForm.bank.agencia || null,
+        conta: createForm.bank.conta || null,
+        tipo_conta: createForm.bank.tipo_conta || null,
+        titular: createForm.bank.titular || null,
+        documento_titular: createForm.bank.documento_titular.replace(/\D/g, '') || null,
+        pix_chave: createForm.bank.pix_chave || null,
+      },
+    };
     await axios.post('/api/pessoas', payload);
     closeCreate();
     await fetchPessoas(1);
@@ -178,6 +351,15 @@ async function submitCreate() {
 watch(perPage, () => {
   fetchPessoas(1);
 });
+
+watch(
+  () => createForm.cpf_cnpj,
+  () => {
+    if (!createCnpjLoading.value) {
+      createCnpjMessage.value = '';
+    }
+  }
+);
 
 async function fetchPessoas(page = 1) {
   loading.value = true;
@@ -345,8 +527,8 @@ onMounted(() => {
         {{ errorMessage }}
       </div>
 
-      <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40">
-        <table class="min-w-full divide-y divide-slate-800 text-sm">
+      <section class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40">
+        <table class="min-w-[720px] lg:min-w-full divide-y divide-slate-800 text-sm">
           <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th class="px-4 py-3 text-left">Nome/Razão Social</th>
@@ -446,30 +628,74 @@ onMounted(() => {
             <section class="space-y-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-inner shadow-black/20">
               <header class="flex items-center gap-3">
                 <span class="h-6 w-1 rounded-full bg-indigo-500"></span>
-                <h4 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Dados gerais</h4>
+                <h4 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Cadastro</h4>
               </header>
-              <div class="grid gap-4 md:grid-cols-2">
+              <p class="text-xs text-slate-400">Campos marcados com <span class="text-rose-400">*</span> são obrigatórios.</p>
+
+              <div class="flex items-center gap-2 text-xs font-semibold">
+                <button
+                  type="button"
+                  class="rounded-md px-3 py-1.5 transition"
+                  :class="createActiveTab === 'geral' ? 'bg-indigo-600 text-white shadow' : 'bg-white/10 text-slate-300 hover:bg-white/20'"
+                  @click="createActiveTab = 'geral'"
+                >
+                  Geral
+                </button>
+                <button
+                  type="button"
+                  class="rounded-md px-3 py-1.5 transition"
+                  :class="createActiveTab === 'banco' ? 'bg-indigo-600 text-white shadow' : 'bg-white/10 text-slate-300 hover:bg-white/20'"
+                  @click="createActiveTab = 'banco'"
+                >
+                  Dados bancários
+                </button>
+              </div>
+
+              <div v-show="createActiveTab === 'geral'" class="grid gap-4 md:grid-cols-2">
                 <div class="md:col-span-2 flex flex-col gap-2">
-                  <label class="text-sm font-medium text-slate-200">Nome / Razão social</label>
+                  <label class="text-sm font-medium text-slate-200">
+                    Nome / Razão social
+                    <span class="text-rose-400">*</span>
+                  </label>
                   <input v-model="createForm.nome_razao_social" type="text" required class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
                 </div>
                 <div class="flex flex-col gap-2">
-                  <label class="text-sm font-medium text-slate-200">Tipo</label>
-                  <select v-model="createForm.tipo_pessoa" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100">
+                  <label class="text-sm font-medium text-slate-200">
+                    Tipo
+                    <span class="text-rose-400">*</span>
+                  </label>
+                  <select v-model="createForm.tipo_pessoa" required class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100">
                     <option value="Fisica">Fisica</option>
                     <option value="Juridica">Juridica</option>
                   </select>
                 </div>
                 <div class="flex flex-col gap-2">
-                  <label class="text-sm font-medium text-slate-200">CPF / CNPJ</label>
-                  <input
-                    v-model="createForm.cpf_cnpj"
-                    type="text"
-                    :required="createRequiresBoletoData"
-                    maxlength="14"
-                    class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
-                    placeholder="Somente números"
-                  />
+                  <label class="text-sm font-medium text-slate-200">
+                    CPF / CNPJ
+                    <span class="text-rose-400">*</span>
+                  </label>
+                  <div class="flex gap-2">
+                    <input
+                      v-model="createForm.cpf_cnpj"
+                      type="text"
+                      required
+                      maxlength="14"
+                      inputmode="numeric"
+                      class="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
+                      placeholder="Somente números"
+                      @input="createForm.cpf_cnpj = createForm.cpf_cnpj.replace(/\\D/g, '')"
+                    />
+                    <button
+                      v-if="createForm.tipo_pessoa === 'Juridica'"
+                      type="button"
+                      class="inline-flex items-center rounded-md border border-indigo-500/60 bg-indigo-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-600"
+                      :disabled="createCnpjLoading"
+                      @click="fetchCnpjCreateData"
+                    >
+                      {{ createCnpjLoading ? 'Buscando...' : 'Buscar CNPJ' }}
+                    </button>
+                  </div>
+                  <p v-if="createCnpjMessage" class="text-xs text-emerald-300">{{ createCnpjMessage }}</p>
                 </div>
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-slate-200">Email</label>
@@ -492,16 +718,69 @@ onMounted(() => {
                   />
                 </div>
                 <div class="md:col-span-2">
-                  <label class="text-sm font-medium text-slate-200">Papéis</label>
+                  <label class="text-sm font-medium text-slate-200">
+                    Papéis
+                    <span class="text-rose-400">*</span>
+                  </label>
                   <div class="mt-2 grid gap-2 sm:grid-cols-2">
                     <label v-for="option in papelOptions" :key="option.value" class="flex items-center gap-2 text-sm text-slate-300">
                       <input type="checkbox" :value="option.value" :checked="createForm.papeis.includes(option.value)" @change="toggleCreatePapel(option.value)" class="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500" />
                       {{ option.label }}
                     </label>
                   </div>
-                  <p v-if="createRequiresBoletoData" class="mt-2 text-xs text-amber-300">
-                    Dados de documento, contato e endereço são obrigatórios para locatários por exigência do Bradesco.
+                  <p
+                    class="mt-2 text-xs"
+                    :class="createForm.papeis.length === 0 ? 'text-rose-400' : 'text-amber-300'"
+                  >
+                    {{
+                      createForm.papeis.length === 0
+                        ? 'Selecione pelo menos um papel para continuar.'
+                        : 'Dados de documento, contato e endereço são obrigatórios para locatários por exigência do Bradesco.'
+                    }}
                   </p>
+                </div>
+              </div>
+
+              <div v-show="createActiveTab === 'banco'" class="grid gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Banco</label>
+                  <input v-model="createForm.bank.banco" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="Ex.: 001 - Banco do Brasil" />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Agência</label>
+                  <input v-model="createForm.bank.agencia" type="text" inputmode="numeric" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="Somente números" />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Conta</label>
+                  <input v-model="createForm.bank.conta" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="Número e dígito" />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Tipo de conta</label>
+                  <select v-model="createForm.bank.tipo_conta" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100">
+                    <option value="corrente">Corrente</option>
+                    <option value="poupanca">Poupança</option>
+                    <option value="pagamento">Pagamento</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Titular</label>
+                  <input v-model="createForm.bank.titular" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="Nome completo" />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Documento do titular</label>
+                  <input
+                    v-model="createForm.bank.documento_titular"
+                    type="text"
+                    inputmode="numeric"
+                    class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100"
+                    placeholder="CPF/CNPJ (somente números)"
+                    @input="createForm.bank.documento_titular = createForm.bank.documento_titular.replace(/\\D/g, '')"
+                  />
+                </div>
+                <div class="md:col-span-2 flex flex-col gap-2">
+                  <label class="text-sm font-medium text-slate-200">Chave PIX</label>
+                  <input v-model="createForm.bank.pix_chave" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" placeholder="E-mail, CPF/CNPJ, telefone ou aleatória" />
+                  <p class="text-xs text-slate-500">Opcional. Utilizada para repasses rápidos.</p>
                 </div>
               </div>
             </section>
@@ -553,6 +832,7 @@ onMounted(() => {
                   <input v-model="createForm.complemento" type="text" class="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-100" />
                 </div>
               </div>
+
             </section>
 
             <div class="flex items-center justify-end gap-3">

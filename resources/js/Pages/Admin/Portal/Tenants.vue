@@ -139,8 +139,8 @@ onMounted(() => {
         {{ error }}
       </div>
 
-      <div class="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+        <table class="min-w-[640px] lg:min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left font-semibold text-slate-600">
             <tr>
               <th class="px-4 py-3">Nome</th>

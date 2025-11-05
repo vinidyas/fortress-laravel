@@ -226,8 +226,8 @@ onMounted(() => { fetchContratos(); });
 
       <div v-if="errorMessage" class="rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-sm text-rose-200">{{ errorMessage }}</div>
 
-      <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40">
-        <table class="min-w-full divide-y divide-slate-800 text-sm">
+      <section class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40">
+        <table class="min-w-[720px] lg:min-w-full divide-y divide-slate-800 text-sm">
           <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th class="px-4 py-3 text-left">Código</th>

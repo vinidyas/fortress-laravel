@@ -6,6 +6,9 @@
         <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 
         <title inertia><?php echo e(config('app.name', 'Fortress Gestao Imobiliaria')); ?></title>
+        <link rel="icon" type="image/png" sizes="32x32" href="<?php echo e(asset('favicon-32x32.png')); ?>">
+        <link rel="icon" type="image/png" sizes="16x16" href="<?php echo e(asset('favicon-16x16.png')); ?>">
+        <link rel="shortcut icon" href="<?php echo e(asset('favicon-32x32.png')); ?>">
 
         <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
         <?php if (!isset($__inertiaSsrDispatched)) { $__inertiaSsrDispatched = true; $__inertiaSsrResponse = app(\Inertia\Ssr\Gateway::class)->dispatch($page); }  if ($__inertiaSsrResponse) { echo $__inertiaSsrResponse->head; } ?>

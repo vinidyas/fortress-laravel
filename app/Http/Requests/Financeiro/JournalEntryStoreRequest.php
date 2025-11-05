@@ -29,6 +29,7 @@ class JournalEntryStoreRequest extends FormRequest
             'description_custom' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'reference_code' => ['nullable', 'string', 'max:40'],
+            'improvement_type' => ['nullable', Rule::in(['reforma', 'investimento'])],
             'movement_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date'],
             'payment_date' => ['nullable', 'date'],

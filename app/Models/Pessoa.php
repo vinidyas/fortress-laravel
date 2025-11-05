@@ -27,14 +27,17 @@ class Pessoa extends Model
         'complemento',
         'tipo_pessoa',
         'papeis',
+        'dados_bancarios',
     ];
 
     protected $casts = [
         'papeis' => 'array',
+        'dados_bancarios' => 'array',
     ];
 
     protected $attributes = [
         'papeis' => '[]',
+        'dados_bancarios' => '[]',
     ];
 
     public function imoveisProprietario(): HasMany

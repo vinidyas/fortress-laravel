@@ -74,15 +74,10 @@ const submit = () => {
     <Head title="Entrar" />
 
     <div class="space-y-8">
-      <header class="space-y-2 text-center sm:text-left" :class="isPortal ? 'space-y-3' : 'space-y-2'">
-        <h1 class="text-3xl font-semibold text-white">
-          {{ isPortal ? 'Portal do Locatário' : 'Bem-vindo de volta' }}
-        </h1>
-        <p class="text-sm text-slate-400" v-if="isPortal">
+      <header v-if="isPortal" class="space-y-3 text-center sm:text-left">
+        <h1 class="text-3xl font-semibold text-white">Portal do Locatário</h1>
+        <p class="text-sm text-slate-400">
           Acesse com o e-mail e a senha definidos no convite enviado pela administradora.
-        </p>
-        <p class="text-sm text-slate-400" v-else>
-          Use suas credenciais para acessar a plataforma Fortress e continuar a gestão das suas operações.
         </p>
       </header>
 

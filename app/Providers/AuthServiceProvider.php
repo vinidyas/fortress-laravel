@@ -62,5 +62,6 @@ class AuthServiceProvider extends ServiceProvider
         }
 
         Gate::define('admin.access', static fn (User $user): bool => $user->hasPermission('admin.access'));
+        Gate::define('assistant.use', static fn (User $user): bool => $user->hasPermission('assistant.use'));
     }
 }

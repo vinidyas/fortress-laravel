@@ -38,11 +38,23 @@ const form = reactive({
   email: '',
   telefone: '',
   papeis: [] as PessoaRole[],
+  bank: {
+    banco: '',
+    agencia: '',
+    conta: '',
+    tipo_conta: 'corrente' as 'corrente' | 'poupanca' | 'pagamento',
+    titular: '',
+    documento_titular: '',
+    pix_chave: '',
+  },
 });
 
 const errors = reactive<Record<string, string>>({});
 const submitting = ref(false);
 const formError = ref('');
+const cnpjLoading = ref(false);
+const cnpjMessage = ref('');
+const activeTab = ref<'geral' | 'banco'>('geral');
 
 const baseRoleOptions: PessoaRole[] = ['Cliente', 'Fornecedor'];
 
@@ -118,7 +130,9 @@ const resetForm = () => {
   form.email = '';
   form.telefone = '';
   form.papeis = [...initialSelectedRoles.value];
+  form.bank = { banco: '', agencia: '', conta: '', tipo_conta: 'corrente', titular: '', documento_titular: '', pix_chave: '' };
   formError.value = '';
+  cnpjMessage.value = '';
   Object.keys(errors).forEach((key) => {
     delete errors[key];
   });
@@ -135,6 +149,8 @@ watch(
       });
       formError.value = '';
       submitting.value = false;
+      cnpjLoading.value = false;
+      cnpjMessage.value = '';
     }
   }
 );
@@ -154,6 +170,27 @@ const close = () => {
   emit('close');
 };
 
+watch(
+  () => form.nome_razao_social,
+  () => {
+    if (errors.nome_razao_social) {
+      delete errors.nome_razao_social;
+    }
+  }
+);
+
+watch(
+  () => form.cpf_cnpj,
+  () => {
+    if (errors.cpf_cnpj) {
+      delete errors.cpf_cnpj;
+    }
+    if (!cnpjLoading.value) {
+      cnpjMessage.value = '';
+    }
+  }
+);
+
 const toggleRole = (role: PessoaRole) => {
   if (form.papeis.includes(role)) {
     form.papeis = form.papeis.filter((item) => item !== role);
@@ -163,6 +200,68 @@ const toggleRole = (role: PessoaRole) => {
 };
 
 const hasRole = (role: PessoaRole) => form.papeis.includes(role);
+
+const buildCnpjMessage = (provider?: string | null, fetchedAt?: string | null): string => {
+  const source = provider ?? 'BrasilAPI';
+
+  if (fetchedAt) {
+    const parsed = new Date(fetchedAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      return `Dados preenchidos via ${source} em ${parsed.toLocaleString('pt-BR')}.`;
+    }
+  }
+
+  return `Dados preenchidos via ${source}.`;
+};
+
+const applyCnpjData = (payload: Record<string, any>) => {
+  form.tipo_pessoa = 'Juridica';
+
+  if (typeof payload.razao_social === 'string' && payload.razao_social.trim() !== '') {
+    form.nome_razao_social = payload.razao_social;
+  }
+
+  if (typeof payload.email === 'string' && payload.email.trim() !== '') {
+    form.email = payload.email;
+  }
+
+  if (typeof payload.telefone === 'string' && payload.telefone.trim() !== '') {
+    form.telefone = payload.telefone.replace(/\\D/g, '');
+  }
+};
+
+const fetchCnpjData = async () => {
+  if (form.tipo_pessoa !== 'Juridica') {
+    formError.value = 'A busca automática só está disponível para pessoas jurídicas.';
+    return;
+  }
+
+  const documento = form.cpf_cnpj.replace(/\\D/g, '');
+
+  if (documento.length !== 14) {
+    errors.cpf_cnpj = 'Informe um CNPJ com 14 dígitos para buscar os dados.';
+    return;
+  }
+
+  cnpjLoading.value = true;
+  formError.value = '';
+  cnpjMessage.value = '';
+
+  try {
+    const { data } = await axios.get(`/api/cnpj/${documento}`);
+    const payload = data?.data ?? {};
+
+    form.cpf_cnpj = documento;
+    applyCnpjData(payload ?? {});
+    cnpjMessage.value = buildCnpjMessage(payload?.provider, payload?.fetched_at);
+    toast.success('Dados preenchidos a partir do CNPJ informado.');
+  } catch (error: any) {
+    const message = error?.response?.data?.message ?? 'Não foi possível consultar o CNPJ.';
+    formError.value = message;
+  } finally {
+    cnpjLoading.value = false;
+  }
+};
 
 const submit = async () => {
   if (submitting.value) return;
@@ -180,13 +279,50 @@ const submit = async () => {
       return;
     }
 
+    const nome = form.nome_razao_social.trim();
+    const documento = form.cpf_cnpj.replace(/\D/g, '');
+
+    let hasValidationError = false;
+
+    if (!nome) {
+      errors.nome_razao_social = 'Informe o nome ou razão social.';
+      hasValidationError = true;
+    }
+
+    if (!form.tipo_pessoa) {
+      formError.value = 'Selecione o tipo de pessoa.';
+      hasValidationError = true;
+    }
+
+    if (!documento) {
+      errors.cpf_cnpj = 'Informe o CPF ou CNPJ.';
+      hasValidationError = true;
+    }
+
+    if (hasValidationError) {
+      if (!formError.value) {
+        formError.value = 'Preencha os campos obrigatórios destacados.';
+      }
+      submitting.value = false;
+      return;
+    }
+
     const payload = {
-      nome_razao_social: form.nome_razao_social,
+      nome_razao_social: nome,
       tipo_pessoa: form.tipo_pessoa,
-      cpf_cnpj: form.cpf_cnpj || null,
+      cpf_cnpj: documento,
       email: form.email || null,
       telefone: form.telefone || null,
       papeis: form.papeis,
+      dados_bancarios: {
+        banco: form.bank.banco || null,
+        agencia: form.bank.agencia || null,
+        conta: form.bank.conta || null,
+        tipo_conta: form.bank.tipo_conta || null,
+        titular: form.bank.titular || null,
+        documento_titular: (form.bank.documento_titular || '').replace(/\D/g, '') || null,
+        pix_chave: form.bank.pix_chave || null,
+      },
     };
 
     const response = await axios.post('/api/pessoas', payload);
@@ -266,10 +402,31 @@ const submit = async () => {
               {{ formError }}
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
+            <p class="text-[11px]" :class="appearanceClasses.hint">
+              Campos marcados com <span class="text-rose-400">*</span> são obrigatórios.
+            </p>
+
+            <!-- Tabs -->
+            <div class="mb-4 flex items-center gap-2">
+              <button
+                type="button"
+                class="rounded-md px-3 py-1.5 text-xs font-semibold transition"
+                :class="activeTab === 'geral' ? 'bg-indigo-600 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'"
+                @click="activeTab = 'geral'"
+              >Geral</button>
+              <button
+                type="button"
+                class="rounded-md px-3 py-1.5 text-xs font-semibold transition"
+                :class="activeTab === 'banco' ? 'bg-indigo-600 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'"
+                @click="activeTab = 'banco'"
+              >Dados Bancários</button>
+            </div>
+
+            <!-- Conteúdo Geral -->
+            <div v-if="activeTab === 'geral'" class="grid gap-4 md:grid-cols-2">
               <div class="md:col-span-2 flex flex-col gap-1.5">
                 <label class="text-sm font-medium" :class="appearanceClasses.label">
-                  Nome / Razão social *
+                  Nome / Razão social <span class="text-rose-500">*</span>
                 </label>
                 <input
                   v-model="form.nome_razao_social"
@@ -277,6 +434,7 @@ const submit = async () => {
                   :class="appearanceClasses.input"
                   placeholder="Ex.: Maria Silva / ACME LTDA"
                   :disabled="submitting"
+                  required
                 />
                 <span v-if="errors.nome_razao_social" :class="appearanceClasses.error">
                   {{ errors.nome_razao_social }}
@@ -285,7 +443,7 @@ const submit = async () => {
 
               <div class="flex flex-col gap-1.5">
                 <label class="text-sm font-medium" :class="appearanceClasses.label">
-                  Tipo de pessoa *
+                  Tipo de pessoa <span class="text-rose-500">*</span>
                 </label>
                 <div class="inline-flex rounded-lg border border-white/10 bg-white/5 text-xs">
                   <button
@@ -319,17 +477,31 @@ const submit = async () => {
 
               <div class="flex flex-col gap-1.5">
                 <label class="text-sm font-medium" :class="appearanceClasses.label">
-                  CPF / CNPJ
+                  CPF / CNPJ <span class="text-rose-500">*</span>
                 </label>
-                <input
-                  v-model="form.cpf_cnpj"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="18"
-                  :class="appearanceClasses.input"
-                  placeholder="Somente números"
-                  :disabled="submitting"
-                />
+                <div class="flex gap-2">
+                  <input
+                    v-model="form.cpf_cnpj"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="14"
+                    :class="appearanceClasses.input"
+                    placeholder="Somente números"
+                    :disabled="submitting"
+                    required
+                    @input="form.cpf_cnpj = form.cpf_cnpj.replace(/\\D/g, '')"
+                  />
+                  <button
+                    v-if="form.tipo_pessoa === 'Juridica'"
+                    type="button"
+                    class="inline-flex items-center whitespace-nowrap rounded-md border border-indigo-500/60 bg-indigo-600/80 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-600"
+                    :disabled="submitting || cnpjLoading"
+                    @click="fetchCnpjData"
+                  >
+                    {{ cnpjLoading ? 'Buscando...' : 'Buscar CNPJ' }}
+                  </button>
+                </div>
+                <span v-if="cnpjMessage" class="text-[11px] text-emerald-400">{{ cnpjMessage }}</span>
                 <span v-if="errors.cpf_cnpj" :class="appearanceClasses.error">
                   {{ errors.cpf_cnpj }}
                 </span>
@@ -394,6 +566,43 @@ const submit = async () => {
                 <span v-if="errors.papeis" :class="appearanceClasses.error">
                   {{ errors.papeis }}
                 </span>
+              </div>
+            </div>
+
+            <!-- Conteúdo Dados Bancários -->
+            <div v-else class="grid gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Banco</label>
+                <input v-model="form.bank.banco" type="text" :class="appearanceClasses.input" placeholder="Ex.: 001 - Banco do Brasil" :disabled="submitting" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Agência</label>
+                <input v-model="form.bank.agencia" type="text" inputmode="numeric" :class="appearanceClasses.input" placeholder="Somente números" :disabled="submitting" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Conta</label>
+                <input v-model="form.bank.conta" type="text" :class="appearanceClasses.input" placeholder="Número da conta com dígito" :disabled="submitting" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Tipo de conta</label>
+                <select v-model="form.bank.tipo_conta" :class="appearanceClasses.input" :disabled="submitting">
+                  <option value="corrente">Corrente</option>
+                  <option value="poupanca">Poupança</option>
+                  <option value="pagamento">Pagamento</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Titular</label>
+                <input v-model="form.bank.titular" type="text" :class="appearanceClasses.input" placeholder="Nome do titular" :disabled="submitting" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Documento do titular</label>
+                <input v-model="form.bank.documento_titular" type="text" inputmode="numeric" :class="appearanceClasses.input" placeholder="CPF/CNPJ (somente números)" :disabled="submitting" @input="form.bank.documento_titular = form.bank.documento_titular.replace(/\D/g, '')" />
+              </div>
+              <div class="md:col-span-2 flex flex-col gap-1.5">
+                <label class="text-sm font-medium" :class="appearanceClasses.label">Chave PIX</label>
+                <input v-model="form.bank.pix_chave" type="text" :class="appearanceClasses.input" placeholder="E-mail, CPF, CNPJ, telefone ou aleatória" :disabled="submitting" />
+                <p :class="appearanceClasses.hint">Opcional. Usada para repasses/depósitos rápidos.</p>
               </div>
             </div>
           </section>

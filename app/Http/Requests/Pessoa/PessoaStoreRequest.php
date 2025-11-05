@@ -37,7 +37,7 @@ class PessoaStoreRequest extends FormRequest
         $papeis = $this->input('papeis', []);
         $requiresBoletoData = is_array($papeis) && in_array('Locatario', $papeis, true);
 
-        $cpfRules = $requiresBoletoData ? ['required', 'string'] : ['nullable', 'string'];
+        $cpfRules = ['required', 'string'];
         if ($tipoPessoa === 'Fisica') {
             $cpfRules[] = 'size:11';
             $cpfRules[] = function (string $attribute, $value, callable $fail) {
@@ -82,6 +82,14 @@ class PessoaStoreRequest extends FormRequest
             'complemento' => ['nullable', 'string', 'max:150'],
             'papeis' => ['nullable', 'array'],
             'papeis.*' => [Rule::in(self::PAPEIS_PERMITIDOS)],
+            'dados_bancarios' => ['nullable', 'array'],
+            'dados_bancarios.banco' => ['nullable', 'string', 'max:120'],
+            'dados_bancarios.agencia' => ['nullable', 'string', 'max:20'],
+            'dados_bancarios.conta' => ['nullable', 'string', 'max:30'],
+            'dados_bancarios.tipo_conta' => ['nullable', Rule::in(['corrente', 'poupanca', 'pagamento'])],
+            'dados_bancarios.titular' => ['nullable', 'string', 'max:255'],
+            'dados_bancarios.documento_titular' => ['nullable', 'string', 'max:14'],
+            'dados_bancarios.pix_chave' => ['nullable', 'string', 'max:191'],
         ];
     }
 
@@ -101,6 +109,7 @@ class PessoaStoreRequest extends FormRequest
         $normalizedCep = $this->digits($this->input('cep'));
         $normalizedTelefone = $this->digits($this->input('telefone'));
         $normalizedEstado = $this->normalizeEstado($this->input('estado'));
+        $normalizedBankData = $this->normalizeBankData($this->input('dados_bancarios', []));
 
         $this->merge([
             'cpf_cnpj' => $normalizedCpf,
@@ -108,6 +117,7 @@ class PessoaStoreRequest extends FormRequest
             'cep' => $normalizedCep,
             'telefone' => $normalizedTelefone,
             'estado' => $normalizedEstado,
+            'dados_bancarios' => $normalizedBankData,
         ]);
     }
 
@@ -164,6 +174,40 @@ class PessoaStoreRequest extends FormRequest
         $normalized = array_unique($normalized);
 
         return array_values(array_intersect($normalized, self::PAPEIS_PERMITIDOS));
+    }
+
+    private function normalizeBankData(mixed $data): array
+    {
+        if (! is_array($data)) {
+            return [];
+        }
+
+        $tipoConta = isset($data['tipo_conta']) ? strtolower(trim((string) $data['tipo_conta'])) : null;
+        $allowedTipoConta = ['corrente', 'poupanca', 'pagamento'];
+        if (! in_array($tipoConta, $allowedTipoConta, true)) {
+            $tipoConta = null;
+        }
+
+        return array_filter([
+            'banco' => $this->nullableString($data['banco'] ?? null),
+            'agencia' => $this->nullableString($data['agencia'] ?? null),
+            'conta' => $this->nullableString($data['conta'] ?? null),
+            'tipo_conta' => $tipoConta,
+            'titular' => $this->nullableString($data['titular'] ?? null),
+            'documento_titular' => $this->digits($data['documento_titular'] ?? null) ?: null,
+            'pix_chave' => $this->nullableString($data['pix_chave'] ?? null),
+        ], static fn ($value) => $value !== null && $value !== '');
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     private function normalizePapelString(string $papel): string

@@ -72,6 +72,7 @@ interface ReceiptSummary {
 type Status = TransactionStatusCode;
 type Tipo = TransactionType;
 type StatusGroup = TransactionStatusGroup;
+type ImprovementType = 'reforma' | 'investimento' | null;
 
 interface InstallmentPayload {
   id?: number;
@@ -103,6 +104,7 @@ interface TransactionPayload {
   description_id?: number | null;
   notes?: string | null;
   reference_code?: string | null;
+  improvement_type?: 'reforma' | 'investimento' | null;
   tipo: Tipo;
   valor: string | number;
   status: Status;
@@ -431,6 +433,59 @@ const getTypeOptionLabelClasses = (option: (typeof typeOptions)[number]) => {
   return isActive ? 'text-slate-900' : 'text-slate-600';
 };
 
+const improvementTypeOptions: Array<{
+  value: Exclude<ImprovementType, null>;
+  label: string;
+}> = [
+  {
+    value: 'reforma',
+    label: 'Reforma',
+  },
+  {
+    value: 'investimento',
+    label: 'Investimento',
+  },
+];
+
+const isImprovementActive = (value: Exclude<ImprovementType, null>) =>
+  form.improvement_type === value;
+
+const improvementOptionClasses = (value: Exclude<ImprovementType, null>) => {
+  const active = isImprovementActive(value);
+
+  if (isDarkAppearance.value) {
+    return active
+      ? 'border-indigo-400/60 bg-indigo-500/20 text-white shadow-[0_18px_32px_-20px_rgba(79,70,229,0.85)]'
+      : 'border-white/12 bg-white/5 text-slate-200 hover:border-indigo-400/40 hover:bg-indigo-500/10';
+  }
+
+  return active
+    ? 'border-indigo-200 bg-indigo-100 text-indigo-700 shadow-sm'
+    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50';
+};
+
+const improvementOptionIconClasses = (value: Exclude<ImprovementType, null>) => {
+  const active = isImprovementActive(value);
+
+  if (isDarkAppearance.value) {
+    return active
+      ? 'bg-indigo-400 text-slate-950'
+      : 'bg-slate-800 text-slate-200 group-hover:bg-indigo-400 group-hover:text-slate-900';
+  }
+
+  return active
+    ? 'bg-indigo-500 text-white'
+    : 'bg-slate-200 text-slate-500 group-hover:bg-indigo-200 group-hover:text-indigo-800';
+};
+
+const toggleImprovementType = (value: Exclude<ImprovementType, null>) => {
+  if (!canSubmit.value) {
+    return;
+  }
+
+  form.improvement_type = form.improvement_type === value ? null : value;
+};
+
 const resolveDefaultBankAccountId = (): number | null => {
   if (props.transaction?.account?.id) {
     return props.transaction.account.id;
@@ -446,6 +501,7 @@ const form = reactive({
   property_id: props.transaction?.property?.id ?? null,
   person_id: props.transaction?.person?.id ?? null,
   type: (props.transaction?.tipo ?? 'despesa') as Tipo,
+  improvement_type: (props.transaction?.improvement_type ?? null) as 'reforma' | 'investimento' | null,
   amount: props.transaction?.valor ? String(props.transaction.valor) : '',
   movement_date:
     props.transaction?.movement_date ??
@@ -642,6 +698,7 @@ watch(
       setFormStatus('planejado');
       form.bank_account_id = resolveDefaultBankAccountId();
       form.type = 'despesa';
+      form.improvement_type = null;
       return;
     }
 
@@ -651,6 +708,7 @@ watch(
     form.property_id = props.transaction.property?.id ?? null;
     form.person_id = props.transaction.person?.id ?? null;
     form.type = (props.transaction.tipo ?? 'despesa') as Tipo;
+    form.improvement_type = (props.transaction.improvement_type ?? null) as ImprovementType;
     form.amount = props.transaction.valor ? String(props.transaction.valor) : '';
     form.movement_date = props.transaction.movement_date ?? new Date().toISOString().slice(0, 10);
     form.due_date = props.transaction.due_date ?? null;
@@ -1418,6 +1476,7 @@ const buildPayload = () => {
     cost_center_id: form.cost_center_id != null ? Number(form.cost_center_id) : null,
     property_id: form.property_id != null ? Number(form.property_id) : null,
     person_id: form.person_id != null ? Number(form.person_id) : null,
+    improvement_type: form.improvement_type,
     movement_date: form.movement_date,
     due_date: form.due_date || form.movement_date,
     payment_date: resolvedPaymentDate,
@@ -1857,9 +1916,9 @@ const downloadReceipt = (receipt: ReceiptSummary) => {
                     </span>
                   </div>
                 </label>
-              </div>
-              <p v-if="errors.type" class="text-xs text-rose-400">{{ errors.type }}</p>
             </div>
+            <p v-if="errors.type" class="text-xs text-rose-400">{{ errors.type }}</p>
+          </div>
 
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium text-slate-700">Data do movimento *</label>
@@ -1872,6 +1931,42 @@ const downloadReceipt = (receipt: ReceiptSummary) => {
                 :appearance="isDarkAppearance ? 'dark' : 'light'"
               />
               <p v-if="errors.movement_date" class="text-xs text-rose-600">{{ errors.movement_date }}</p>
+            </div>
+
+            <div class="md:col-span-2 flex flex-wrap gap-2 pt-1">
+              <label
+                v-for="option in improvementTypeOptions"
+                :key="option.value"
+                class="group inline-flex min-w-[140px] cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition"
+                :class="improvementOptionClasses(option.value)"
+              >
+                <input
+                  type="checkbox"
+                  class="sr-only"
+                  :checked="isImprovementActive(option.value)"
+                  :disabled="!canSubmit"
+                  @change="toggleImprovementType(option.value)"
+                />
+                <span
+                  class="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] transition"
+                  :class="improvementOptionIconClasses(option.value)"
+                >
+                  <svg
+                    v-if="isImprovementActive(option.value)"
+                    class="h-2.5 w-2.5"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 8l3 3 5-6" />
+                  </svg>
+                </span>
+                <span>{{ option.label }}</span>
+              </label>
+              <p v-if="errors.improvement_type" class="text-xs text-rose-400 w-full">
+                {{ errors.improvement_type }}
+              </p>
             </div>
           </div>
 

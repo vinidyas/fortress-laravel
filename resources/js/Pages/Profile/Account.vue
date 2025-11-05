@@ -118,7 +118,7 @@ onBeforeUnmount(() => {
           </span>
         </header>
 
-        <form class="mt-6 grid gap-6 lg:grid-cols-[240px,1fr]" @submit.prevent="submitAccount">
+        <form enctype="multipart/form-data" class="mt-6 grid gap-6 lg:grid-cols-[240px,1fr]" @submit.prevent="submitAccount">
           <div class="flex flex-col items-center gap-3">
             <div class="relative flex h-32 w-32 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-3xl font-semibold text-white shadow-inner">
               <img

@@ -635,9 +635,9 @@ onMounted(() => {
       </div>
 
       <section
-        class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40"
+        class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/40"
       >
-        <table class="min-w-full divide-y divide-slate-800 text-sm">
+        <table class="min-w-[820px] lg:min-w-full divide-y divide-slate-800 text-sm">
           <thead class="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th class="px-4 py-3 text-left">Código</th>

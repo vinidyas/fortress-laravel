@@ -153,4 +153,29 @@ return [
         ],
     ],
 
+    'cnpj_lookup' => [
+        'providers' => explode(',', (string) env('CNPJ_PROVIDERS', 'brasilapi')),
+        'cache_ttl' => (int) env('CNPJ_CACHE_TTL', 60 * 60 * 24),
+        'brasilapi' => [
+            'base_url' => env('BRASILAPI_BASE_URL', 'https://brasilapi.com.br/api'),
+            'timeout' => (float) env('BRASILAPI_TIMEOUT', 5.0),
+            'retry_times' => (int) env('BRASILAPI_RETRY_TIMES', 1),
+            'retry_sleep' => (int) env('BRASILAPI_RETRY_SLEEP_MS', 200),
+        ],
+        'serpro' => [
+            'base_url' => env('SERPRO_CNPJ_BASE_URL'),
+            'client_id' => env('SERPRO_CNPJ_CLIENT_ID'),
+            'client_secret' => env('SERPRO_CNPJ_CLIENT_SECRET'),
+            'scope' => env('SERPRO_CNPJ_SCOPE', 'cnpj'),
+            'timeout' => (float) env('SERPRO_CNPJ_TIMEOUT', 5.0),
+        ],
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1/chat/completions'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'timeout' => (float) env('OPENAI_TIMEOUT', 10.0),
+    ],
+
 ];

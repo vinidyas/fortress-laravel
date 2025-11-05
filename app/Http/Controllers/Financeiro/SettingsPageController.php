@@ -19,6 +19,7 @@ class SettingsPageController extends Controller
 
         return Inertia::render('Financeiro/Accounts/Index', [
             'accounts' => FinancialAccount::query()
+                ->withCount(['transactions', 'journalEntries', 'counterJournalEntries'])
                 ->orderBy('nome')
                 ->paginate(15)
                 ->through(fn (FinancialAccount $account) => [
@@ -42,6 +43,9 @@ class SettingsPageController extends Controller
                     'padrao_recebimento' => $account->padrao_recebimento,
                     'padrao_pagamento' => $account->padrao_pagamento,
                     'observacoes' => $account->observacoes,
+                    'can_delete' => ($account->transactions_count ?? 0) === 0
+                        && ($account->journal_entries_count ?? 0) === 0
+                        && ($account->counter_journal_entries_count ?? 0) === 0,
                 ]),
             'can' => [
                 'create' => $request->user()->hasPermission('financeiro.create'),
