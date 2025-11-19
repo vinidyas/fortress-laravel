@@ -12,7 +12,7 @@ interface NavItem {
   label: string;
   href?: string;
   icon?: string;
-  ability?: string;
+  ability?: string | string[];
   exact?: boolean;
   children?: NavItem[];
 }
@@ -152,7 +152,13 @@ onBeforeUnmount(() => {
   }
 });
 
-const can = (permission?: string) => !permission || abilities.value.includes(permission);
+const can = (permission?: string | string[]) => {
+  if (!permission) return true;
+  if (Array.isArray(permission)) {
+    return permission.some((perm) => abilities.value.includes(perm));
+  }
+  return abilities.value.includes(permission);
+};
 
 const navItems = computed<NavItem[]>(() => {
   const r = (name: string, params?: any, fallback?: string) => {
@@ -201,8 +207,20 @@ const navItems = computed<NavItem[]>(() => {
       icon: 'M3 4h18l-2 14H5zM9 2h6v4H9z',
       children: [
         { key: 'relatorios-extrato-conta', label: 'Extrato por Conta', href: r('relatorios.bank-account-statement', undefined, '/relatorios/extratos/conta'), ability: 'reports.view.financeiro' },
-        { key: 'relatorios-geral-analitico', label: 'Relatório Geral Analítico', href: route('relatorios.general-analytic'), ability: 'reports.view.financeiro' },
-        { key: 'relatorios-extrato-detalhado', label: 'Relatório de Despesas e Receitas', href: route('relatorios.bank-ledger'), ability: 'reports.view.financeiro' },
+        { key: 'relatorios-geral-analitico', label: 'Geral Analítico', href: route('relatorios.general-analytic'), ability: 'reports.view.financeiro' },
+        { key: 'relatorios-extrato-detalhado', label: 'Despesas e Receitas', href: route('relatorios.bank-ledger'), ability: 'reports.view.financeiro' },
+        {
+          key: 'relatorios-contratos',
+          label: 'Contratos',
+          href: route('relatorios.contratos'),
+          ability: ['reports.view.operacional', 'reports.view.financeiro'],
+        },
+        {
+          key: 'relatorios-imoveis',
+          label: 'Imóveis',
+          href: route('relatorios.imoveis'),
+          ability: ['reports.view.operacional', 'reports.view.financeiro'],
+        },
       ],
     },
   ];
@@ -487,7 +505,7 @@ const submitLogout = () => {
                   <ul v-show="expanded[item.key]" class="space-y-1 pl-12">
                     <li v-for="child in item.children" :key="child.key">
                       <Link
-                        v-if="child.href && (!child.ability || abilities.includes(child.ability))"
+                        v-if="child.href && can(child.ability)"
                         :href="child.href"
                         class="group flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition hover:bg-slate-900/70"
                         :class="childItemClasses(isLinkActive(child.href, child.exact))"

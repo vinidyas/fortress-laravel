@@ -664,7 +664,7 @@ const handleMarkPaid = async (item: TransactionRow) => {
     const { data } = await axios.get(`/api/financeiro/journal-entries/${item.id}`);
     const installments = data?.data?.installments ?? [];
     const pending = installments.find((installment: any) =>
-      ['planejado', 'pendente'].includes(installment.status),
+      ['planejado', 'pendente', 'atrasado'].includes(installment.status),
     );
 
     if (!pending) {

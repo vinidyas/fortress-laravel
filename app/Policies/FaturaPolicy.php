@@ -40,6 +40,11 @@ class FaturaPolicy
         return $this->checkAbility($user, 'faturas.update');
     }
 
+    public function generateBoleto(User $user, Fatura $fatura): bool
+    {
+        return $this->checkAbility($user, 'faturas.boleto.generate');
+    }
+
     public function delete(User $user, Fatura $fatura): bool
     {
         return $this->checkAbility($user, 'faturas.delete');

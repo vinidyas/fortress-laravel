@@ -10,6 +10,7 @@ use App\Models\FaturaLancamento;
 use App\Models\Pessoa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -21,7 +22,17 @@ class PortalEndpointsTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('app.portal_domain', 'portal.fortressempreendimentos.com.br');
+        $portalDomain = $this->portalHost();
+        config()->set('app.portal_domain', $portalDomain);
+        config()->set('app.url', 'https://'.$portalDomain);
+        URL::forceRootUrl('https://'.$portalDomain);
+    }
+
+    protected function tearDown(): void
+    {
+        URL::forceRootUrl(null);
+
+        parent::tearDown();
     }
 
     private function createTenantUser(): array
@@ -79,7 +90,7 @@ class PortalEndpointsTest extends TestCase
             'status' => 'Aberta',
         ]);
 
-        FaturaBoleto::create([
+        $boleto = FaturaBoleto::create([
             'fatura_id' => $fatura->id,
             'bank_code' => 'bradesco',
             'external_id' => '1234567890',
@@ -104,6 +115,9 @@ class PortalEndpointsTest extends TestCase
             ])
             ->assertJsonFragment([
                 'nosso_numero' => '1234567890',
+            ])
+            ->assertJsonFragment([
+                'pdf_download_url' => 'https://'.$this->portalHost().route('boletos.pdf', ['boleto' => $boleto->id], false),
             ]);
     }
 
@@ -147,6 +161,7 @@ class PortalEndpointsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $fatura->id)
             ->assertJsonPath('data.boletos.0.id', $boleto->id)
+            ->assertJsonPath('data.boletos.0.pdf_download_url', 'https://'.$this->portalHost().route('boletos.pdf', ['boleto' => $boleto->id], false))
             ->assertJsonPath('data.itens.0.descricao', 'Aluguel Mensal');
     }
 
@@ -161,10 +176,18 @@ class PortalEndpointsTest extends TestCase
     private function portalGetJson(User $user, string $routeName, array $params = []): TestResponse
     {
         $host = config('app.portal_domain');
-        $url = route($routeName, $params, true);
+        $uri = route($routeName, $params, false);
 
-        return $this->withServerVariables(['HTTP_HOST' => $host])
-            ->actingAs($user)
-            ->getJson($url);
+        return $this->actingAs($user)
+            ->withServerVariables([
+                'HTTP_HOST' => $host,
+                'SERVER_NAME' => $host,
+            ])
+            ->getJson($uri);
+    }
+
+    private function portalHost(): string
+    {
+        return 'portal.fortressempreendimentos.com.br';
     }
 }

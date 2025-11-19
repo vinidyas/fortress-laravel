@@ -100,7 +100,7 @@
 ### 5.2 Emissão e acompanhamento de boletos Bradesco
 1. Verificar `.env` (credenciais, certificado, BRADESCO_SANDBOX_USE_FIXTURES).  
 2. Gerar fatura e clicar em “Gerar boleto”.  
-3. Monitorar retorno no log (`storage/logs/bradesco-response.json`).  
+3. Monitorar retorno no log (`storage/logs/bradesco-response.log`).  
 4. Webhook/polling atualiza status; se falhar, usar reprocessamento manual.  
 5. Para baixa: confirmar pagamento (webhook, conciliação ou baixa manual) e emitir recibo.
 
@@ -152,7 +152,7 @@
 | Certificados                          | `.pem`/`.crt` de teste                                | Certificado A1 emitido por autoridade certificadora   |
 | Credenciais                           | Client ID/Secret sandbox (visibilidade 3 dias)        | Requer assinatura e aprovação do Gestor de APIs       |
 | Fluxo recomendado                     | Emissão → webhook → fallback de polling               | Igual ao sandbox                                      |
-| Logs úteis                            | `storage/logs/bradesco-response.json`                 | Manter rotação de logs e monitorar erros 4xx/5xx      |
+| Logs úteis                            | `storage/logs/bradesco-response.log`                 | Manter rotação de logs e monitorar erros 4xx/5xx      |
 | Variáveis `.env`                      | `BRADESCO_*` + `BRADESCO_SANDBOX_USE_FIXTURES`        | Ajustar `BRADESCO_BASE_URL` + certificados de prod    |
 
 > **Checklist antes do go-live:** testar emissão e baixa com dados reais, validar webhooks, configurar alertas de falha de token e monitoria de filas.
@@ -184,7 +184,7 @@
   - `This action is unauthorized.` → verificar permissões ou papel do locatário.  
   - Boleto não aparece no portal → confirmar registro no back-office e status “Registrado”.  
   - Webhook não recebe notificações → testar conectividade, logs do Traefik, reprocessar fila.
-- **Logs principais:** `storage/logs/laravel.log`, `storage/logs/bradesco-response.json`, auditoria.  
+- **Logs principais:** `storage/logs/laravel.log`, `storage/logs/bradesco-response.log`, auditoria.  
 - **Contato interno:** definir responsáveis por TI, financeiro e atendimento ao locatário.
 
 ### 9.1 Política de suporte (sugestão)

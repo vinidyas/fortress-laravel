@@ -17,11 +17,17 @@ class SettingsPageController extends Controller
     {
         $this->authorize('viewAny', FinancialAccount::class);
 
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 200);
+
+        $query = FinancialAccount::query()
+            ->withCount(['transactions', 'journalEntries', 'counterJournalEntries'])
+            ->when($request->boolean('ativos'), fn ($builder) => $builder->where('ativo', true))
+            ->orderBy('nome');
+
         return Inertia::render('Financeiro/Accounts/Index', [
-            'accounts' => FinancialAccount::query()
-                ->withCount(['transactions', 'journalEntries', 'counterJournalEntries'])
-                ->orderBy('nome')
-                ->paginate(15)
+            'accounts' => $query
+                ->paginate($perPage)
+                ->appends($request->query())
                 ->through(fn (FinancialAccount $account) => [
                     'id' => $account->id,
                     'nome' => $account->nome,
@@ -51,6 +57,10 @@ class SettingsPageController extends Controller
                 'create' => $request->user()->hasPermission('financeiro.create'),
                 'update' => $request->user()->hasPermission('financeiro.update'),
                 'delete' => $request->user()->hasPermission('financeiro.delete'),
+            ],
+            'filters' => [
+                'ativos' => $request->boolean('ativos'),
+                'per_page' => $perPage,
             ],
         ]);
     }

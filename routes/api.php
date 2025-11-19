@@ -23,11 +23,13 @@ use App\Http\Controllers\Api\Financeiro\FinancialAccountBalanceController;
 use App\Http\Controllers\Api\Financeiro\FinancialAccountController;
 use App\Http\Controllers\Api\Financeiro\FinancialReconciliationController;
 use App\Http\Controllers\Api\Financeiro\FinanceAssistantController;
+use App\Http\Controllers\Api\Financeiro\BradescoBoletoSyncController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryAttachmentController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryDescriptionController;
 use App\Http\Controllers\Api\Financeiro\JournalEntryReceiptController;
 use App\Http\Controllers\Api\Financeiro\PaymentScheduleController;
+use App\Http\Controllers\Api\Financeiro\BoletoPdfController;
 use App\Http\Controllers\Api\ImovelController;
 use App\Http\Controllers\Api\PessoaController;
 use App\Http\Controllers\Admin\PortalTenantUserController;
@@ -36,6 +38,8 @@ use App\Http\Controllers\Api\Reports\ReportBankLedgerController;
 use App\Http\Controllers\Api\Reports\ReportBankStatementController;
 use App\Http\Controllers\Api\Reports\ReportFinanceiroController;
 use App\Http\Controllers\Api\Reports\ReportGeneralAnalyticController;
+use App\Http\Controllers\Api\Reports\ReportImoveisController;
+use App\Http\Controllers\Api\Reports\ReportContratosController;
 use App\Http\Controllers\Api\Reports\ReportOperacionalController;
 use App\Http\Controllers\Api\Reports\ReportPessoasController;
 use App\Http\Controllers\Webhooks\BradescoWebhookController;
@@ -80,6 +84,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         'destroy' => 'api.contratos.destroy',
     ]);
     Route::post('contratos/{contrato}/reajustes', [ContratoReajusteController::class, 'store'])->name('contratos.reajustes.store');
+    Route::get('imoveis/{imovel}/audit', [EntityAuditController::class, 'imovelTimeline'])->name('imoveis.audit.index');
+    Route::get('imoveis/{imovel}/audit/export', [EntityAuditController::class, 'imovelExport'])->name('imoveis.audit.export');
     Route::get('contratos/{contrato}/audit', [EntityAuditController::class, 'contratoTimeline'])->name('contratos.audit.index');
     Route::get('contratos/{contrato}/audit/export', [EntityAuditController::class, 'exportContratoTimeline'])->name('contratos.audit.export');
 
@@ -96,10 +102,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         'update'  => 'api.faturas.update',
         'destroy' => 'api.faturas.destroy',
     ]);
+    Route::get('boletos/{boleto}/pdf', [BoletoPdfController::class, 'show'])->name('api.boletos.pdf');
+    Route::post('bradesco/boletos/sync', BradescoBoletoSyncController::class)->name('bradesco.boletos.sync');
     Route::post('faturas/{fatura}/settle', [FaturaController::class, 'settle'])->name('faturas.settle');
     Route::post('faturas/{fatura}/cancel', [FaturaController::class, 'cancel'])->name('faturas.cancel');
     Route::post('faturas/{fatura}/email', [FaturaController::class, 'sendEmail'])->name('faturas.email');
     Route::get('faturas/{fatura}/boletos', [FaturaBoletoController::class, 'index'])->name('faturas.boletos.index');
+    Route::post('faturas/{fatura}/boletos/sync', [FaturaBoletoController::class, 'sync'])->name('faturas.boletos.sync');
     Route::post('faturas/{fatura}/boletos', [FaturaBoletoController::class, 'store'])->name('faturas.boletos.store');
     Route::get('faturas/{fatura}/boletos/{boleto}', [FaturaBoletoController::class, 'show'])->name('faturas.boletos.show');
     Route::post('faturas/{fatura}/attachments', [FaturaAttachmentController::class, 'store'])->name('faturas.attachments.store');
@@ -133,6 +142,10 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('operacional/export', [ReportOperacionalController::class, 'export'])->name('operacional.export');
         Route::get('pessoas', [ReportPessoasController::class, 'index'])->name('pessoas.index');
         Route::get('pessoas/export', [ReportPessoasController::class, 'export'])->name('pessoas.export');
+        Route::get('contracts', [ReportContratosController::class, 'index'])->name('contracts.index');
+        Route::get('contracts/export', [ReportContratosController::class, 'export'])->name('contracts.export');
+        Route::get('properties', [ReportImoveisController::class, 'index'])->name('properties.index');
+        Route::get('properties/export', [ReportImoveisController::class, 'export'])->name('properties.export');
     });
 
     Route::prefix('admin')->as('api.admin.')->middleware('can:admin.access')->group(function () {

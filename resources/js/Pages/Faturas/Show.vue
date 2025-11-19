@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import ActionDropdown, { type DropdownAction } from '@/Components/ActionDropdown.vue';
 import axios from '@/bootstrap';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import SendInvoiceEmailModal from '@/Components/Faturas/SendInvoiceEmailModal.vue';
 import LiquidateInvoiceModal from '@/Components/Faturas/LiquidateInvoiceModal.vue';
+import type { PageProps } from '@/types/page';
 
 type Nullable<T> = T | null;
 
@@ -22,6 +24,7 @@ type FaturaBoletoData = {
   linha_digitavel: Nullable<string>;
   codigo_barras: Nullable<string>;
   pdf_url: Nullable<string>;
+  pdf_download_url?: Nullable<string>;
   external_id: Nullable<string>;
   nosso_numero: Nullable<string>;
   document_number: Nullable<string>;
@@ -120,7 +123,7 @@ type FaturaData = {
 };
 
 const props = defineProps<{ faturaId: Nullable<number> }>();
-const page = usePage();
+const page = usePage<PageProps>();
 
 const isNew = computed(() => props.faturaId === null);
 const loading = ref(false);
@@ -128,10 +131,13 @@ const errorMessage = ref('');
 const successMessage = ref('');
 const fatura = ref<FaturaData | null>(null);
 const generatingBoleto = ref(false);
+const syncingBoletos = ref(false);
 const copyingLinhaDigitavel = ref(false);
 const clipboardSupported = typeof navigator !== 'undefined' && !!navigator.clipboard;
 
-const boletoGenerationDisabled = true;
+const abilities = computed<string[]>(() => page.props.auth?.abilities ?? []);
+const boletoPermissionGranted = computed(() => abilities.value.includes('faturas.boleto.generate'));
+const boletoGenerationDisabled = computed(() => !boletoPermissionGranted.value);
 const boletos = computed<FaturaBoletoData[]>(() => fatura.value?.boletos ?? []);
 const boletoAtual = computed<FaturaBoletoData | null>(() => {
   if (fatura.value?.boleto_atual) {
@@ -142,10 +148,85 @@ const boletoAtual = computed<FaturaBoletoData | null>(() => {
 });
 const boletoLinhaDigitavel = computed<Nullable<string>>(() => boletoAtual.value?.linha_digitavel ?? null);
 const boletoLinhaDigitavelFormatada = computed(() => formatLinhaDigitavel(boletoLinhaDigitavel.value));
+const boletoPdfUrl = computed<Nullable<string>>(() =>
+  boletoAtual.value?.pdf_url ?? boletoAtual.value?.pdf_download_url ?? null
+);
 const canGenerateBoleto = computed(
-  () => !boletoGenerationDisabled && !isNew.value && fatura.value?.status !== 'Cancelada'
+  () =>
+    boletoPermissionGranted.value &&
+    !isNew.value &&
+    fatura.value?.status !== 'Cancelada'
 );
 const boletoActionLabel = computed(() => (boletoAtual.value ? 'Reemitir boleto' : 'Gerar boleto'));
+
+const comprovanteActions = computed<DropdownAction[]>(() => {
+  if (!fatura.value?.id) return [];
+
+  const actions: DropdownAction[] = [
+    {
+      label: 'Gerar fatura (PDF)',
+      icon: 'document',
+      action: () => openComprovante('cobranca'),
+    },
+    {
+      label: 'Gerar recibo (PDF)',
+      icon: 'document',
+      action: () => openComprovante('recibo'),
+    },
+  ];
+
+  if (!isNew.value && fatura.value) {
+    actions.push({
+      label: 'Enviar por e-mail',
+      icon: 'email',
+      action: () => openSendEmailModal(),
+    });
+  }
+
+  return actions;
+});
+
+const boletoDropdownActions = computed<DropdownAction[]>(() => {
+  if (!fatura.value) return [];
+
+  const actions: DropdownAction[] = [
+    {
+      label: generatingBoleto.value ? 'Gerando…' : boletoActionLabel.value,
+      icon: 'ticket',
+      disabled: generatingBoleto.value || !canGenerateBoleto.value,
+      action: () => generateBoleto(),
+    },
+    {
+      label: syncingBoletos.value ? 'Atualizando…' : 'Atualizar boletos',
+      icon: 'refresh',
+      disabled: syncingBoletos.value,
+      action: () => syncBoletos(),
+    },
+    {
+      label: 'Baixar boleto (PDF)',
+      icon: 'download',
+      disabled: !boletoPdfUrl.value,
+      action: () => {
+        if (!boletoPdfUrl.value) return;
+        window.open(boletoPdfUrl.value, '_blank', 'noopener');
+      },
+    },
+  ];
+
+  if (boletoLinhaDigitavel.value && clipboardSupported) {
+    actions.push({
+      label: copyingLinhaDigitavel.value ? 'Copiando…' : 'Copiar linha digitável',
+      icon: 'copy',
+      disabled: copyingLinhaDigitavel.value,
+      action: () => {
+        if (!boletoLinhaDigitavel.value) return;
+        copyLinhaDigitavel(boletoLinhaDigitavel.value);
+      },
+    });
+  }
+
+  return actions;
+});
 
 const attachments = ref<AttachmentItem[]>([]);
 const selectedAttachmentIds = ref<number[]>([]);
@@ -216,29 +297,6 @@ const headerTitle = computed(() => {
   return 'Fatura';
 });
 
-const headerSubtitle = computed(() => {
-  if (isNew.value) {
-    return 'Cadastre uma nova fatura para um contrato existente.';
-  }
-
-  const parts: string[] = ['Visão geral da Fortress Empreendimentos'];
-
-  if (fatura.value?.competencia) {
-    const competence = new Date(fatura.value.competencia).toLocaleDateString('pt-BR', {
-      month: '2-digit',
-      year: 'numeric',
-    });
-    parts.push(`Competência ${competence}`);
-  }
-
-  if (fatura.value?.vencimento) {
-    const due = new Date(fatura.value.vencimento).toLocaleDateString('pt-BR');
-    parts.push(`Venc. ${due}`);
-  }
-
-  return parts.join(' • ');
-});
-
 const contratoFormaPagamento = computed(() => {
   const key = contratoFormaPagamentoValue.value;
   if (!key) {
@@ -304,9 +362,16 @@ async function generateBoleto() {
     return;
   }
 
+  if (!boletoPermissionGranted.value) {
+    errorMessage.value = 'Você não tem permissão para gerar boletos Bradesco.';
+    return;
+  }
+
   if (!canGenerateBoleto.value) {
     errorMessage.value =
-      'A geração automática de boletos Bradesco está temporariamente desativada. Utilize outra forma de cobrança.';
+      fatura.value?.status === 'Cancelada'
+        ? 'Não é possível gerar boletos para faturas canceladas.'
+        : 'Finalize o cadastro da fatura antes de gerar o boleto.';
     return;
   }
 
@@ -328,6 +393,28 @@ async function generateBoleto() {
     }
   } finally {
     generatingBoleto.value = false;
+  }
+}
+
+async function syncBoletos(): Promise<void> {
+  if (!props.faturaId || syncingBoletos.value) {
+    return;
+  }
+
+  syncingBoletos.value = true;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  try {
+    const { data } = await axios.post(`/api/faturas/${props.faturaId}/boletos/sync`);
+    successMessage.value = data?.meta?.message ?? 'Boletos sincronizados com sucesso.';
+    await fetchFatura();
+  } catch (error: any) {
+    console.error(error);
+    errorMessage.value =
+      error?.response?.data?.message ?? 'Não foi possível sincronizar os boletos desta fatura.';
+  } finally {
+    syncingBoletos.value = false;
   }
 }
 
@@ -1118,95 +1205,34 @@ async function saveItens(): Promise<void> {
           <h2 class="text-2xl font-semibold text-white">
             {{ headerTitle }}
           </h2>
-          <p class="text-sm text-slate-400">{{ headerSubtitle }}</p>
           <p v-if="!isNew && (fatura?.contrato_id || fatura?.contrato?.codigo_contrato)" class="text-xs uppercase tracking-wide text-slate-500">Contrato {{ fatura?.contrato?.codigo_contrato ?? '-' }} • ID {{ fatura?.contrato_id ?? props.faturaId }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2 md:gap-4">
           <div class="flex flex-wrap items-center gap-2">
-            <a
+            <ActionDropdown
               v-if="!isNew && fatura"
-              :href="`/faturas/${fatura.id}/cobranca`"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500/80"
+              :actions="comprovanteActions"
+              button-class="border-emerald-500/40 bg-emerald-600/80 text-white hover:bg-emerald-500/80"
             >
-              <span>Gerar fatura</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 3h6m0 0v6m0-6L10 14" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 10v10a1 1 0 01-1 1H5a2 2 0 01-2-2V4a1 1 0 011-1h10" />
-              </svg>
-            </a>
-            <a
+              <template #label>
+                <span>Comprovantes</span>
+              </template>
+            </ActionDropdown>
+            <ActionDropdown
               v-if="!isNew && fatura"
-              :href="`/faturas/${fatura.id}/recibo`"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500/80"
+              :actions="boletoDropdownActions"
+              button-class="border-orange-500/40 bg-orange-600/80 text-white hover:bg-orange-500/80"
             >
-              <span>Gerar recibo</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 3h6m0 0v6m0-6L10 14" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 10v10a1 1 0 01-1 1H5a2 2 0 01-2-2V4a1 1 0 011-1h10" />
-              </svg>
-            </a>
-            <button
-              v-if="!isNew && fatura"
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500/80"
-              @click="openSendEmailModal"
-            >
-              <span>Enviar por e-mail</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a1 1 0 001.22 0L20 8" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </button>
-            <button
-              v-if="!isNew && !boletoGenerationDisabled && canGenerateBoleto"
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-xl border border-orange-500/40 bg-orange-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-500/80 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="generatingBoleto"
-              @click="generateBoleto"
-            >
-              <span>{{ generatingBoleto ? 'Gerando…' : boletoActionLabel }}</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
-              </svg>
-            </button>
-            <a
-              v-if="boletoAtual?.pdf_url"
-              :href="boletoAtual.pdf_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-500/80"
-            >
-              <span>Baixar boleto</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v11" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12l6 6 6-6" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 19h14" />
-              </svg>
-            </a>
+              <template #label>
+                <span>Boleto</span>
+              </template>
+            </ActionDropdown>
             <div
               v-if="boletoGenerationDisabled"
               class="max-w-xs rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-xs leading-relaxed text-orange-200"
             >
-              A geração/reemissão automática de boletos pelo Bradesco está temporariamente desativada. Utilize outra forma de cobrança ou entre em contato com o suporte.
+              Você não tem permissão para gerar ou reemitir boletos Bradesco. Solicite o acesso ao administrador.
             </div>
-            <button
-              v-if="boletoLinhaDigitavel && clipboardSupported"
-              type="button"
-              class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="copyingLinhaDigitavel"
-              @click="copyLinhaDigitavel(boletoLinhaDigitavel)"
-            >
-              <span>{{ copyingLinhaDigitavel ? 'Copiando…' : 'Copiar linha digitável' }}</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V5a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2h-2" />
-                <rect x="4" y="7" width="12" height="12" rx="2" ry="2" />
-              </svg>
-            </button>
           </div>
           <div class="hidden h-6 w-px bg-slate-700 md:block" />
           <div class="flex flex-wrap items-center gap-2 md:pl-2">
@@ -1228,7 +1254,7 @@ async function saveItens(): Promise<void> {
               class="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-rose-600/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-500/80"
               @click="cancel"
             >
-              <span>Cancelar fatura</span>
+              <span>Cancelar</span>
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>

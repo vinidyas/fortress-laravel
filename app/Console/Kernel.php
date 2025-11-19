@@ -13,6 +13,7 @@ use App\Console\Commands\FinanceMigratePaymentSchedules;
 use App\Console\Commands\FinanceMigrateTransactions;
 use App\Console\Commands\ImportLegacyData;
 use App\Console\Commands\ImportMccLedger;
+use App\Console\Commands\SeedLegacyFinancialAccounts;
 use App\Jobs\Bradesco\SyncPendingBradescoBoletos;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -34,6 +35,7 @@ class Kernel extends ConsoleKernel
         TestBradescoAuth::class,
         CreateDummyInvoice::class,
         SanitizeBoletoPayloads::class,
+        SeedLegacyFinancialAccounts::class,
     ];
 
     /**
@@ -42,7 +44,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->job(new SyncPendingBradescoBoletos())
-            ->everyFifteenMinutes()
+            ->everySixHours()
             ->name('sync-pending-bradesco-boletos')
             ->withoutOverlapping()
             ->onQueue('boletos');

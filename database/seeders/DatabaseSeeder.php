@@ -87,7 +87,7 @@ class DatabaseSeeder extends Seeder
                     ->for($contrato)
                     ->state([
                         'competencia' => $competencia->toDateString(),
-                        'vencimento' => $competencia->clone()->setDay(min(28, (int) ($contrato->dia_vencimento ?? 10)))->toDateString(),
+                        'vencimento' => $competencia->clone()->setDay(min(30, (int) ($contrato->dia_vencimento ?? 10)))->toDateString(),
                     ])
                     ->create();
 

@@ -21,6 +21,7 @@ class ImovelResource extends JsonResource
             'tipo_imovel' => $this->tipo_imovel,
             'finalidade' => $this->finalidade,
             'disponibilidade' => $this->disponibilidade,
+            'site_url' => $this->site_url,
             'enderecos' => [
                 'cep' => $this->cep,
                 'estado' => $this->estado,

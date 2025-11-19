@@ -17,6 +17,7 @@ export type PortalInvoice = {
     linha_digitavel: string | null;
     codigo_barras: string | null;
     pdf_url: string | null;
+    pdf_download_url: string | null;
     nosso_numero: string | null;
     valor: number;
   } | null;

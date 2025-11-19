@@ -6,6 +6,7 @@ use App\Events\Boleto\BoletoRegistered;
 use App\Models\Fatura;
 use App\Models\FaturaBoleto;
 use App\Services\Boleto\BoletoGateway;
+use App\Services\Boleto\BoletoPdfService;
 use Illuminate\Support\Facades\Log;
 
 class GenerateBradescoBoletoService
@@ -18,6 +19,7 @@ class GenerateBradescoBoletoService
      */
     public function __construct(
         private readonly BoletoGateway $gateway,
+        private readonly BoletoPdfService $pdfService,
         array $defaultContext = []
     ) {
         $this->defaultContext = $defaultContext;
@@ -39,7 +41,9 @@ class GenerateBradescoBoletoService
             ->first();
 
         if ($ultimoBoleto) {
+            $ultimoBoleto = $this->ensurePdf($ultimoBoleto);
             $this->syncFaturaWithBoleto($fatura->refresh(), $ultimoBoleto);
+            $this->attachPdfToFatura($ultimoBoleto);
 
             return $ultimoBoleto;
         }
@@ -54,7 +58,10 @@ class GenerateBradescoBoletoService
         $boleto = $this->gateway->issue($fatura, $payloadContext);
         $wasCreated = $boleto->wasRecentlyCreated;
 
+        $boleto = $this->ensurePdf($boleto);
+
         $this->syncFaturaWithBoleto($fatura->refresh(), $boleto);
+        $this->attachPdfToFatura($boleto);
 
         if ($wasCreated) {
             event(new BoletoRegistered($fatura->fresh(), $boleto->fresh()));
@@ -78,5 +85,35 @@ class GenerateBradescoBoletoService
         }
 
         $fatura->save();
+    }
+
+    protected function ensurePdf(FaturaBoleto $boleto): FaturaBoleto
+    {
+        if ($boleto->pdf_url) {
+            return $boleto;
+        }
+
+        try {
+            $this->gateway->fetchAndStorePdf($boleto);
+        } catch (\Throwable $exception) {
+            Log::warning('[Bradesco] Falha ao obter PDF do boleto', [
+                'boleto_id' => $boleto->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
+
+        return $boleto->fresh();
+    }
+
+    protected function attachPdfToFatura(FaturaBoleto $boleto): void
+    {
+        try {
+            $this->pdfService->storeAsAttachment($boleto);
+        } catch (\Throwable $exception) {
+            Log::warning('[Bradesco] Falha ao gerar PDF local do boleto', [
+                'boleto_id' => $boleto->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
     }
 }

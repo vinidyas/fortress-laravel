@@ -75,7 +75,7 @@ return [
 
         'bradesco' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/bradesco.log'),
+            'path' => storage_path('logs/bradesco-response.log'),
             'level' => env('LOG_BRADESCO_LEVEL', env('LOG_LEVEL', 'info')),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,

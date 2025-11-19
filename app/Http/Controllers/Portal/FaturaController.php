@@ -9,6 +9,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 
 class FaturaController extends Controller
@@ -47,6 +48,7 @@ class FaturaController extends Controller
                         'linha_digitavel' => $boleto->linha_digitavel,
                         'codigo_barras' => $boleto->codigo_barras,
                         'pdf_url' => $boleto->pdf_url,
+                        'pdf_download_url' => $this->buildPdfDownloadUrl($boleto->id),
                         'nosso_numero' => $boleto->nosso_numero,
                         'valor' => (float) $boleto->valor,
                     ] : null,
@@ -67,6 +69,8 @@ class FaturaController extends Controller
             'boletos' => fn ($query) => $query->orderByDesc('created_at'),
             'itens' => fn ($query) => $query->orderBy('created_at'),
         ]);
+
+        $host = $request->getSchemeAndHttpHost();
 
         return response()->json([
             'data' => [
@@ -101,6 +105,7 @@ class FaturaController extends Controller
                         'linha_digitavel' => $boleto->linha_digitavel,
                         'codigo_barras' => $boleto->codigo_barras,
                         'pdf_url' => $boleto->pdf_url,
+                        'pdf_download_url' => $this->buildPdfDownloadUrl($boleto->id),
                         'nosso_numero' => $boleto->nosso_numero,
                     ];
                 }),
@@ -156,5 +161,16 @@ class FaturaController extends Controller
         }
 
         return route('portal.invoices.receipt', ['fatura' => $fatura->id], false);
+    }
+
+    private function buildPdfDownloadUrl(int $boletoId): string
+    {
+        $path = Route::has('boletos.pdf')
+            ? route('boletos.pdf', ['boleto' => $boletoId], false)
+            : route('api.boletos.pdf', ['boleto' => $boletoId], false);
+
+        $base = rtrim(config('app.url', ''), '/');
+
+        return $base.$path;
     }
 }

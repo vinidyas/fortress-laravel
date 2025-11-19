@@ -6,6 +6,7 @@ use App\Models\Condominio;
 use App\Models\Imovel;
 use App\Models\Pessoa;
 use App\Models\User;
+use Database\Seeders\PermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -18,11 +19,18 @@ class ImoveisTest extends TestCase
 
     private function actingAsApiUser(array $permissions = []): User
     {
-        $user = User::factory()->create([
-            'permissoes' => $permissions,
-        ]);
+        $this->seed(PermissionsSeeder::class);
+        $user = User::factory()->create();
 
-        Sanctum::actingAs($user);
+        if (! empty($permissions)) {
+            $user->forceFill(['permissoes' => $permissions])->save();
+        }
+
+        if (! empty($permissions)) {
+            $user->syncPermissions($permissions);
+        }
+
+        Sanctum::actingAs($user, ['*']);
 
         return $user;
     }
@@ -50,6 +58,8 @@ class ImoveisTest extends TestCase
         $agenciador = Pessoa::factory()->create();
         $responsavel = Pessoa::factory()->create();
         $condominio = Condominio::factory()->create();
+
+        $initialCount = Imovel::count();
 
         $payload = [
             'codigo' => '',
@@ -88,7 +98,7 @@ class ImoveisTest extends TestCase
         $response = $this->postJson('/api/imoveis', $payload);
 
         $response->assertCreated();
-        $this->assertDatabaseCount('imoveis', 1);
+        $this->assertDatabaseCount('imoveis', $initialCount + 1);
 
         $codigo = $response->json('data.codigo');
         $this->assertNotEmpty($codigo);

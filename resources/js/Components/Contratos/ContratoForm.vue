@@ -44,6 +44,12 @@ const statusOptions = [
   { value: 'Rescindido', label: 'Rescindido' },
 ];
 
+const origemBoletoOptions = [
+  { label: 'Nenhum', value: null },
+  { label: 'FORTRESS', value: 'FORTRESS' },
+  { label: 'INOVA', value: 'INOVA' },
+];
+
 const reajusteOptions = [
   { value: 'IGPM', label: 'IGP-M' },
   { value: 'IGPDI', label: 'IGP-DI' },
@@ -98,6 +104,7 @@ const form = reactive({
   forma_pagamento_preferida: '',
   tipo_contrato: '',
   status: 'Ativo',
+  origem_boleto: null as 'FORTRESS' | 'INOVA' | null,
   observacoes: '',
 });
 
@@ -458,7 +465,7 @@ watch(
           <span class="h-6 w-1 rounded-full bg-cyan-500"></span>
           <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Vigência</h3>
         </header>
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 lg:grid-cols-4">
           <div class="flex flex-col gap-1">
             <label class="text-sm font-medium text-slate-200">Data início *</label>
           <DatePicker v-model="form.data_inicio" placeholder="dd/mm/aaaa" required :invalid="Boolean(errors.data_inicio)" />
@@ -471,7 +478,7 @@ watch(
         </div>
           <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-slate-200">Dia de vencimento *</label>
-          <input v-model="form.dia_vencimento" type="number" min="1" max="28" required class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <input v-model="form.dia_vencimento" type="number" min="1" max="30" required class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           <p v-if="errors.dia_vencimento" class="text-xs text-rose-400">{{ errors.dia_vencimento }}</p>
         </div>
         <div class="flex flex-col gap-1">
@@ -653,7 +660,7 @@ watch(
           <span class="h-6 w-1 rounded-full bg-teal-500"></span>
           <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Classificação e pagamento</h3>
         </header>
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 lg:grid-cols-4">
           <div class="flex flex-col gap-1">
           <label class="text-sm font-medium text-slate-200">Tipo de contrato</label>
           <select v-model="form.tipo_contrato" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
@@ -676,6 +683,13 @@ watch(
             <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select>
           <p v-if="errors.status" class="text-xs text-rose-400">{{ errors.status }}</p>
+        </div>
+          <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-slate-200">Origem do boleto</label>
+          <select v-model="form.origem_boleto" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            <option v-for="option in origemBoletoOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+          <p v-if="errors.origem_boleto" class="text-xs text-rose-400">{{ errors.origem_boleto }}</p>
         </div>
         </div>
       </section>

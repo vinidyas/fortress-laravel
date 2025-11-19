@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FaturaBoletoResource extends JsonResource
@@ -12,6 +13,8 @@ class FaturaBoletoResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $pdfPath = $this->resolvePdfPath();
+
         return [
             'id' => $this->id,
             'fatura_id' => $this->fatura_id,
@@ -26,6 +29,7 @@ class FaturaBoletoResource extends JsonResource
             'linha_digitavel' => $this->linha_digitavel,
             'codigo_barras' => $this->codigo_barras,
             'pdf_url' => $this->pdf_url,
+            'pdf_download_url' => rtrim(config('app.url'), '/').$pdfPath,
             'external_id' => $this->external_id,
             'nosso_numero' => $this->nosso_numero,
             'document_number' => $this->document_number,
@@ -33,5 +37,14 @@ class FaturaBoletoResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    private function resolvePdfPath(): string
+    {
+        if (Route::has('boletos.pdf')) {
+            return route('boletos.pdf', ['boleto' => $this->id], false);
+        }
+
+        return route('api.boletos.pdf', ['boleto' => $this->id], false);
     }
 }

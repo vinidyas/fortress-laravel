@@ -25,6 +25,9 @@ const totals = ref<{
   planejado: number;
   pendente: number;
   atrasado: number;
+  boletos_emitidos: number;
+  boletos_liquidados: number;
+  boletos_pendentes: number;
 } | null>(null);
 const errorMessage = ref('');
 
@@ -175,6 +178,24 @@ const exportReport = () => {
                 totals.atrasado ?? 0
               )
             }}
+          </p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
+          <p class="text-slate-400">Boletos emitidos</p>
+          <p class="text-2xl font-semibold text-slate-200">
+            {{ (totals.boletos_emitidos ?? 0).toLocaleString('pt-BR') }}
+          </p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
+          <p class="text-slate-400">Boletos liquidados</p>
+          <p class="text-2xl font-semibold text-emerald-300">
+            {{ (totals.boletos_liquidados ?? 0).toLocaleString('pt-BR') }}
+          </p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
+          <p class="text-slate-400">Boletos pendentes</p>
+          <p class="text-2xl font-semibold text-amber-300">
+            {{ (totals.boletos_pendentes ?? 0).toLocaleString('pt-BR') }}
           </p>
         </article>
       </div>

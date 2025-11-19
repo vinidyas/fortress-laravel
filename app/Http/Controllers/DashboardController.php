@@ -49,11 +49,12 @@ class DashboardController extends Controller
         $financialTrend = $this->buildFinancialTrend($now);
         $delinquency = $this->buildDelinquencySummary($metrics['openAmount'], $metrics['paidThisMonth']);
 
+        $contractWindowEnd = $now->copy()->addDays(30);
         $expiringContracts = Contrato::query()
             ->with(['imovel'])
             ->where('status', 'Ativo')
             ->whereNotNull('data_fim')
-            ->whereBetween('data_fim', [$now->copy()->startOfDay(), $now->copy()->addDays(30)])
+            ->whereBetween('data_fim', [$now->copy()->startOfDay(), $contractWindowEnd])
             ->orderBy('data_fim')
             ->limit(5)
             ->get()
@@ -68,8 +69,31 @@ class DashboardController extends Controller
                 'alertKey' => sprintf('contract:%d:%s', $contrato->id, optional($contrato->data_fim)?->toDateString()),
             ]);
 
+        $reajusteWindowEnd = $now->copy()->addDays(30);
+        $upcomingReajustes = Contrato::query()
+            ->with(['imovel'])
+            ->where('status', 'Ativo')
+            ->whereNotNull('data_proximo_reajuste')
+            ->whereBetween('data_proximo_reajuste', [$now->copy()->startOfDay(), $reajusteWindowEnd])
+            ->orderBy('data_proximo_reajuste')
+            ->limit(5)
+            ->get()
+            ->map(fn (Contrato $contrato) => [
+                'id' => $contrato->id,
+                'code' => $contrato->codigo_contrato,
+                'imovel' => $contrato->imovel?->codigo,
+                'reajusteAt' => optional($contrato->data_proximo_reajuste)?->toDateString(),
+                'daysUntil' => $contrato->data_proximo_reajuste
+                    ? $now->diffInDays($contrato->data_proximo_reajuste, false)
+                    : null,
+                'indice' => $contrato->reajuste_indice?->value,
+                'periodicidade' => $contrato->reajuste_periodicidade_meses,
+                'alertKey' => sprintf('reajuste:%d:%s', $contrato->id, optional($contrato->data_proximo_reajuste)?->toDateString()),
+            ]);
+
         $openInvoices = Fatura::query()
             ->with(['contrato.imovel'])
+            ->withCount('boletos')
             ->where('status', 'Aberta')
             ->orderBy('vencimento')
             ->limit(5)
@@ -85,6 +109,8 @@ class DashboardController extends Controller
                     ? $fatura->vencimento->diffInDays($now, false)
                     : null,
                 'alertKey' => sprintf('invoice:%d:%s', $fatura->id, optional($fatura->vencimento)?->toDateString()),
+                'hasBoleto' => (int) $fatura->boletos_count > 0,
+                'boletosCount' => (int) $fatura->boletos_count,
             ]);
 
         $payablesTodayQuery = JournalEntry::query()
@@ -125,7 +151,7 @@ class DashboardController extends Controller
             ? $request->user()->dismissedAlerts()->pluck('alert_key')->all()
             : [];
 
-        $alerts = $this->buildAlerts($now, $expiringContracts, $openInvoices, $readAlerts);
+        $alerts = $this->buildAlerts($now, $expiringContracts, $openInvoices, $upcomingReajustes, $readAlerts);
 
         $widgets = $this->buildWidgets($request->user());
 
@@ -194,6 +220,7 @@ class DashboardController extends Controller
             'payablesToday' => $payablesToday,
             'payablesTodaySummary' => $payablesTodaySummary,
             'alerts' => $alerts,
+            'upcomingReajustes' => $upcomingReajustes,
             'widgets' => $widgets,
             'financeAccounts' => $financeAccounts,
             'financeCostCenters' => $financeCostCenters,
@@ -209,6 +236,7 @@ class DashboardController extends Controller
         'delinquency' => 'Inadimplência',
         'payables_today' => 'Contas a pagar (hoje)',
         'expiring_contracts' => 'Contratos a vencer',
+        'upcoming_reajustes' => 'Reajustes programados',
         'open_invoices' => 'Faturas em aberto',
     ];
 
@@ -216,9 +244,16 @@ class DashboardController extends Controller
      * @param  \Illuminate\Support\Carbon  $now
      * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $expiringContracts
      * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $openInvoices
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $upcomingReajustes
      * @return array<int, array<string, mixed>>
      */
-    private function buildAlerts(Carbon $now, $expiringContracts, $openInvoices, array $readAlerts): array
+    private function buildAlerts(
+        Carbon $now,
+        $expiringContracts,
+        $openInvoices,
+        $upcomingReajustes,
+        array $readAlerts
+    ): array
     {
         $readSet = collect($readAlerts)->filter()->unique()->values();
 
@@ -229,6 +264,10 @@ class DashboardController extends Controller
         $invoiceCollection = $openInvoices instanceof EloquentCollection
             ? $openInvoices->toBase()
             : Collection::make($openInvoices);
+
+        $reajusteCollection = $upcomingReajustes instanceof EloquentCollection
+            ? $upcomingReajustes->toBase()
+            : Collection::make($upcomingReajustes);
 
         $contractAlerts = $contractCollection
             ->filter(function (array $contract) {
@@ -350,7 +389,51 @@ class DashboardController extends Controller
             })
             ->filter();
 
-        $alerts = $contractAlerts->merge($invoiceAlerts)->values();
+        $reajusteAlerts = $reajusteCollection
+            ->filter(function (array $reajuste) {
+                $daysUntil = $reajuste['daysUntil'] ?? null;
+
+                return $daysUntil !== null && $daysUntil >= 0 && $daysUntil <= 30;
+            })
+            ->reject(fn (array $reajuste) => $readSet->contains($reajuste['alertKey'] ?? ''))
+            ->map(function (array $reajuste) use ($now) {
+                $daysUntil = (int) $reajuste['daysUntil'];
+                $key = $reajuste['alertKey'] ?? sprintf('reajuste:%d:%s', $reajuste['id'], $reajuste['reajusteAt'] ?? $now->toDateString());
+                $severity = $daysUntil <= 0 ? 'danger' : ($daysUntil <= 7 ? 'warning' : 'info');
+                $labelDays = $daysUntil === 0 ? 'hoje' : "em {$daysUntil} dia(s)";
+
+                return [
+                    'type' => $severity,
+                    'category' => 'contract.reajuste',
+                    'title' => 'Reajuste de contrato próximo',
+                    'message' => sprintf(
+                        'Contrato %s terá reajuste %s.',
+                        $reajuste['code'] ?? '#'.$reajuste['id'],
+                        $labelDays
+                    ),
+                    'action' => [
+                        'label' => 'Ver contrato',
+                        'href' => route('contratos.show', $reajuste['id']),
+                    ],
+                    'resource' => [
+                        'type' => Contrato::class,
+                        'id' => $reajuste['id'],
+                    ],
+                    'payload' => [
+                        'code' => $reajuste['code'] ?? null,
+                        'reajuste_at' => $reajuste['reajusteAt'] ?? null,
+                        'days_until' => $reajuste['daysUntil'],
+                        'indice' => $reajuste['indice'] ?? null,
+                    ],
+                    'occurred_at' => $reajuste['reajusteAt'] ?? $now->toDateString(),
+                    'key' => $key,
+                ];
+            });
+
+        $alerts = $contractAlerts
+            ->merge($reajusteAlerts)
+            ->merge($invoiceAlerts)
+            ->values();
 
         return $this->recordAlerts($alerts)->take(10)->all();
     }

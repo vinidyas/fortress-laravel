@@ -3,7 +3,9 @@
 namespace App\Services\Banking\Bradesco;
 
 use App\Models\BankApiConfig;
+use App\Services\Banking\Bradesco\Support\BradescoPayloadSanitizer;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -23,20 +25,73 @@ class BradescoApiClient
 
     public function issueBoleto(array $payload): array
     {
-        return $this->request()
-            ->post('/boleto/cobranca-registro/v1/cobranca', $payload)
-            ->throw()
-            ->json();
+        $endpoint = '/boleto/cobranca-registro/v1/cobranca';
+        $response = $this->request()->post($endpoint, $payload);
+
+        if ($response->failed()) {
+            $this->logError('Emissão de boleto', $endpoint, $payload, $response);
+            $response->throw();
+        }
+
+        $this->logSuccess('Emissão de boleto', $endpoint, $payload, $response);
+
+        return $response->json();
     }
 
     public function getBoleto(string|array $payload): array
     {
         $body = $this->buildConsultaPayload($payload);
 
-        return $this->request()
-            ->post('/boleto/cobranca-consulta/v1/consultar', $body)
-            ->throw()
-            ->json();
+        $endpoint = '/boleto/cobranca-consulta/v1/consultar';
+        $response = $this->request()->post($endpoint, $body);
+
+        if ($response->failed()) {
+            $this->logError('Consulta de boleto', $endpoint, $body, $response);
+            $response->throw();
+        }
+
+        $this->logSuccess('Consulta de boleto', $endpoint, $body, $response);
+
+        return $response->json();
+    }
+
+    public function downloadBoletoPdf(string|array $payload): Response
+    {
+        $body = $this->buildConsultaPayload($payload);
+        $endpoints = [
+            '/boleto/cobranca-pdf/v1',
+            '/boleto/cobranca-pdf/v1/cobranca',
+            '/boleto/cobranca-pdf/v1/obter',
+            '/boleto/cobranca-consulta/v1/consultar',
+        ];
+
+        $lastResponse = null;
+        $lastEndpoint = null;
+
+        foreach ($endpoints as $endpoint) {
+            $response = $this->request('application/pdf')->post($endpoint, $body);
+            $contentType = Str::lower($response->header('content-type', ''));
+
+            if ($response->successful() && Str::contains($contentType, 'application/pdf')) {
+                $this->logSuccess('Download de PDF', $endpoint, $body, $response);
+
+                return $response;
+            }
+
+            $lastResponse = $response;
+            $lastEndpoint = $endpoint;
+
+            if (! in_array($response->status(), [404, 405], true)) {
+                break;
+            }
+        }
+
+        if ($lastResponse) {
+            $this->logError('Download de PDF', $lastEndpoint ?? $endpoints[0], $body, $lastResponse);
+            $lastResponse->throw();
+        }
+
+        throw new RuntimeException('Falha ao requisitar PDF do Bradesco.');
     }
 
     public function cancelBoleto(string|array $payload): array
@@ -45,10 +100,17 @@ class BradescoApiClient
             'nuTitulo' => (string) $payload,
         ];
 
-        return $this->request()
-            ->post('/boleto/cobranca-baixa/v1/baixar', $body)
-            ->throw()
-            ->json();
+        $endpoint = '/boleto/cobranca-baixa/v1/baixar';
+        $response = $this->request()->post($endpoint, $body);
+
+        if ($response->failed()) {
+            $this->logError('Baixa de boleto', $endpoint, $body, $response);
+            $response->throw();
+        }
+
+        $this->logSuccess('Baixa de boleto', $endpoint, $body, $response);
+
+        return $response->json();
     }
 
     public function refreshAccessToken(bool $force = false): BankApiConfig
@@ -60,7 +122,7 @@ class BradescoApiClient
         return $this->config;
     }
 
-    protected function request(): PendingRequest
+    protected function request(string $accept = 'application/json'): PendingRequest
     {
         $config = config('services.bradesco_boleto');
 
@@ -74,9 +136,7 @@ class BradescoApiClient
             ->timeout($timeout)
             ->asJson()
             ->withToken((string) $this->config->access_token)
-            ->withHeaders([
-                'Accept' => 'application/json',
-            ]);
+            ->accept($accept);
     }
 
     protected function resolveConfig(): BankApiConfig
@@ -107,6 +167,56 @@ class BradescoApiClient
         }
 
         return $config;
+    }
+
+    protected function logError(string $operation, string $endpoint, array $payload, Response $response): void
+    {
+        Log::channel('bradesco')->error("[Bradesco] {$operation} falhou", [
+            'endpoint' => $endpoint,
+            'payload' => BradescoPayloadSanitizer::sanitize($payload),
+            'response' => $this->sanitizeResponse($response),
+        ]);
+    }
+
+    protected function logSuccess(string $operation, string $endpoint, array $payload, Response $response): void
+    {
+        Log::channel('bradesco')->info("[Bradesco] {$operation} concluída", [
+            'endpoint' => $endpoint,
+            'payload' => BradescoPayloadSanitizer::sanitize($payload),
+            'response' => $this->sanitizeResponse($response),
+        ]);
+    }
+
+    protected function sanitizeResponse(Response $response): array
+    {
+        $headers = array_map(function ($values) {
+            return implode(', ', (array) $values);
+        }, $response->headers());
+
+        $contentType = Str::lower($response->header('content-type', ''));
+        $body = null;
+
+        try {
+            $decoded = $response->json();
+        } catch (\Throwable) {
+            $decoded = null;
+        }
+
+        if (is_array($decoded)) {
+            $body = BradescoPayloadSanitizer::sanitize($decoded);
+        } elseif (Str::contains($contentType, 'application/json')) {
+            $body = $response->body();
+        } else {
+            $length = strlen((string) $response->body());
+            $label = $contentType !== '' ? $contentType : 'binary';
+            $body = sprintf('[%s response truncated: %d bytes]', $label, $length);
+        }
+
+        return [
+            'status' => $response->status(),
+            'body' => $body,
+            'headers' => $headers,
+        ];
     }
 
     protected function httpClient(): PendingRequest
@@ -189,11 +299,24 @@ class BradescoApiClient
             $requested['nossoNumero'] = (string) $requested['nuTitulo'];
         }
 
+        $nossoNumero = Arr::get($requested, 'nossoNumero');
+        if ($nossoNumero !== null && $nossoNumero !== '') {
+            $nossoNumero = Str::padLeft((string) $nossoNumero, 11, '0');
+        }
+
+        $consultaNegociacao = Arr::get(
+            $services,
+            'consulta_negociacao',
+            Arr::get($services, 'negociacao')
+        );
+
         $defaults = [
             'sequencia' => Arr::get($requested, 'sequencia', '0'),
             'produto' => Arr::get($services, 'id_produto'),
-            'negociacao' => Arr::get($services, 'negociacao'),
-            'nossoNumero' => Arr::get($requested, 'nossoNumero'),
+            'negociacao' => $consultaNegociacao,
+            'nossoNumero' => $nossoNumero,
+            'nuTitulo' => $nossoNumero,
+            'status' => Arr::get($requested, 'status', '0'),
             'cpfCnpj' => [
                 'cpfCnpj' => Str::padLeft((string) Arr::get($services, 'cnpj_raiz', ''), 8, '0'),
                 'filial' => Str::padLeft((string) Arr::get($services, 'cnpj_filial', ''), 4, '0'),

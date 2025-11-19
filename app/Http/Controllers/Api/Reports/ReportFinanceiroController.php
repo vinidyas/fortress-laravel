@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\ReportFinanceiroFilterRequest;
 use App\Domain\Financeiro\Support\JournalEntryStatus;
 use App\Domain\Financeiro\Support\JournalEntryType;
+use App\Models\FaturaBoleto;
 use App\Models\JournalEntry;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,6 +30,24 @@ class ReportFinanceiroController extends Controller
         $quitado = (clone $entries)->whereIn('status', $settledStatuses)->sum('amount');
         $cancelado = (clone $entries)->whereIn('status', $cancelledStatuses)->sum('amount');
 
+        $boletoQuery = FaturaBoleto::query();
+
+        if ($request->filled('de')) {
+            $boletoQuery->whereDate('created_at', '>=', $request->date('de')->toDateString());
+        }
+
+        if ($request->filled('ate')) {
+            $boletoQuery->whereDate('created_at', '<=', $request->date('ate')->toDateString());
+        }
+
+        $boletosEmitidos = (clone $boletoQuery)->count();
+        $boletosLiquidados = (clone $boletoQuery)
+            ->where('status', FaturaBoleto::STATUS_PAID)
+            ->count();
+        $boletosPendentes = (clone $boletoQuery)
+            ->whereIn('status', [FaturaBoleto::STATUS_PENDING, FaturaBoleto::STATUS_REGISTERED])
+            ->count();
+
         return response()->json([
             'totals' => [
                 'receitas' => (float) $receitas,
@@ -37,6 +56,9 @@ class ReportFinanceiroController extends Controller
                 'em_aberto' => (float) $emAberto,
                 'quitado' => (float) $quitado,
                 'cancelado' => (float) $cancelado,
+                'boletos_emitidos' => $boletosEmitidos,
+                'boletos_liquidados' => $boletosLiquidados,
+                'boletos_pendentes' => $boletosPendentes,
             ],
         ]);
     }

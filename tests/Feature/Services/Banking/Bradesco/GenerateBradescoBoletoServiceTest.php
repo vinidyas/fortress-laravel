@@ -11,14 +11,22 @@ use App\Services\Banking\Bradesco\BradescoApiClient;
 use App\Services\Banking\Bradesco\BradescoBoletoGateway;
 use App\Services\Banking\Bradesco\FakeBradescoApiClient;
 use App\Services\Banking\Bradesco\GenerateBradescoBoletoService;
+use App\Services\Boleto\BoletoPdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
+use Mockery;
 use Tests\TestCase;
 
 class GenerateBradescoBoletoServiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
+    }
 
     protected function setUp(): void
     {
@@ -73,10 +81,10 @@ class GenerateBradescoBoletoServiceTest extends TestCase
         ]);
 
         $service = new GenerateBradescoBoletoService(
-            new BradescoBoletoGateway(new FakeBradescoApiClient($clientConfig))
+            new BradescoBoletoGateway(new FakeBradescoApiClient($clientConfig)),
+            $this->mockPdfService()
         );
 
-        Log::fake();
         Event::fake([BoletoRegistered::class]);
 
         $boleto = $service->handle($fatura);
@@ -120,10 +128,10 @@ class GenerateBradescoBoletoServiceTest extends TestCase
         ]);
 
         $service = new GenerateBradescoBoletoService(
-            new BradescoBoletoGateway(new FakeBradescoApiClient($clientConfig))
+            new BradescoBoletoGateway(new FakeBradescoApiClient($clientConfig)),
+            $this->mockPdfService()
         );
 
-        Log::fake();
         Event::fake([BoletoRegistered::class]);
 
         $first = $service->handle($fatura);
@@ -136,5 +144,13 @@ class GenerateBradescoBoletoServiceTest extends TestCase
         $this->assertTrue($first->is($second));
         $this->assertSame(1, $fatura->boletos()->count());
         Event::assertNothingDispatched();
+    }
+
+    private function mockPdfService(): \Mockery\MockInterface
+    {
+        $mock = Mockery::mock(BoletoPdfService::class);
+        $mock->shouldReceive('storeAsAttachment')->andReturnNull();
+
+        return $mock;
     }
 }

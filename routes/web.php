@@ -20,6 +20,8 @@ use App\Http\Controllers\Reports\BankAccountStatementReportPageController;
 use App\Http\Controllers\Reports\BankLedgerReportPageController;
 use App\Http\Controllers\Reports\FinanceiroReportPageController;
 use App\Http\Controllers\Reports\GeneralAnalyticReportPageController;
+use App\Http\Controllers\Reports\ImoveisReportPageController;
+use App\Http\Controllers\Reports\ContratosReportPageController;
 use App\Http\Controllers\Reports\OperacionalReportPageController;
 use App\Http\Controllers\Reports\PessoasReportPageController;
 use App\Http\Controllers\Reports\RevenueLedgerReportPageController;
@@ -29,6 +31,7 @@ use App\Http\Controllers\Profile\AccountController;
 use App\Http\Controllers\Profile\PasswordController;
 use App\Http\Controllers\Portal\ContratoController as PortalContratoController;
 use App\Http\Controllers\Portal\FaturaController as PortalFaturaController;
+use App\Http\Controllers\Api\Financeiro\BoletoPdfController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -64,7 +67,7 @@ Route::middleware('auth')->group(function () {
         'pessoaId' => $pessoa,
     ]))->name('pessoas.edit');
 
-    // Condom�nios
+    // CondomÃ­nios
     Route::get('/condominios', fn () => Inertia::render('Condominios/Index'))->name('condominios.index');
     Route::get('/condominios/novo', fn () => Inertia::render('Condominios/Edit'))->name('condominios.create');
     Route::get('/condominios/{condominio}', fn (int $condominio) => Inertia::render('Condominios/Edit', [
@@ -103,6 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/financeiro/conciliacao', [BankReconciliationPageController::class, 'index'])->name('financeiro.reconciliation');
     Route::get('/financeiro/agendamentos', [PaymentSchedulePageController::class, 'index'])->name('financeiro.payment-schedules');
     Route::get('/financeiro/agendamentos/novo', [PaymentSchedulePageController::class, 'create'])->name('financeiro.payment-schedules.create');
+    Route::get('/boletos/{boleto}/pdf', [BoletoPdfController::class, 'show'])->name('boletos.pdf');
 
     Route::get('/auditoria', [AuditTrailPageController::class, 'index'])->name('auditoria.index');
     Route::get('/alertas/historico', AlertHistoryPageController::class)->name('alerts.history');
@@ -112,6 +116,8 @@ Route::middleware('auth')->group(function () {
         Route::get('extratos', [BankStatementReportPageController::class, 'index'])->name('relatorios.bank-statements');
         Route::get('extratos/detalhado', [BankLedgerReportPageController::class, 'index'])->name('relatorios.bank-ledger');
         Route::get('geral-analitico', [GeneralAnalyticReportPageController::class, 'index'])->name('relatorios.general-analytic');
+        Route::get('contratos', ContratosReportPageController::class)->name('relatorios.contratos');
+        Route::get('imoveis', ImoveisReportPageController::class)->name('relatorios.imoveis');
         Route::get('extratos/conta', [BankAccountStatementReportPageController::class, 'index'])->name('relatorios.bank-account-statement');
         Route::get('extratos/receitas', [RevenueLedgerReportPageController::class, 'index'])->name('relatorios.bank-ledger-receitas');
         Route::get('extratos/detalhado/preview', function (ReportBankLedgerFilterRequest $request) {

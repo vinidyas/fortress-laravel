@@ -39,7 +39,7 @@ class ContratoStoreRequest extends FormRequest
             'fiadores.*' => ['integer', 'distinct', 'exists:pessoas,id'],
             'data_inicio' => ['required', 'date'],
             'data_fim' => ['nullable', 'date', 'after_or_equal:data_inicio'],
-            'dia_vencimento' => ['required', 'integer', 'between:1,28'],
+            'dia_vencimento' => ['required', 'integer', 'between:1,30'],
             'carencia_meses' => ['nullable', 'integer', 'min:0', 'max:120'],
             'data_entrega_chaves' => ['nullable', 'date'],
             'valor_aluguel' => ['required', 'numeric', 'min:0'],

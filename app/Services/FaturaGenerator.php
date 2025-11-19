@@ -104,7 +104,7 @@ class FaturaGenerator
 
     private function resolveVencimento(Contrato $contrato, Carbon $competencia): string
     {
-        $dia = max(1, min(28, $contrato->dia_vencimento ?? 1));
+        $dia = max(1, min(30, $contrato->dia_vencimento ?? 1));
         $vencimento = $competencia->clone()->setDay($dia);
 
         if ($vencimento->month !== $competencia->month) {
@@ -134,4 +134,3 @@ class FaturaGenerator
         $fatura->load('itens');
     }
 }
-

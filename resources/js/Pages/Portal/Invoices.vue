@@ -70,11 +70,12 @@
               <td class="px-4 py-4">
                 <div class="flex flex-wrap gap-2">
                   <a
-                    v-if="invoice.boleto?.pdf_url"
-                    :href="invoice.boleto.pdf_url"
+                    v-if="boletoPdfUrl(invoice)"
+                    :href="boletoPdfUrl(invoice)"
                     target="_blank"
                     rel="noopener"
                     class="inline-flex items-center gap-2 rounded-md border border-indigo-500/40 px-3 py-1.5 text-xs font-semibold text-indigo-200 transition hover:bg-indigo-500/10"
+                    data-inertia="false"
                   >
                     Baixar boleto
                   </a>
@@ -155,6 +156,10 @@ function notify(type: 'success' | 'error' | 'info', message: string) {
       },
     })
   );
+}
+
+function boletoPdfUrl(invoice: (typeof invoices.value)[number]) {
+  return invoice.boleto?.pdf_url ?? invoice.boleto?.pdf_download_url ?? null;
 }
 
 function hasCopyableCode(invoice: (typeof invoices.value)[number]) {

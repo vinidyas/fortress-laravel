@@ -225,7 +225,7 @@ class ContratosTest extends TestCase
         \App\Models\Fatura::query()->create([
             'contrato_id' => $contrato->id,
             'competencia' => now()->startOfMonth()->toDateString(),
-            'vencimento' => now()->startOfMonth()->addDays(max(1, min(28, $contrato->dia_vencimento ?? 1)))->toDateString(),
+            'vencimento' => now()->startOfMonth()->addDays(max(1, min(30, $contrato->dia_vencimento ?? 1)))->toDateString(),
             'status' => 'Aberta',
         ]);
 

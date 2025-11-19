@@ -143,6 +143,19 @@ function formatImovelInfo(imovel: ContratoRow['imovel']): string {
   return parts.length > 0 ? parts.join(' • ') : '-';
 }
 
+function formatDateLabel(value: Nullable<string>, fallback = '—'): string {
+  if (!value) {
+    return fallback;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('pt-BR');
+}
+
 async function deleteContrato(contrato: ContratoRow) {
   const confirmed = window.confirm(`Deseja realmente excluir o contrato ${contrato.codigo_contrato}? Essa ação não pode ser desfeita.`);
   if (!confirmed) return;
@@ -205,7 +218,7 @@ onMounted(() => { fetchContratos(); });
           </div>
           <div>
             <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Dia de vencimento</label>
-            <input v-model="filters.dia_vencimento" type="number" min="1" max="28" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+            <input v-model="filters.dia_vencimento" type="number" min="1" max="30" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
           </div>
           <div>
             <label class="text-xs font-semibold uppercase tracking-wide text-slate-400">Vigência em</label>
@@ -255,8 +268,8 @@ onMounted(() => { fetchContratos(); });
               <td class="px-4 py-3 text-slate-200">{{ contrato.locador?.nome_razao_social ?? '-' }}</td>
               <td class="px-4 py-3 text-slate-200">{{ contrato.locatario?.nome_razao_social ?? '-' }}</td>
               <td class="px-4 py-3">
-                <div class="text-slate-200">{{ contrato.data_inicio }}</div>
-                <div class="text-xs text-slate-500">{{ contrato.data_fim ?? 'Sem data fim' }}</div>
+                <div class="text-slate-200">{{ formatDateLabel(contrato.data_inicio) }}</div>
+                <div class="text-xs text-slate-500">{{ formatDateLabel(contrato.data_fim, 'Sem data fim') }}</div>
               </td>
               <td class="px-4 py-3">
                 <span :class="['inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold', statusBadgeClasses(contrato.status)]">{{ contrato.status }}</span>

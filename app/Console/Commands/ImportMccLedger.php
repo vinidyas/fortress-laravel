@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Financeiro\Actions\DescriptionResolver;
 use App\Domain\Financeiro\DataTransferObjects\InstallmentData;
 use App\Domain\Financeiro\DataTransferObjects\JournalEntryData;
 use App\Domain\Financeiro\Services\CreateJournalEntryService;
@@ -26,7 +27,10 @@ class ImportMccLedger extends Command
         {--dry-run : Processa o arquivo e apresenta o resumo sem gravar no banco}
         {--update-existing : Atualiza lançamentos já importados (origin=importado) em vez de criar novos}
         {--default-account= : ID ou nome da conta bancária que deve receber os lançamentos quando não houver correspondência}
-        {--skip-lookups : Não tenta relacionar contas, centros de custo, imóveis ou pessoas existentes}';
+        {--skip-lookups : Não tenta relacionar contas, centros de custo, imóveis ou pessoas existentes}
+        {--with-cost-centers : Relaciona Centro de Custo quando houver correspondência}
+        {--from-date= : Importa apenas linhas com DATA >= (ex.: 05/11/2021)}
+        {--to-date= : Importa apenas linhas com DATA <= (ex.: 30/11/2021)}';
 
     protected $description = 'Importa lançamentos financeiros exportados do sistema MCC';
 
@@ -70,8 +74,15 @@ class ImportMccLedger extends Command
 
     private bool $skipLookups = false;
 
+    private bool $includeCostCenters = false;
+
+    private ?Carbon $fromDate = null;
+
+    private ?Carbon $toDate = null;
+
     public function __construct(
-        private readonly CreateJournalEntryService $createJournalEntry
+        private readonly CreateJournalEntryService $createJournalEntry,
+        private readonly DescriptionResolver $descriptionResolver
     ) {
         parent::__construct();
     }
@@ -90,6 +101,18 @@ class ImportMccLedger extends Command
         $dryRun = (bool) $this->option('dry-run');
         $updateExisting = (bool) $this->option('update-existing');
         $this->skipLookups = (bool) $this->option('skip-lookups');
+        $this->includeCostCenters = (bool) $this->option('with-cost-centers');
+
+        $fromDateOpt = $this->option('from-date');
+        $toDateOpt = $this->option('to-date');
+
+        if ($fromDateOpt) {
+            $this->fromDate = $this->parseDateFilter((string) $fromDateOpt);
+        }
+
+        if ($toDateOpt) {
+            $this->toDate = $this->parseDateFilter((string) $toDateOpt);
+        }
 
         $defaultAccountOption = $this->option('default-account');
 
@@ -273,6 +296,15 @@ class ImportMccLedger extends Command
             $dueDate = $movementDate;
         }
 
+        // Filtros opcionais por DATA (coluna de movimento)
+        if ($this->fromDate && $movementDate->lt($this->fromDate)) {
+            return null;
+        }
+
+        if ($this->toDate && $movementDate->gt($this->toDate)) {
+            return null;
+        }
+
         $amount = $this->parseAmount($amountRaw);
 
         if ($amount <= 0) {
@@ -289,7 +321,7 @@ class ImportMccLedger extends Command
             $accountId = 0;
         }
 
-        $costCenterId = $this->resolveCostCenterId($costCenterName);
+        $costCenterId = $this->includeCostCenters ? $this->resolveCostCenterId($costCenterName) : null;
         $propertyId = $this->resolvePropertyId($costCenterName, $lineNumber);
         $personId = $this->resolvePersonId($personName, $entryType, $lineNumber);
 
@@ -304,7 +336,6 @@ class ImportMccLedger extends Command
         $description = $description ?: sprintf('Lançamento MCC %s', $movementDate->format('d/m/Y'));
 
         $propertyLabel = trim((string) ($costCenterName ?? '')) ?: null;
-        $propertyFallback = $propertyId ? null : $propertyLabel;
 
         $installmentStatus = $status;
         $paymentDate = $status === JournalEntryStatus::Pago ? $dueDate : null;
@@ -314,8 +345,8 @@ class ImportMccLedger extends Command
             'origem' => 'mcc',
         ];
 
-        if ($propertyFallback) {
-            $installmentMeta['property_label'] = $propertyFallback;
+        if ($propertyLabel) {
+            $installmentMeta['property_label'] = $propertyLabel;
         }
 
         $installment = new InstallmentData(
@@ -332,6 +363,8 @@ class ImportMccLedger extends Command
             meta: $installmentMeta
         );
 
+        $descriptionModel = $this->descriptionResolver->resolve($description);
+
         $dto = new JournalEntryData(
             type: $entryType,
             bankAccountId: $accountId,
@@ -339,7 +372,7 @@ class ImportMccLedger extends Command
             costCenterId: $costCenterId,
             propertyId: $propertyId,
             personId: $personId,
-            descriptionId: null,
+            descriptionId: $descriptionModel?->id,
             descriptionCustom: $description,
             notes: $notes ?: null,
             referenceCode: $document ?: null,
@@ -367,14 +400,14 @@ class ImportMccLedger extends Command
                 'movement_date' => $movementDate->toDateString(),
                 'due_date' => $dueDate?->toDateString(),
                 'person_id' => $personId,
-            'cost_center_id' => $costCenterId,
-            'property_id' => $propertyId,
-            'notes' => $notes ?: null,
-            'reference_code' => $document ?: null,
-            'type' => $entryType->value,
-            'property_label' => $propertyFallback,
-        ],
-    ];
+                'cost_center_id' => $costCenterId,
+                'property_id' => $propertyId,
+                'notes' => $notes ?: null,
+                'reference_code' => $document ?: null,
+                'type' => $entryType->value,
+                'property_label' => $propertyLabel,
+            ],
+        ];
     }
 
     private function bootstrapLookups(): void
@@ -397,14 +430,18 @@ class ImportMccLedger extends Command
             return;
         }
 
-        $this->costCenters = CostCenter::query()->get(['id', 'nome', 'codigo']);
+        $this->costCenters = $this->includeCostCenters
+            ? CostCenter::query()->get(['id', 'nome', 'codigo'])
+            : Collection::make();
         $this->people = Pessoa::query()->get(['id', 'nome_razao_social']);
         $this->properties = Imovel::query()->get(['id', 'codigo', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade']);
 
-        $this->costCenterLookup = $this->costCenters
-            ->filter(fn (CostCenter $center) => $center->codigo)
-            ->mapWithKeys(fn (CostCenter $center) => [$this->normalizeKey((string) $center->codigo) => $center->id])
-            ->all();
+        $this->costCenterLookup = $this->includeCostCenters
+            ? $this->costCenters
+                ->filter(fn (CostCenter $center) => $center->codigo)
+                ->mapWithKeys(fn (CostCenter $center) => [$this->normalizeKey((string) $center->codigo) => $center->id])
+                ->all()
+            : [];
 
         $this->personLookup = $this->people
             ->mapWithKeys(fn (Pessoa $pessoa) => [$this->normalizeKey($pessoa->nome_razao_social) => $pessoa->id])
@@ -483,10 +520,6 @@ class ImportMccLedger extends Command
             return $this->forcedBankAccountId;
         }
 
-        if ($this->skipLookups) {
-            return null;
-        }
-
         if (! $raw) {
             return null;
         }
@@ -526,10 +559,6 @@ class ImportMccLedger extends Command
 
     private function resolveCostCenterId(?string $raw): ?int
     {
-        if ($this->skipLookups) {
-            return null;
-        }
-
         if (! $raw) {
             return null;
         }
@@ -563,10 +592,6 @@ class ImportMccLedger extends Command
 
     private function resolvePropertyId(?string $raw, int $lineNumber): ?int
     {
-        if ($this->skipLookups) {
-            return null;
-        }
-
         if (! $raw) {
             return null;
         }
@@ -715,13 +740,35 @@ class ImportMccLedger extends Command
             return $cached ?: null;
         }
 
-        if (isset($this->personLookup[$key])) {
-            return $this->personLookup[$key];
+        $person = $this->people
+            ->first(fn (Pessoa $model) => $this->normalizeKey($model->nome_razao_social) === $key);
+
+        if (! $person) {
+            $person = Pessoa::query()
+                ->whereRaw('LOWER(nome_razao_social) = ?', [mb_strtolower($normalized)])
+                ->first();
+
+            if ($person) {
+                $this->people->push($person);
+            }
         }
 
-        $person = Pessoa::query()
-            ->whereRaw('LOWER(nome_razao_social) = ?', [mb_strtolower($normalized)])
-            ->first();
+        if (! $person) {
+            $person = $this->people
+                ->first(function (Pessoa $model) use ($key) {
+                    $normalizedModel = $this->normalizeKey($model->nome_razao_social);
+
+                    return $this->looselyMatches($key, $normalizedModel);
+                });
+
+            if ($person) {
+                $this->warnings[] = [
+                    'linha' => $lineNumber,
+                    'descricao' => $normalized,
+                    'aviso' => sprintf('Pessoa vinculada por correspondência aproximada: %s.', $person->nome_razao_social),
+                ];
+            }
+        }
 
         if ($person) {
             $this->personLookup[$key] = $person->id;
@@ -746,15 +793,37 @@ class ImportMccLedger extends Command
             return null;
         }
 
-        $value = trim($value);
+        $raw = trim($value);
 
+        // Tenta múltiplos formatos comuns no MCC: com/sem horário e ISO.
+        $formats = [
+            'd/m/Y H:i:s',
+            'd/m/Y H:i',
+            'd/m/Y',
+            'd/m/y H:i:s',
+            'd/m/y H:i',
+            'd/m/y',
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
+            'Y-m-d',
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                return Carbon::createFromFormat($format, $raw);
+            } catch (\Throwable) {
+                // tenta próximo formato
+            }
+        }
+
+        // Por último, tenta parse genérico (menos rigoroso), como fallback.
         try {
-            return Carbon::createFromFormat('d/m/Y', $value);
-        } catch (\Exception $exception) {
+            return Carbon::parse($raw);
+        } catch (\Throwable $exception) {
             $this->errors[] = [
                 'linha' => $line,
                 'descricao' => $field,
-                'erro' => sprintf('Data inválida "%s": %s', $value, $exception->getMessage()),
+                'erro' => sprintf('Data inválida "%s": %s', $raw, $exception->getMessage()),
             ];
 
             return null;
@@ -773,6 +842,33 @@ class ImportMccLedger extends Command
         $normalized = preg_replace('/[^0-9\\.-]/', '', $normalized) ?? '';
 
         return (float) $normalized;
+    }
+
+    private function parseDateFilter(?string $value): ?Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+
+        $formats = [
+            'd/m/Y', 'd/m/y', 'Y-m-d',
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                return Carbon::createFromFormat($format, $raw);
+            } catch (\Throwable) {
+                // tentar próximo formato
+            }
+        }
+
+        try {
+            return Carbon::parse($raw);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function normalizeEncoding(?string $value): ?string

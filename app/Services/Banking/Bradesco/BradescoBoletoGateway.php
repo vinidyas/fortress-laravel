@@ -5,18 +5,21 @@ namespace App\Services\Banking\Bradesco;
 use App\Models\Fatura;
 use App\Models\FaturaBoleto;
 use App\Services\Boleto\BoletoGateway;
+use App\Services\Boleto\BoletoFaturaSyncService;
 use App\Services\Banking\Bradesco\Support\BradescoPayloadSanitizer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class BradescoBoletoGateway implements BoletoGateway
 {
-    public function __construct(private readonly BradescoApiClient $client)
-    {
-    }
+    public function __construct(
+        private readonly BradescoApiClient $client,
+        private readonly BoletoFaturaSyncService $faturaSyncService,
+    ) {}
 
     public function issue(Fatura $fatura, array $contexto = []): FaturaBoleto
     {
@@ -60,10 +63,7 @@ class BradescoBoletoGateway implements BoletoGateway
                 'codigo_barras' => Arr::get($response, 'codigoBarras'),
                 'valor' => Arr::get($response, 'valor', $fatura->valor_total),
                 'vencimento' => Arr::get($response, 'vencimento', $fatura->vencimento),
-                'status' => $this->resolveInternalStatus(
-                    Arr::get($response, 'status'),
-                    FaturaBoleto::STATUS_REGISTERED
-                ),
+                'status' => $this->resolveStatusFromResponse($response, FaturaBoleto::STATUS_REGISTERED),
                 'registrado_em' => now(),
                 'pdf_url' => $pdfUrl,
                 'payload' => $sanitizedPayload,
@@ -92,22 +92,39 @@ class BradescoBoletoGateway implements BoletoGateway
         $response = $this->client->getBoleto($boleto->external_id);
         $sanitizedResponse = BradescoPayloadSanitizer::sanitize($response);
 
+        $valorPago = (float) Arr::get(
+            $response,
+            'titulo.vlrPagto',
+            Arr::get($response, 'valorPago', $boleto->valor_pago)
+        );
+
+        $dataPagamento = $this->parseBradescoDate(
+            Arr::get($response, 'titulo.dtPagto')
+            ?? Arr::get($response, 'dtPagto')
+            ?? Arr::get($response, 'dataPagamento')
+        );
+
         $boleto->fill([
-            'status' => $this->resolveInternalStatus(Arr::get($response, 'status'), $boleto->status),
+            'status' => $this->resolveStatusFromResponse($response, $boleto->status),
             'linha_digitavel' => Arr::get($response, 'linhaDigitavel', $boleto->linha_digitavel),
             'codigo_barras' => Arr::get($response, 'codigoBarras', $boleto->codigo_barras),
             'pdf_url' => Arr::get($response, 'urlPdf', $boleto->pdf_url),
             'response_payload' => $sanitizedResponse,
+            'valor_pago' => $valorPago ?: $boleto->valor_pago,
+            'liquidado_em' => $dataPagamento ?? $boleto->liquidado_em,
             'last_synced_at' => now(),
         ]);
 
         if ($boleto->status === FaturaBoleto::STATUS_PAID) {
             $boleto->markAsPaid(
-                (float) Arr::get($response, 'valorPago', $boleto->valor)
+                $valorPago ?: ($boleto->valor ?? 0),
+                $dataPagamento ?? $boleto->liquidado_em
             );
         }
 
         $boleto->save();
+
+        $this->faturaSyncService->sync($boleto->fresh());
 
         $this->log('Sincronização de boleto concluída', [
             'fatura_boleto_id' => $boleto->id,
@@ -116,6 +133,37 @@ class BradescoBoletoGateway implements BoletoGateway
         ]);
 
         return $boleto;
+    }
+
+    public function fetchAndStorePdf(FaturaBoleto $boleto): ?string
+    {
+        if ($boleto->pdf_url || ! $boleto->external_id) {
+            return $boleto->pdf_url;
+        }
+
+        $response = $this->client->downloadBoletoPdf($boleto->external_id);
+        $contents = $response->body();
+
+        if ($contents === '' || $contents === null) {
+            return null;
+        }
+
+        $diskName = config('services.bradesco_boleto.pdf_disk', 'public');
+        $disk = Storage::disk($diskName);
+
+        $prefix = trim((string) config('services.bradesco_boleto.pdf_path', 'boletos/bradesco'), '/');
+        $filename = ($boleto->nosso_numero ?: $boleto->external_id).'.pdf';
+        $relativePath = $prefix !== '' ? $prefix.'/'.$filename : $filename;
+
+        $disk->put($relativePath, $contents);
+
+        $url = $disk->url($relativePath);
+
+        $boleto->forceFill([
+            'pdf_url' => $url,
+        ])->save();
+
+        return $url;
     }
 
     public function cancel(FaturaBoleto $boleto, array $contexto = []): FaturaBoleto
@@ -165,7 +213,8 @@ class BradescoBoletoGateway implements BoletoGateway
         }
 
         $pagadorData = $this->buildPagadorPayload($pagador);
-        $valorNominal = $this->formatDecimal(Arr::get($contexto, 'valor', $fatura->valor_total));
+        $valorBase = (float) Arr::get($contexto, 'valor', $fatura->valor_total);
+        $valorNominal = $this->formatDecimal($valorBase);
         $emissao = $this->formatDate(Carbon::now());
         $vencimentoDate = optional($fatura->vencimento)->copy() ?? Carbon::now();
         $vencimento = $this->formatDate($vencimentoDate);
@@ -176,41 +225,61 @@ class BradescoBoletoGateway implements BoletoGateway
 
         $beneficiario = $this->buildBeneficiarioPayload();
 
-        $instructions = Arr::get($contexto, 'instrucoes', $this->buildInstructions($fatura));
+        $jurosPercentual = (float) Arr::get($contexto, 'juros.percentual', 2);
+        $jurosValor = Arr::get($contexto, 'juros.valor');
+        if (! Arr::has($contexto, 'juros.valor')) {
+            $jurosValor = round($valorBase * ($jurosPercentual / 100), 2);
+        }
 
-        $codigoUsuario = Arr::get($config, 'codigo_usuario', '0000000');
-        $registraTitulo = Arr::get($config, 'registra_titulo', 'S');
-        $tpVencimento = Arr::get($config, 'tipo_vencimento', '0');
-        $indicadorMoeda = Arr::get($config, 'indicador_moeda', '1');
-        $qtdeMoeda = Arr::get($config, 'quantidade_moeda', '00000000000000000');
-        $indicadorAceite = Arr::get($config, 'indicador_aceite_sacado', '2');
-        $tpProtesto = Arr::get($config, 'tp_protesto', '0');
+        $multaPercentual = (float) Arr::get($contexto, 'multa.percentual', 10);
+        $multaValor = Arr::get($contexto, 'multa.valor');
+        if (! Arr::has($contexto, 'multa.valor')) {
+            $multaValor = round($valorBase * ($multaPercentual / 100), 2);
+        }
+
+        $instructions = Arr::get($contexto, 'instrucoes', $this->buildInstructions($fatura, [
+            'juros_valor' => $jurosValor,
+            'multa_valor' => $multaValor,
+            'multa_percentual' => $multaPercentual,
+        ]));
+
+        $registraTituloConfig = Str::upper(trim((string) Arr::get($config, 'registra_titulo', '1')));
+        $registraTitulo = in_array($registraTituloConfig, ['S', '1'], true) ? '1' : '2';
+        $tpVencimento = trim((string) Arr::get($config, 'tipo_vencimento', '0')) ?: '0';
+        $indicadorMoeda = trim((string) Arr::get($config, 'indicador_moeda', '1')) ?: '1';
+        $quantidadeMoedaConfig = Arr::get($config, 'quantidade_moeda', '0');
+        $qtdeMoeda = $this->formatDecimal($quantidadeMoedaConfig, 2);
+        $indicadorAceite = trim((string) Arr::get($config, 'indicador_aceite_sacado', '2')) ?: '2';
+        $tpProtesto = trim((string) Arr::get($config, 'tp_protesto', '0')) ?: '0';
         $prazoProtesto = $this->formatInteger((int) Arr::get($config, 'prazo_protesto', 0), 2);
         $tipoDecurso = Arr::get($config, 'tipo_decurso', '0');
         $tipoDiasDecurso = Arr::get($config, 'tipo_dias_decurso', '0');
         $tipoPrazoTres = Arr::get($config, 'tipo_prazo_tres', '000');
+        $nuNegociacao = $this->formatNumericField(Arr::get($config, 'negociacao'), 18);
+        $cdEspecie = $this->formatNumericField(Arr::get($config, 'cod_especie'), 2);
+        $idProduto = trim((string) Arr::get($config, 'id_produto', ''));
+        $idProduto = $idProduto !== '' ? $idProduto : '00';
 
         $payload = [
             'debitoAutomatico' => Arr::get($contexto, 'debito_automatico', 'N'),
             'nuCPFCNPJ' => $beneficiario['raiz'],
             'filialCPFCNPJ' => $beneficiario['filial'],
             'ctrlCPFCNPJ' => $beneficiario['controle'],
-            'idProduto' => Arr::get($config, 'id_produto'),
-            'nuNegociacao' => Arr::get($config, 'negociacao'),
+            'idProduto' => $idProduto,
+            'nuNegociacao' => $nuNegociacao,
             'nuTitulo' => $nossoNumero,
             'nuCliente' => $numeroDocumentoCliente,
-            'codigoUsuarioSolicitante' => $codigoUsuario,
             'registraTitulo' => $registraTitulo,
             'tpVencimento' => $tpVencimento,
             'indicadorMoeda' => $indicadorMoeda,
             'qmoedaNegocTitlo' => $qtdeMoeda,
-            'cdEspecieTitulo' => Arr::get($config, 'cod_especie'),
+            'cdEspecieTitulo' => $cdEspecie,
             'dtEmissaoTitulo' => $emissao,
             'dtVencimentoTitulo' => $vencimento,
             'vlNominalTitulo' => $valorNominal,
             'vlIOF' => $this->formatDecimal(Arr::get($contexto, 'iof', 0)),
             'vlAbatimento' => $this->formatDecimal(Arr::get($contexto, 'abatimento.valor', 0)),
-            'prazoBonificacao' => $this->formatInteger(Arr::get($contexto, 'bonificacao.prazo', 0), 3),
+            'prazoBonificacao' => $this->formatInteger(Arr::get($contexto, 'bonificacao.prazo', 0), 2),
             'percentualBonificacao' => $this->formatPercent(Arr::get($contexto, 'bonificacao.percentual', 0)),
             'vlBonificacao' => $this->formatDecimal(Arr::get($contexto, 'bonificacao.valor', 0)),
             'dtLimiteBonificacao' => $this->formatOptionalDate(Arr::get($contexto, 'bonificacao.data_limite')),
@@ -223,11 +292,11 @@ class BradescoBoletoGateway implements BoletoGateway
             'percentualDesconto3' => $this->formatPercent(Arr::get($contexto, 'descontos.2.percentual', 0)),
             'vlDesconto3' => $this->formatDecimal(Arr::get($contexto, 'descontos.2.valor', 0)),
             'dataLimiteDesconto3' => $this->formatOptionalDate(Arr::get($contexto, 'descontos.2.data_limite')),
-            'percentualJuros' => $this->formatPercent(Arr::get($contexto, 'juros.percentual', 2)),
-            'vlJuros' => $this->formatDecimal(Arr::get($contexto, 'juros.valor', 0)),
+            'percentualJuros' => null,
+            'vlJuros' => $this->formatDecimal($jurosValor),
             'qtdeDiasJuros' => $this->formatInteger(Arr::get($contexto, 'juros.dias', 1), 2),
-            'percentualMulta' => $this->formatPercent(Arr::get($contexto, 'multa.percentual', 10)),
-            'vlMulta' => $this->formatDecimal(Arr::get($contexto, 'multa.valor', 0)),
+            'percentualMulta' => null,
+            'vlMulta' => $this->formatDecimal($multaValor),
             'qtdeDiasMulta' => $this->formatInteger(Arr::get($contexto, 'multa.dias', 1), 3),
             'cdPagamentoParcial' => Arr::get($contexto, 'pagamento_parcial.indicador', 'N'),
             'qtdePagamentoParcial' => $this->formatInteger(Arr::get($contexto, 'pagamento_parcial.quantidade', 0), 3),
@@ -264,6 +333,9 @@ class BradescoBoletoGateway implements BoletoGateway
         $payload = array_merge($payload, $this->buildSacadorAvalistaDefaults($contexto));
         $payload = array_merge($payload, $instructions);
 
+        $payload = $this->normalizePercentualValorFields($payload);
+        $payload = $this->pruneDiscountAndBonificacaoFields($payload);
+
         if ($this->shouldApplySandboxFixtures()) {
             $payload = array_replace_recursive($payload, $this->getSandboxOverrides());
         }
@@ -278,15 +350,12 @@ class BradescoBoletoGateway implements BoletoGateway
     {
         $config = config('services.bradesco_boleto');
 
-        $raiz = str_pad($this->digits(Arr::get($config, 'cnpj_raiz')), 8, '0', STR_PAD_LEFT);
-        if (strlen($raiz) > 9) {
-            $raiz = substr($raiz, 0, 9);
-        }
+        $raiz = substr(str_pad($this->digits(Arr::get($config, 'cnpj_raiz')), 8, '0', STR_PAD_LEFT), 0, 8);
 
         return [
             'raiz' => $raiz,
-            'filial' => str_pad($this->digits(Arr::get($config, 'cnpj_filial')), 4, '0', STR_PAD_LEFT),
-            'controle' => str_pad($this->digits(Arr::get($config, 'cnpj_controle')), 2, '0', STR_PAD_LEFT),
+            'filial' => substr(str_pad($this->digits(Arr::get($config, 'cnpj_filial')), 4, '0', STR_PAD_LEFT), 0, 4),
+            'controle' => substr(str_pad($this->digits(Arr::get($config, 'cnpj_controle')), 2, '0', STR_PAD_LEFT), 0, 2),
         ];
     }
 
@@ -296,17 +365,17 @@ class BradescoBoletoGateway implements BoletoGateway
         $telefone = $this->digits($pagador->telefone ?? '');
 
         return [
-            'nome' => Str::limit(Str::upper(trim((string) ($pagador->nome_razao_social ?? 'Pagador Não Informado'))), 70, ''),
+            'nome' => $this->normalizeText((string) ($pagador->nome_razao_social ?? 'PAGADOR NAO INFORMADO'), 70),
             'documento' => $cpfCnpj !== '' ? $cpfCnpj : str_pad('', 11, '0'),
             'tipo_documento' => strlen($cpfCnpj) > 11 ? '2' : '1',
-            'logradouro' => Str::limit(Str::upper(trim((string) ($pagador->rua ?? 'NAO INFORMADO'))), 40, ''),
-            'numero' => Str::limit(Str::upper(trim((string) ($pagador->numero ?? 'S/N'))), 10, ''),
-            'complemento' => $pagador->complemento ? Str::limit(Str::upper(trim((string) $pagador->complemento)), 15, '') : null,
-            'bairro' => Str::limit(Str::upper(trim((string) ($pagador->bairro ?? 'CENTRO'))), 40, ''),
-            'cidade' => Str::limit(Str::upper(trim((string) ($pagador->cidade ?? 'SAO PAULO'))), 30, ''),
+            'logradouro' => $this->normalizeText((string) ($pagador->rua ?? 'NAO INFORMADO'), 40),
+            'numero' => $this->normalizeText((string) ($pagador->numero ?? 'S/N'), 10),
+            'complemento' => $pagador->complemento ? $this->normalizeText((string) $pagador->complemento, 15) : '',
+            'bairro' => $this->normalizeText((string) ($pagador->bairro ?? 'CENTRO'), 40),
+            'cidade' => $this->normalizeText((string) ($pagador->cidade ?? 'SAO PAULO'), 30),
             'uf' => Str::upper(substr((string) ($pagador->estado ?? 'SP'), 0, 2)),
             'cep' => $this->digits($pagador->cep ?? ''),
-            'email' => $pagador->email ? Str::limit(trim((string) $pagador->email), 70, '') : null,
+            'email' => $pagador->email ? Str::limit(mb_strtolower(trim((string) $pagador->email)), 70, '') : '',
             'telefone' => $telefone,
         ];
     }
@@ -344,56 +413,68 @@ class BradescoBoletoGateway implements BoletoGateway
         [$ddd, $fone] = $this->splitTelefone($telefone);
 
         return array_merge($defaults, array_filter([
-            'nomeSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'nome', ''))), 40, ''),
+            'nomeSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'nome', ''), 40),
             'cdIndCpfcnpjSacadorAvalista' => $documento !== '' && strlen($documento) > 11 ? '2' : ($documento !== '' ? '1' : $defaults['cdIndCpfcnpjSacadorAvalista']),
             'nuCpfcnpjSacadorAvalista' => $documento !== '' ? $documento : $defaults['nuCpfcnpjSacadorAvalista'],
-            'logradouroSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'logradouro', ''))), 40, ''),
-            'nuLogradouroSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'numero', ''))), 10, ''),
-            'complementoLogradouroSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'complemento', ''))), 15, ''),
+            'logradouroSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'logradouro', ''), 40),
+            'nuLogradouroSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'numero', ''), 10),
+            'complementoLogradouroSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'complemento', ''), 15),
             'cepSacadorAvalista' => substr(str_pad($this->digits(Arr::get($sacador, 'cep', '')), 5, '0', STR_PAD_LEFT), 0, 5),
             'complementoCepSacadorAvalista' => substr(str_pad($this->digits(Arr::get($sacador, 'cep', '')), 8, '0', STR_PAD_LEFT), 5, 3),
-            'bairroSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'bairro', ''))), 40, ''),
-            'municipioSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'municipio', ''))), 40, ''),
+            'bairroSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'bairro', ''), 40),
+            'municipioSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'municipio', ''), 40),
             'ufSacadorAvalista' => Str::upper(substr((string) Arr::get($sacador, 'uf', ''), 0, 2)),
             'dddFoneSacadorAvalista' => $ddd,
             'foneSacadorAvalista' => $fone,
-            'enderecoSacadorAvalista' => Str::limit(Str::upper(trim((string) Arr::get($sacador, 'endereco', ''))), 70, ''),
+            'enderecoSacadorAvalista' => $this->normalizeText((string) Arr::get($sacador, 'endereco', ''), 70),
         ], fn ($value) => $value !== null));
     }
 
-    protected function buildInstructions(Fatura $fatura): array
+    protected function buildInstructions(Fatura $fatura, array $context = []): array
     {
         $items = $fatura->relationLoaded('itens') ? $fatura->itens : $fatura->itens()->get();
 
-        $lines = $items->map(function ($item) {
-            $categoria = Str::upper(Str::limit((string) ($item->categoria ?? 'ITEM'), 40, ''));
-            $valor = number_format((float) ($item->valor_total ?? 0), 2, ',', '.');
+        $valorTotal = (float) ($fatura->valor_total ?? 0);
+        $jurosDia = Arr::get($context, 'juros_valor');
+        if ($jurosDia === null) {
+            $jurosDia = $valorTotal * 0.02;
+        }
 
-            return \sprintf('%s: R$ %s', $categoria, $valor);
+        $multa = Arr::get($context, 'multa_valor');
+        if ($multa === null) {
+            $multa = $valorTotal * 0.10;
+        }
+
+        $vencimento = optional($fatura->vencimento)->format('d/m/Y');
+
+        $lines = collect([
+            'VALORES EXPRESSOS EM REAIS',
+            sprintf('JUROS POR DIA DE ATRASO R$ %s', $this->formatBrCurrency($jurosDia)),
+            $vencimento
+                ? sprintf('APOS %s MULTA R$ %s', $vencimento, $this->formatBrCurrency($multa))
+                : sprintf('MULTA APOS VENCIMENTO R$ %s', $this->formatBrCurrency($multa)),
+        ]);
+
+        $itemLines = $items->map(function ($item) {
+            $categoria = $this->normalizeText($item->categoria ?? 'ITEM', 40) ?: 'ITEM';
+            $valorUnitario = (float) ($item->valor_unitario ?? $item->valor_total ?? 0);
+
+            return sprintf('%s R$ %s', $categoria, $this->formatBrCurrency($valorUnitario));
         })->filter();
 
-        if ($lines->isEmpty()) {
-            $lines->push('Pagamento referente à fatura de locação.');
+        if ($itemLines->isNotEmpty()) {
+            $lines = $lines->merge($itemLines);
         }
 
-        $chunks = $lines->chunk(3);
+        $messages = $lines
+            ->map(fn ($line) => Str::limit($this->normalizeText((string) $line, 70), 70, ''))
+            ->unique()
+            ->take(6)
+            ->map(fn ($line) => ['mensagem' => $line])
+            ->values()
+            ->all();
 
-        $messages = [];
-        foreach ($chunks as $index => $chunk) {
-            if ($index >= 4) {
-                break;
-            }
-
-            $messages[] = [
-                'mensagem' => Str::limit(
-                    $chunk->implode(' | '),
-                    70,
-                    ''
-                ),
-            ];
-        }
-
-        return $messages === [] ? [] : ['listaMsgs' => $messages];
+        return empty($messages) ? [] : ['listaMsgs' => $messages];
     }
 
     protected function shouldApplySandboxFixtures(): bool
@@ -457,6 +538,13 @@ class BradescoBoletoGateway implements BoletoGateway
         return number_format($numeric, $precision, '.', '');
     }
 
+    protected function formatBrCurrency(float $value): string
+    {
+        $numeric = max($value, 0);
+
+        return number_format($numeric, 2, ',', '.');
+    }
+
     protected function formatDate(Carbon $date): string
     {
         return $date->format('d.m.Y');
@@ -486,7 +574,7 @@ class BradescoBoletoGateway implements BoletoGateway
 
     protected function formatPercent($percent): string
     {
-        $percent = (float) $percent;
+        $percent = round((float) $percent, 2);
 
         return number_format($percent, 2, '.', '');
     }
@@ -496,6 +584,20 @@ class BradescoBoletoGateway implements BoletoGateway
         $int = (int) round($value);
 
         return str_pad((string) max($int, 0), $length, '0', STR_PAD_LEFT);
+    }
+
+    protected function formatNumericField($value, int $length): string
+    {
+        $digits = $this->digits((string) $value);
+        if ($digits === '') {
+            $digits = '0';
+        }
+
+        if (strlen($digits) > $length) {
+            $digits = substr($digits, -$length);
+        }
+
+        return str_pad($digits, $length, '0', STR_PAD_LEFT);
     }
 
     protected function splitCep(?string $cep): array
@@ -555,7 +657,7 @@ class BradescoBoletoGateway implements BoletoGateway
     {
         $base = $fatura->contrato?->codigo_contrato;
 
-        return $base ? Str::limit(Str::upper($base), 25, '') : null;
+        return $base ? Str::limit($this->normalizeText($base, 25), 25, '') : '';
     }
 
     protected function formatNossoNumero(Fatura $fatura): string
@@ -589,6 +691,42 @@ class BradescoBoletoGateway implements BoletoGateway
         Log::channel('bradesco')->info($message, $this->sanitizeContext($context));
     }
 
+    protected function resolveStatusFromResponse(array $response, string $fallback): string
+    {
+        $status = Arr::get($response, 'titulo.status')
+            ?? Arr::get($response, 'status')
+            ?? null;
+
+        return $this->resolveInternalStatus($status, $fallback);
+    }
+
+    protected function parseBradescoDate(mixed $value): ?Carbon
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $string = trim((string) $value);
+
+        if ($string === '') {
+            return null;
+        }
+
+        try {
+            if (preg_match('/^\d{8}$/', $string)) {
+                return Carbon::createFromFormat('dmY', $string);
+            }
+
+            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $string)) {
+                return Carbon::createFromFormat('d/m/Y', $string);
+            }
+
+            return Carbon::parse($string);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
@@ -613,5 +751,130 @@ class BradescoBoletoGateway implements BoletoGateway
     protected function sanitizePayload(array $payload): array
     {
         return BradescoPayloadSanitizer::sanitize($payload);
+    }
+
+    /**
+     * Garante que campos de percentual/valor sigam a regra do manual (apenas um preenchido).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function normalizePercentualValorFields(array $payload): array
+    {
+        $pairs = [
+            ['percentualBonificacao', 'vlBonificacao'],
+            ['percentualDesconto1', 'vlDesconto1'],
+            ['percentualDesconto2', 'vlDesconto2'],
+            ['percentualDesconto3', 'vlDesconto3'],
+            ['percentualJuros', 'vlJuros'],
+            ['percentualMulta', 'vlMulta'],
+        ];
+
+        foreach ($pairs as [$percentKey, $valueKey]) {
+            $payload = $this->normalizePercentualValorPair($payload, $percentKey, $valueKey);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function normalizePercentualValorPair(array $payload, string $percentKey, string $valueKey): array
+    {
+        $percent = $this->toFloat($payload[$percentKey] ?? 0);
+        $valor = $this->toFloat($payload[$valueKey] ?? 0);
+
+        if ($percent > 0 && $valor > 0) {
+            $valor = 0.0;
+        }
+
+        if ($percent > 0) {
+            $payload[$percentKey] = $this->formatPercent($percent);
+        } else {
+            unset($payload[$percentKey]);
+        }
+
+        if ($valor > 0) {
+            $payload[$valueKey] = $this->formatDecimal($valor);
+        } else {
+            unset($payload[$valueKey]);
+        }
+
+        return $payload;
+    }
+
+    protected function toFloat($value): float
+    {
+        if (is_string($value)) {
+            $value = str_replace(['.', ','], ['.', '.'], trim($value));
+        }
+
+        return is_numeric($value) ? (float) $value : 0.0;
+    }
+
+    protected function normalizeText(string $value, int $limit = 70): string
+    {
+        $text = Str::of($value)
+            ->ascii()
+            ->upper()
+            ->replaceMatches('/[^A-Z0-9\\-\\.\\/ ,\\$]+/', ' ')
+            ->squish()
+            ->value();
+
+        return Str::limit($text, $limit, '');
+    }
+
+    /**
+     * Remove blocos de desconto/bonificação vazios para evitar validações do Bradesco.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function pruneDiscountAndBonificacaoFields(array $payload): array
+    {
+        foreach ([1, 2, 3] as $index) {
+            $percentKey = "percentualDesconto{$index}";
+            $valueKey = "vlDesconto{$index}";
+            $dateKey = "dataLimiteDesconto{$index}";
+
+            if ($this->isZeroAmount($payload[$percentKey] ?? null) && $this->isZeroAmount($payload[$valueKey] ?? null)) {
+                unset($payload[$percentKey], $payload[$valueKey]);
+
+                if (array_key_exists($dateKey, $payload)) {
+                    unset($payload[$dateKey]);
+                }
+            }
+        }
+
+        if ($this->isZeroAmount($payload['percentualBonificacao'] ?? null) && $this->isZeroAmount($payload['vlBonificacao'] ?? null)) {
+            unset(
+                $payload['percentualBonificacao'],
+                $payload['vlBonificacao'],
+                $payload['dtLimiteBonificacao']
+            );
+
+            if (array_key_exists('prazoBonificacao', $payload) && $this->isZeroAmount($payload['prazoBonificacao'])) {
+                unset($payload['prazoBonificacao']);
+            }
+        }
+
+        return $payload;
+    }
+
+    protected function isZeroAmount($value): bool
+    {
+        if ($value === null || $value === '') {
+            return true;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value == 0.0;
+        }
+
+        $normalized = str_replace(',', '.', (string) $value);
+
+        return is_numeric($normalized) && (float) $normalized == 0.0;
     }
 }

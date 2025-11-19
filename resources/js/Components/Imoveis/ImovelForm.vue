@@ -39,6 +39,7 @@ type ImovelPayload = {
   condominio_id: Nullable<number>;
   numero: string;
   complemento: string;
+  site_url: string;
   valor_locacao: string;
   valor_condominio: string;
   condominio_isento: boolean;
@@ -189,7 +190,9 @@ const photoFileInputRef = ref<HTMLInputElement | null>(null);
 const photoPreview = ref<PhotoPreview | null>(null);
 const downloadingPhotos = ref(false);
 const maxPhotos = 15;
-const maxPhotoSizeBytes = 5 * 1024 * 1024;
+const maxPhotoSizeBytes = 10 * 1024 * 1024;
+const maxAttachments = 10;
+const maxAttachmentSizeBytes = 10 * 1024 * 1024;
 const currentUserName = computed(() => {
   const name = page.props.auth?.user?.name;
   return typeof name === 'string' && name.trim() !== '' ? name : 'Você';
@@ -223,6 +226,7 @@ const fieldLabels: Record<string, string> = {
   responsavel_id: 'Responsável',
   condominio_id: 'Condomínio',
   cep: 'CEP',
+  site_url: 'Link do site',
 };
 
 async function populateCondominioAddress(condominioId: number): Promise<void> {
@@ -300,6 +304,7 @@ const form = reactive<ImovelPayload>({
   condominio_id: null,
   numero: '',
   complemento: '',
+  site_url: '',
   valor_locacao: '',
   valor_condominio: '',
   condominio_isento: false,
@@ -338,6 +343,7 @@ function resetForm(): void {
   form.condominio_id = null;
   form.numero = '';
   form.complemento = '';
+  form.site_url = '';
   form.valor_locacao = '';
   form.valor_condominio = '';
   form.condominio_isento = false;
@@ -437,6 +443,7 @@ async function loadImovel(id: number): Promise<void> {
     form.rua = payload.enderecos?.rua ?? payload.enderecos?.logradouro ?? '';
     form.numero = payload.enderecos?.numero ?? '';
     form.complemento = payload.enderecos?.complemento ?? '';
+    form.site_url = payload.site_url ?? '';
     form.valor_locacao = normalizeDecimal(payload.valores?.valor_locacao);
     form.valor_condominio = normalizeDecimal(payload.valores?.valor_condominio);
     form.condominio_isento = Boolean(payload.valores?.condominio_isento);
@@ -900,7 +907,16 @@ function toggleFinalidade(option: string): void {
   }
 }
 
-const hasAnyAttachments = computed(() => existingAttachments.value.length > 0 || newAttachments.value.length > 0);
+const activeAttachmentsCount = computed(
+  () =>
+    existingAttachments.value.filter((attachment) => !attachment.markedForRemoval).length +
+    newAttachments.value.length
+);
+const attachmentsLimitReached = computed(() => activeAttachmentsCount.value >= maxAttachments);
+const remainingAttachmentSlots = computed(() =>
+  Math.max(maxAttachments - activeAttachmentsCount.value, 0)
+);
+const hasAnyAttachments = computed(() => activeAttachmentsCount.value > 0);
 
 function generateTemporaryId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -952,10 +968,30 @@ function handleFilesSelected(event: Event): void {
     return;
   }
 
+  const files = Array.from(input.files);
+  input.value = '';
+
+  const remainingSlots = maxAttachments - activeAttachmentsCount.value;
+  if (remainingSlots <= 0) {
+    toast.error(`Limite de ${maxAttachments} anexos atingido.`);
+    return;
+  }
+
+  if (files.length > remainingSlots) {
+    toast.error(
+      `Você só pode adicionar mais ${remainingSlots} arquivo${remainingSlots > 1 ? 's' : ''} neste imóvel.`
+    );
+  }
+
   const now = new Date().toISOString();
   const uploadedByName = currentUserName.value;
 
-  Array.from(input.files).forEach((file) => {
+  files.slice(0, remainingSlots).forEach((file) => {
+    if (file.size > maxAttachmentSizeBytes) {
+      toast.error(`"${file.name}" excede o limite de 10MB e foi ignorado.`);
+      return;
+    }
+
     newAttachments.value.push({
       id: generateTemporaryId(),
       file,
@@ -965,8 +1001,6 @@ function handleFilesSelected(event: Event): void {
       uploadedByName,
     });
   });
-
-  input.value = '';
 }
 
 function removeNewAttachment(id: string): void {
@@ -1066,7 +1100,7 @@ function handlePhotoFilesSelected(event: Event): void {
     }
 
     if (file.size > maxPhotoSizeBytes) {
-      toast.error(`"${file.name}" excede o limite de 5MB e foi ignorada.`);
+      toast.error(`"${file.name}" excede o limite de 10MB e foi ignorada.`);
       return;
     }
 
@@ -1339,6 +1373,16 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-slate-200">Link do site (URL do imóvel)</label>
+          <input
+            v-model="form.site_url"
+            type="url"
+            :class="inputClass"
+            placeholder="https://www.seusite.com.br/imovel/123"
+          />
+          <p class="text-xs text-slate-500">Opcional. Ex.: página pública do anúncio.</p>
         </div>
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-200">Proprietário *</label>
@@ -1802,13 +1846,20 @@ onBeforeUnmount(() => {
         <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-center gap-3">
             <span class="h-6 w-1 rounded-full bg-cyan-500"></span>
-            <div>
-              <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Documentos anexos</h3>
-              <p class="text-xs text-slate-400">
-                Envie contratos, laudos ou imagens importantes para o imóvel (PDF, JPG, JPEG ou PNG).
-              </p>
-            </div>
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Documentos anexos</h3>
+            <p class="text-xs text-slate-400">
+                Envie contratos, laudos ou imagens importantes para o imóvel (PDF, JPG, JPEG ou PNG). Máximo de
+                {{ maxAttachments }} arquivos com até 10MB cada.
+            </p>
           </div>
+        </div>
+        <div class="flex flex-col items-end gap-2 text-right">
+          <p class="text-xs text-slate-400">
+            {{ activeAttachmentsCount }} / {{ maxAttachments }} anexos ativos
+            <span v-if="attachmentsLimitReached" class="font-semibold text-amber-300">· Limite atingido</span>
+            <span v-else>· Restam {{ remainingAttachmentSlots }} arquivo{{ remainingAttachmentSlots === 1 ? '' : 's' }}</span>
+          </p>
           <div class="flex items-center gap-2">
             <input
               ref="fileInputRef"
@@ -1820,16 +1871,19 @@ onBeforeUnmount(() => {
             />
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="attachmentsLimitReached"
               @click="openFilePicker"
             >
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              Anexar documento
+              <span v-if="!attachmentsLimitReached">Anexar documento</span>
+              <span v-else>Limite atingido</span>
             </button>
           </div>
-        </header>
+        </div>
+      </header>
         <div v-if="hasAnyAttachments" class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-800 text-sm">
             <thead class="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">

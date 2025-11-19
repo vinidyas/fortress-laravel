@@ -28,6 +28,16 @@ interface ExpiringContract {
   daysLeft: number | null;
 }
 
+interface UpcomingReajuste {
+  id: number;
+  code: string | null;
+  imovel: string | null;
+  reajusteAt: string | null;
+  daysUntil: number | null;
+  indice?: string | null;
+  periodicidade?: number | null;
+}
+
 interface OpenInvoice {
   id: number;
   competencia: string | null;
@@ -36,6 +46,8 @@ interface OpenInvoice {
   property: string | null;
   amount: number;
   lateDays: number | null;
+  hasBoleto: boolean;
+  boletosCount: number;
 }
 
 interface PayableTodayItem {
@@ -121,6 +133,7 @@ interface FinancePermissions {
 const props = defineProps<{
   metrics?: Partial<Metrics>;
   expiringContracts: ExpiringContract[];
+  upcomingReajustes: UpcomingReajuste[];
   openInvoices: OpenInvoice[];
   payablesToday?: PayableTodayItem[];
   payablesTodaySummary?: Partial<PayableTodaySummary>;
@@ -160,19 +173,22 @@ const formatCurrency = (value: number) =>
   Number(value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const formatDays = (value: number | null) => {
-  if (value === null) {
+  if (value === null || Number.isNaN(Number(value))) {
     return '-';
   }
 
-  if (value === 0) {
+  if (Math.abs(value) < 0.5) {
     return 'vence hoje';
   }
 
-  if (value > 0) {
-    return `em ${value} dias`;
+  const rounded = Math.max(1, Math.ceil(Math.abs(value)));
+  const label = rounded === 1 ? 'dia' : 'dias';
+
+  if (value < 0) {
+    return `em ${rounded} ${label}`;
   }
 
-  return `${Math.abs(value)} dias em atraso`;
+  return `${rounded} ${label} em atraso`;
 };
 
 const propertyOccupancy = computed(() => {
@@ -187,6 +203,7 @@ const propertyOccupancy = computed(() => {
 });
 
 const financialTrend = computed<FinancialTrendPoint[]>(() => props.financialTrend ?? []);
+const upcomingReajustes = computed<UpcomingReajuste[]>(() => props.upcomingReajustes ?? []);
 
 const delinquency = computed<DelinquencySummary>(() => ({
   openAmount: Number(props.delinquency?.openAmount ?? 0),
@@ -1427,7 +1444,7 @@ const alertClasses = (type: AlertType) => {
                 :key="contract.id"
                 class="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-4 shadow-inner shadow-black/30"
               >
-                <div class="flex items-center justify-between text-sm">
+                <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p class="font-medium text-white">{{ contract.code }}</p>
                     <p class="text-xs text-slate-400">Imóvel {{ contract.imovel ?? 'N/A' }}</p>
@@ -1436,6 +1453,71 @@ const alertClasses = (type: AlertType) => {
                     <p>{{ formatDate(contract.endsAt) }}</p>
                     <p class="text-amber-300">{{ formatDays(contract.daysLeft) }}</p>
                   </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <Link
+                    :href="`/contratos/${contract.id}`"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 hover:text-white"
+                  >
+                    <span>Ver contrato</span>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div
+            v-else-if="widget.key === 'upcoming_reajustes'"
+            class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-black/40"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-semibold text-white">Reajustes programados</p>
+                <p class="text-xs text-slate-400">Próximos 30 dias</p>
+              </div>
+            </div>
+
+            <div
+              v-if="!upcomingReajustes.length"
+              class="mt-8 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 px-4 py-12 text-center text-sm text-slate-400"
+            >
+              Nenhum reajuste configurado para o período.
+            </div>
+
+            <ul v-else class="mt-6 space-y-4">
+              <li
+                v-for="reajuste in upcomingReajustes"
+                :key="`reajuste-${reajuste.id}-${reajuste.reajusteAt}`"
+                class="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-4 shadow-inner shadow-black/30"
+              >
+                <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p class="font-medium text-white">{{ reajuste.code ?? `Contrato #${reajuste.id}` }}</p>
+                    <p class="text-xs text-slate-400">Imóvel {{ reajuste.imovel ?? 'N/A' }}</p>
+                    <p class="mt-1 text-[0.68rem] uppercase tracking-wide text-slate-500">
+                      Índice {{ reajuste.indice ?? 'não definido' }}
+                    </p>
+                  </div>
+                  <div class="text-right text-xs text-slate-400">
+                    <p>{{ formatDate(reajuste.reajusteAt) }}</p>
+                    <p class="text-amber-300">{{ formatDays(reajuste.daysUntil) }}</p>
+                  </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <Link
+                    :href="`/contratos/${reajuste.id}`"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 hover:text-white"
+                  >
+                    <span>Ver contrato</span>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l7 7-7 7" />
+                    </svg>
+                  </Link>
                 </div>
               </li>
             </ul>
@@ -1465,11 +1547,21 @@ const alertClasses = (type: AlertType) => {
                 :key="invoice.id"
                 class="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-4 shadow-inner shadow-black/30"
               >
-                <div class="flex items-center justify-between text-sm">
+                <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p class="font-medium text-white">Fatura #{{ invoice.id }}</p>
                     <p class="text-xs text-slate-400">
                       Contrato {{ invoice.contract ?? 'N/A' }} — Imóvel {{ invoice.property ?? 'N/A' }}
+                    </p>
+                    <p
+                      class="mt-1 text-xs"
+                      :class="invoice.hasBoleto ? 'text-emerald-300' : 'text-slate-500'"
+                    >
+                      {{
+                        invoice.hasBoleto
+                          ? 'Boleto emitido (' + invoice.boletosCount + ')'
+                          : 'Nenhum boleto emitido'
+                      }}
                     </p>
                   </div>
                   <div class="text-right text-xs text-slate-400">
@@ -1483,6 +1575,18 @@ const alertClasses = (type: AlertType) => {
                       {{ formatDays(invoice.lateDays) }}
                     </p>
                   </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <Link
+                    :href="`/faturas/${invoice.id}`"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-indigo-500 hover:bg-indigo-500/20 hover:text-white"
+                  >
+                    <span>Ver fatura</span>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l7 7-7 7" />
+                    </svg>
+                  </Link>
                 </div>
               </li>
             </ul>

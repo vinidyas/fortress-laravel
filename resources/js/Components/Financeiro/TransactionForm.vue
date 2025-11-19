@@ -887,7 +887,7 @@ function applyDescriptionSuggestions() {
 }
 
 const selectDescription = (suggestion: DescriptionSuggestion) => {
-  selectedDescriptionId.value = suggestion.id;
+  selectedDescriptionId.value = suggestion.id > 0 ? suggestion.id : null;
   selectedDescriptionLabel.value = suggestion.texto;
   form.description = suggestion.texto;
   showDescriptionSuggestions.value = false;

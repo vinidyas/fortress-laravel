@@ -103,6 +103,8 @@ docker compose logs -f fortress_queue
 docker compose logs -f fortress_scheduler
 ```
 
+> **Importante:** o worker `fortress_queue` precisa permanecer ativo para tratar a fila `boletos` (emissão, webhooks e polling do Bradesco). Após cada deploy, valide se o contêiner está “Up” e reinicie com `docker compose restart fortress_queue` caso necessário.
+
 ## 9. Validação funcional
 
 1. Acesse `https://sistema.fortressempreendimentos.com.br` e realize login com o usuário `admin`.
@@ -143,7 +145,7 @@ Já existe um script operacional documentado em `docs/OPS_BACKUP.md`. Recomenda-
 ## 12. Monitoramento e observabilidade
 
 - **Traefik**: `/docker/config/traefik/logs` armazena access/error logs das rotas.
-- **Laravel**: `storage/logs/*.log` dentro do volume `fortress_storage`.
+- **Laravel**: `storage/logs/*.log` dentro do volume `fortress_storage` (especialmente `storage/logs/bradesco-response.log` para acompanhar respostas da API do banco e `storage/logs/laravel.log`).
 - **Filas**: acompanhe `queue:work` via `docker compose logs -f fortress_queue`.
 - Considere integrar alertas (Healthchecks/Upptime) para monitorar:
   - Status HTTP das URLs principais.

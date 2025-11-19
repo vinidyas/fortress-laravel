@@ -31,6 +31,7 @@ class Imovel extends Model
         'logradouro',
         'numero',
         'complemento',
+        'site_url',
         'valor_locacao',
         'valor_condominio',
         'condominio_isento',

@@ -403,7 +403,7 @@ class FaturaController extends Controller
         $contrato = Contrato::query()->findOrFail($contratoId);
 
         $competenciaDate = Carbon::parse($competencia)->startOfMonth();
-        $dia = max(1, min(28, $contrato->dia_vencimento ?? 1));
+        $dia = max(1, min(30, $contrato->dia_vencimento ?? 1));
 
         $vencimento = $competenciaDate->clone()->setDay($dia);
 

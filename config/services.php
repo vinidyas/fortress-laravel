@@ -45,6 +45,7 @@ return [
         'fake' => (bool) env('BRADESCO_USE_FAKE', false),
         'id_produto' => env('BRADESCO_ID_PRODUTO'),
         'negociacao' => env('BRADESCO_NEGOCIACAO'),
+        'consulta_negociacao' => env('BRADESCO_CONSULTA_NEGOCIACAO', env('BRADESCO_NEGOCIACAO')),
         'convenio' => env('BRADESCO_CONVENIO'),
         'cod_especie' => env('BRADESCO_COD_ESPECIE'),
         'cnpj_raiz' => env('BRADESCO_CNPJ_RAIZ'),
@@ -63,6 +64,8 @@ return [
         'indicador_aceite_sacado' => env('BRADESCO_INDICADOR_ACEITE_SACADO', '2'),
         'sandbox_use_fixtures' => (bool) env('BRADESCO_SANDBOX_USE_FIXTURES', false),
         'sandbox_pdf_url' => env('BRADESCO_SANDBOX_PDF_URL', 'about:blank'),
+        'pdf_disk' => env('BRADESCO_PDF_DISK', 'public'),
+        'pdf_path' => env('BRADESCO_PDF_PATH', 'boletos/bradesco'),
         'sandbox_payload_overrides' => [
             'debitoAutomatico' => 'N',
             'codigoUsuarioSolicitante' => 'APISERVIC',
